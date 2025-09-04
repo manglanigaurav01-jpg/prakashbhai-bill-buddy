@@ -1,12 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ArrowLeft, Plus, Trash2, FileDown, RotateCcw } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { ProgressBar } from "@/components/ui/progress-bar";
+import { ArrowLeft, Plus, Trash2, FileDown, RotateCcw, Save, AlertCircle, CheckCircle2, Edit3 } from "lucide-react";
 import { getCustomers, saveBill, saveCustomer } from "@/lib/storage";
+import { saveDraft, getDraft, clearDraft, hasDraft } from "@/lib/draft";
 import { generateBillPDF } from "@/lib/pdf";
 import { Customer, BillItem } from "@/types";
 import { useToast } from "@/hooks/use-toast";
@@ -20,17 +24,79 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
   const [newCustomerName, setNewCustomerName] = useState("");
   const [showNewCustomer, setShowNewCustomer] = useState(false);
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState<Date>(new Date());
   const [particulars, setParticulars] = useState("");
   const [items, setItems] = useState<BillItem[]>([]);
   const [itemName, setItemName] = useState("");
   const [quantity, setQuantity] = useState<number>(1);
   const [rate, setRate] = useState<number>(0);
+  const [editingItem, setEditingItem] = useState<string | null>(null);
+  const [editingValues, setEditingValues] = useState<Partial<BillItem>>({});
+  
+  // Loading and progress states
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState(0);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [draftSavedTime, setDraftSavedTime] = useState<string | null>(null);
+  const [showDraftAlert, setShowDraftAlert] = useState(false);
+  
   const { toast } = useToast();
 
   useEffect(() => {
     setCustomers(getCustomers());
+    
+    // Check for existing draft
+    if (hasDraft()) {
+      setShowDraftAlert(true);
+    }
   }, []);
+
+  // Auto-save draft functionality
+  const autoSaveDraft = useCallback(() => {
+    if (items.length > 0 || particulars || selectedCustomer) {
+      setIsSavingDraft(true);
+      const customer = customers.find(c => c.id === selectedCustomer);
+      
+      saveDraft({
+        customerId: selectedCustomer,
+        customerName: customer?.name || '',
+        date: date.toISOString().split('T')[0],
+        particulars,
+        items,
+        grandTotal: items.reduce((sum, item) => sum + item.total, 0),
+      });
+      
+      setDraftSavedTime(new Date().toLocaleTimeString());
+      setTimeout(() => setIsSavingDraft(false), 500);
+    }
+  }, [selectedCustomer, date, particulars, items, customers]);
+
+  // Auto-save every 10 seconds when there's content
+  useEffect(() => {
+    const interval = setInterval(autoSaveDraft, 10000);
+    return () => clearInterval(interval);
+  }, [autoSaveDraft]);
+
+  // Load draft function
+  const loadDraft = () => {
+    const draft = getDraft();
+    if (draft) {
+      setSelectedCustomer(draft.customerId);
+      setDate(new Date(draft.date));
+      setParticulars(draft.particulars);
+      setItems(draft.items);
+      setShowDraftAlert(false);
+      toast({
+        title: "Draft Loaded",
+        description: "Your previous work has been restored",
+      });
+    }
+  };
+
+  const dismissDraft = () => {
+    clearDraft();
+    setShowDraftAlert(false);
+  };
 
   const handleAddItem = () => {
     if (!itemName || quantity <= 0 || rate <= 0) {
@@ -54,10 +120,45 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
     setItemName("");
     setQuantity(1);
     setRate(0);
+    
+    // Trigger auto-save after adding item
+    setTimeout(autoSaveDraft, 1000);
   };
 
   const handleRemoveItem = (id: string) => {
     setItems(items.filter(item => item.id !== id));
+  };
+
+  const handleEditItem = (id: string) => {
+    const item = items.find(i => i.id === id);
+    if (item) {
+      setEditingItem(id);
+      setEditingValues(item);
+    }
+  };
+
+  const handleSaveEdit = (id: string) => {
+    if (editingValues.itemName && editingValues.quantity && editingValues.rate) {
+      const updatedItems = items.map(item => 
+        item.id === id 
+          ? {
+              ...item,
+              itemName: editingValues.itemName!,
+              quantity: editingValues.quantity!,
+              rate: editingValues.rate!,
+              total: editingValues.quantity! * editingValues.rate!,
+            }
+          : item
+      );
+      setItems(updatedItems);
+      setEditingItem(null);
+      setEditingValues({});
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingItem(null);
+    setEditingValues({});
   };
 
   const grandTotal = items.reduce((sum, item) => sum + item.total, 0);
@@ -83,7 +184,7 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
     });
   };
 
-  const handleSavePDF = () => {
+  const handleSavePDF = async () => {
     if (!selectedCustomer || items.length === 0) {
       toast({
         title: "Incomplete Bill",
@@ -96,28 +197,55 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
     const customer = customers.find(c => c.id === selectedCustomer);
     if (!customer) return;
 
-    // Save bill to storage
-    const bill = saveBill({
-      customerId: selectedCustomer,
-      customerName: customer.name,
-      date,
-      particulars,
-      items,
-      grandTotal,
-    });
+    setIsGeneratingPDF(true);
+    setPdfProgress(0);
 
-    // Generate PDF
-    generateBillPDF(bill);
+    try {
+      // Simulate progress for better UX
+      const progressSteps = [20, 40, 60, 80, 100];
+      for (let i = 0; i < progressSteps.length; i++) {
+        setPdfProgress(progressSteps[i]);
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
 
-    toast({
-      title: "Bill Saved",
-      description: "Bill has been saved and PDF generated successfully",
-    });
+      // Save bill to storage
+      const bill = saveBill({
+        customerId: selectedCustomer,
+        customerName: customer.name,
+        date: date.toISOString().split('T')[0],
+        particulars,
+        items,
+        grandTotal,
+      });
+
+      // Generate PDF
+      generateBillPDF(bill);
+      
+      // Clear draft after successful save
+      clearDraft();
+      setDraftSavedTime(null);
+
+      toast({
+        title: "✅ Bill Saved Successfully!",
+        description: "Bill has been saved and PDF generated",
+        className: "animate-pulse-success",
+      });
+
+    } catch (error) {
+      toast({
+        title: "Error Generating PDF",
+        description: "Please try again or contact support",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingPDF(false);
+      setPdfProgress(0);
+    }
   };
 
   const handleClear = () => {
     setSelectedCustomer("");
-    setDate(new Date().toISOString().split('T')[0]);
+    setDate(new Date());
     setParticulars("");
     setItems([]);
     setItemName("");
@@ -125,17 +253,70 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
     setRate(0);
     setShowNewCustomer(false);
     setNewCustomerName("");
+    setEditingItem(null);
+    setEditingValues({});
+    clearDraft();
+    setDraftSavedTime(null);
+    
+    toast({
+      title: "Form Cleared",
+      description: "All fields have been reset",
+    });
   };
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-background p-4 md:p-6">
+      <div className="max-w-6xl mx-auto animate-fade-in">
+        {/* Draft Alert */}
+        {showDraftAlert && (
+          <Card className="mb-6 border-warning bg-warning-soft animate-slide-up">
+            <CardContent className="pt-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <AlertCircle className="w-5 h-5 text-warning" />
+                  <div>
+                    <p className="font-medium">Unsaved Draft Found</p>
+                    <p className="text-sm text-muted-foreground">
+                      You have an unsaved bill draft. Would you like to continue working on it?
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={dismissDraft}>
+                    Discard
+                  </Button>
+                  <Button size="sm" onClick={loadDraft}>
+                    Load Draft
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         <div className="flex items-center gap-4 mb-6">
           <Button variant="outline" onClick={() => onNavigate('dashboard')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboard
           </Button>
           <h1 className="text-2xl font-bold text-foreground">Create New Bill</h1>
+          
+          {/* Auto-save indicator */}
+          {draftSavedTime && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in">
+              {isSavingDraft ? (
+                <>
+                  <LoadingSpinner size="sm" />
+                  <span>Saving draft...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-accent" />
+                  <span>Draft saved at {draftSavedTime}</span>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         <Card>
@@ -150,7 +331,7 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
                 {!showNewCustomer ? (
                   <div className="flex gap-2">
                     <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
-                      <SelectTrigger>
+                      <SelectTrigger className="min-h-[44px] touch-manipulation">
                         <SelectValue placeholder="Select customer" />
                       </SelectTrigger>
                       <SelectContent>
@@ -159,12 +340,12 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
                             {customer.name}
                           </SelectItem>
                         ))}
-                        <SelectItem value="create-new">Create New...</SelectItem>
                       </SelectContent>
                     </Select>
                     <Button
                       variant="outline"
                       onClick={() => setShowNewCustomer(true)}
+                      className="min-h-[44px] touch-manipulation"
                     >
                       <Plus className="w-4 h-4" />
                     </Button>
@@ -175,9 +356,16 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
                       placeholder="New customer name"
                       value={newCustomerName}
                       onChange={(e) => setNewCustomerName(e.target.value)}
+                      className="min-h-[44px] touch-manipulation"
                     />
-                    <Button onClick={handleCreateCustomer}>Add</Button>
-                    <Button variant="outline" onClick={() => setShowNewCustomer(false)}>
+                    <Button onClick={handleCreateCustomer} className="min-h-[44px] touch-manipulation">
+                      Add
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setShowNewCustomer(false)}
+                      className="min-h-[44px] touch-manipulation"
+                    >
                       Cancel
                     </Button>
                   </div>
@@ -185,10 +373,10 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="date">Date</Label>
-                <Input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
+                <DatePicker
+                  date={date}
+                  onDateChange={(newDate) => newDate && setDate(newDate)}
+                  className="w-full"
                 />
               </div>
               <div className="space-y-2">
@@ -197,6 +385,7 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
                   placeholder="Bill description"
                   value={particulars}
                   onChange={(e) => setParticulars(e.target.value)}
+                  className="min-h-[44px] touch-manipulation"
                 />
               </div>
             </div>
@@ -204,38 +393,107 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
             {/* Items Table */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Items</h3>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Sr No</TableHead>
-                    <TableHead>Item Name</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Rate</TableHead>
-                    <TableHead>Total</TableHead>
-                    <TableHead>Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((item, index) => (
-                    <TableRow key={item.id}>
-                      <TableCell>{index + 1}</TableCell>
-                      <TableCell>{item.itemName}</TableCell>
-                      <TableCell>{item.quantity}</TableCell>
-                      <TableCell>₹{item.rate.toFixed(2)}</TableCell>
-                      <TableCell>₹{item.total.toFixed(2)}</TableCell>
-                      <TableCell>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleRemoveItem(item.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </TableCell>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-16">Sr No</TableHead>
+                      <TableHead className="min-w-40">Item Name</TableHead>
+                      <TableHead className="w-24">Quantity</TableHead>
+                      <TableHead className="w-24">Rate</TableHead>
+                      <TableHead className="w-24">Total</TableHead>
+                      <TableHead className="w-32">Action</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {items.map((item, index) => (
+                      <TableRow key={item.id}>
+                        <TableCell>{index + 1}</TableCell>
+                        <TableCell>
+                          {editingItem === item.id ? (
+                            <Input
+                              value={editingValues.itemName || item.itemName}
+                              onChange={(e) => setEditingValues({...editingValues, itemName: e.target.value})}
+                              className="min-h-[36px]"
+                            />
+                          ) : (
+                            item.itemName
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {editingItem === item.id ? (
+                            <Input
+                              type="number"
+                              value={editingValues.quantity || item.quantity}
+                              onChange={(e) => setEditingValues({...editingValues, quantity: Number(e.target.value)})}
+                              className="min-h-[36px]"
+                            />
+                          ) : (
+                            item.quantity
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {editingItem === item.id ? (
+                            <Input
+                              type="number"
+                              step="0.01"
+                              value={editingValues.rate || item.rate}
+                              onChange={(e) => setEditingValues({...editingValues, rate: Number(e.target.value)})}
+                              className="min-h-[36px]"
+                            />
+                          ) : (
+                            `₹${item.rate.toFixed(2)}`
+                          )}
+                        </TableCell>
+                        <TableCell>₹{item.total.toFixed(2)}</TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            {editingItem === item.id ? (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleSaveEdit(item.id)}
+                                  className="min-h-[36px] touch-manipulation"
+                                >
+                                  <CheckCircle2 className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={handleCancelEdit}
+                                  className="min-h-[36px] touch-manipulation"
+                                >
+                                  ×
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleEditItem(item.id)}
+                                  className="min-h-[36px] touch-manipulation"
+                                >
+                                  <Edit3 className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => handleRemoveItem(item.id)}
+                                  className="min-h-[36px] touch-manipulation"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
 
             {/* Add Item Form */}
@@ -248,6 +506,7 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
                       placeholder="Item name"
                       value={itemName}
                       onChange={(e) => setItemName(e.target.value)}
+                      className="min-h-[44px] touch-manipulation"
                     />
                   </div>
                   <div className="space-y-2">
@@ -257,6 +516,7 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
                       min="1"
                       value={quantity}
                       onChange={(e) => setQuantity(Number(e.target.value))}
+                      className="min-h-[44px] touch-manipulation"
                     />
                   </div>
                   <div className="space-y-2">
@@ -267,10 +527,14 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
                       step="0.01"
                       value={rate}
                       onChange={(e) => setRate(Number(e.target.value))}
+                      className="min-h-[44px] touch-manipulation"
                     />
                   </div>
                   <div className="flex items-end">
-                    <Button onClick={handleAddItem} className="w-full">
+                    <Button 
+                      onClick={handleAddItem} 
+                      className="w-full min-h-[44px] touch-manipulation"
+                    >
                       <Plus className="w-4 h-4 mr-2" />
                       Add Item
                     </Button>
@@ -279,19 +543,63 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
               </CardContent>
             </Card>
 
+            {/* PDF Generation Progress */}
+            {isGeneratingPDF && (
+              <Card className="animate-fade-in">
+                <CardContent className="pt-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <LoadingSpinner />
+                      <span className="font-medium">Generating PDF...</span>
+                    </div>
+                    <ProgressBar 
+                      progress={pdfProgress} 
+                      showLabel 
+                      label="PDF Generation Progress"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Grand Total and Actions */}
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-6 border-t">
-              <div className="text-2xl font-bold">
+              <div className="text-2xl font-bold animate-pulse-success">
                 Grand Total: ₹{grandTotal.toFixed(2)}
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={handleClear}>
+              <div className="flex flex-wrap gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={autoSaveDraft}
+                  disabled={isSavingDraft}
+                  className="min-h-[44px] touch-manipulation"
+                >
+                  {isSavingDraft ? (
+                    <LoadingSpinner size="sm" className="mr-2" />
+                  ) : (
+                    <Save className="w-4 h-4 mr-2" />
+                  )}
+                  Save Draft
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={handleClear}
+                  className="min-h-[44px] touch-manipulation"
+                >
                   <RotateCcw className="w-4 h-4 mr-2" />
                   Clear
                 </Button>
-                <Button onClick={handleSavePDF} disabled={items.length === 0 || !selectedCustomer}>
-                  <FileDown className="w-4 h-4 mr-2" />
-                  Save as PDF
+                <Button 
+                  onClick={handleSavePDF} 
+                  disabled={items.length === 0 || !selectedCustomer || isGeneratingPDF}
+                  className="min-h-[44px] touch-manipulation"
+                >
+                  {isGeneratingPDF ? (
+                    <LoadingSpinner size="sm" className="mr-2" />
+                  ) : (
+                    <FileDown className="w-4 h-4 mr-2" />
+                  )}
+                  {isGeneratingPDF ? 'Generating...' : 'Save as PDF'}
                 </Button>
               </div>
             </div>
