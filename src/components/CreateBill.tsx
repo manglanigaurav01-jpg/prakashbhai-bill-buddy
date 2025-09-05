@@ -219,17 +219,25 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
       });
 
       // Generate PDF
-      generateBillPDF(bill);
+      const pdfResult = await generateBillPDF(bill);
       
       // Clear draft after successful save
       clearDraft();
       setDraftSavedTime(null);
 
-      toast({
-        title: "✅ Bill Saved Successfully!",
-        description: "Bill has been saved and PDF generated",
-        className: "animate-pulse-success",
-      });
+      if (pdfResult.success) {
+        toast({
+          title: "✅ Bill Saved Successfully!",
+          description: pdfResult.message,
+          className: "animate-pulse-success",
+        });
+      } else {
+        toast({
+          title: "Error Saving PDF",
+          description: pdfResult.message,
+          variant: "destructive",
+        });
+      }
 
     } catch (error) {
       toast({

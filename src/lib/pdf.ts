@@ -1,8 +1,10 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Bill } from '@/types';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Capacitor } from '@capacitor/core';
 
-export const generateBillPDF = (bill: Bill) => {
+export const generateBillPDF = async (bill: Bill) => {
   const doc = new jsPDF();
   
   // Header
@@ -69,5 +71,28 @@ export const generateBillPDF = (bill: Bill) => {
   
   // Save the PDF
   const fileName = `${bill.customerName}_${new Date(bill.date).toISOString().split('T')[0]}_${bill.id}.pdf`;
-  doc.save(fileName);
+  
+  try {
+    if (Capacitor.isNativePlatform()) {
+      // Mobile: Use Capacitor Filesystem API
+      const pdfOutput = doc.output('arraybuffer');
+      const base64Data = btoa(String.fromCharCode(...new Uint8Array(pdfOutput)));
+      
+      await Filesystem.writeFile({
+        path: `bills/${fileName}`,
+        data: base64Data,
+        directory: Directory.Documents,
+        encoding: Encoding.UTF8,
+      });
+      
+      return { success: true, message: 'Bill saved to Documents/bills folder' };
+    } else {
+      // Web: Use browser download
+      doc.save(fileName);
+      return { success: true, message: 'Bill downloaded successfully' };
+    }
+  } catch (error) {
+    console.error('Error saving PDF:', error);
+    return { success: false, message: 'Failed to save PDF. Please try again.' };
+  }
 };
