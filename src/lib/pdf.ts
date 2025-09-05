@@ -17,17 +17,12 @@ export const generateBillPDF = async (bill: Bill) => {
   doc.text('Bill Manager', 105, 30, { align: 'center' });
   
   // Bill details
-  doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
-  doc.text('INVOICE', 20, 50);
-  
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Bill ID: ${bill.id}`, 20, 60);
-  doc.text(`Date: ${new Date(bill.date).toLocaleDateString()}`, 20, 70);
-  doc.text(`Customer: ${bill.customerName}`, 20, 80);
+  doc.text(`Date: ${new Date(bill.date).toLocaleDateString()}`, 20, 50);
+  doc.text(`Customer: ${bill.customerName}`, 20, 60);
   if (bill.particulars) {
-    doc.text(`Particulars: ${bill.particulars}`, 20, 90);
+    doc.text(`Particulars: ${bill.particulars}`, 20, 70);
   }
   
   // Items table
@@ -35,14 +30,14 @@ export const generateBillPDF = async (bill: Bill) => {
     index + 1,
     item.itemName,
     item.quantity.toString(),
-    `₹${item.rate.toFixed(2)}`,
-    `₹${item.total.toFixed(2)}`
+    `Rs. ${item.rate.toFixed(2)}`,
+    `Rs. ${item.total.toFixed(2)}`
   ]);
   
   autoTable(doc, {
     head: [['Sr No', 'Item Name', 'Quantity', 'Rate', 'Total']],
     body: tableData,
-    startY: bill.particulars ? 100 : 90,
+    startY: bill.particulars ? 80 : 70,
     theme: 'grid',
     styles: {
       fontSize: 10,
@@ -62,7 +57,7 @@ export const generateBillPDF = async (bill: Bill) => {
   const finalY = (doc as any).lastAutoTable.finalY + 10;
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text(`Grand Total: ₹${bill.grandTotal.toFixed(2)}`, 20, finalY);
+  doc.text(`Grand Total: Rs. ${bill.grandTotal.toFixed(2)}`, 20, finalY);
   
   // Footer
   doc.setFontSize(8);
