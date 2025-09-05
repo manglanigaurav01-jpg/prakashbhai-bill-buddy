@@ -162,6 +162,12 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
   };
 
   const grandTotal = items.reduce((sum, item) => sum + item.total, 0);
+  
+  // Calculate current item total (real-time as user types)
+  const currentItemTotal = (itemName && quantity > 0 && rate > 0) ? quantity * rate : 0;
+  
+  // Total including both table items and current item being typed
+  const totalWithCurrentItem = grandTotal + currentItemTotal;
 
   const handleCreateCustomer = () => {
     if (!newCustomerName.trim()) {
@@ -185,10 +191,23 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
   };
 
   const handleSavePDF = async () => {
-    if (!selectedCustomer || items.length === 0) {
+    if (!selectedCustomer) {
       toast({
-        title: "Incomplete Bill",
-        description: "Please select a customer and add at least one item",
+        title: "No Customer Selected",
+        description: "Please select a customer first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if we have items in table OR a current item being typed
+    const hasTableItems = items.length > 0;
+    const hasCurrentItem = itemName && quantity > 0 && rate > 0;
+    
+    if (!hasTableItems && !hasCurrentItem) {
+      toast({
+        title: "No Items to Save",
+        description: "Please add at least one item or fill the current item fields",
         variant: "destructive",
       });
       return;
@@ -208,14 +227,28 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
         await new Promise(resolve => setTimeout(resolve, 300));
       }
 
+      // Prepare items for saving (include current item if exists and not in table)
+      let itemsToSave = [...items];
+      if (hasCurrentItem && !hasTableItems) {
+        // If no table items but has current item, save the current item
+        const currentItem: BillItem = {
+          id: Date.now().toString(),
+          itemName,
+          quantity,
+          rate,
+          total: currentItemTotal,
+        };
+        itemsToSave = [currentItem];
+      }
+
       // Save bill to storage
       const bill = saveBill({
         customerId: selectedCustomer,
         customerName: customer.name,
         date: date.toISOString().split('T')[0],
         particulars,
-        items,
-        grandTotal,
+        items: itemsToSave,
+        grandTotal: itemsToSave.reduce((sum, item) => sum + item.total, 0),
       });
 
       // Generate PDF
@@ -538,15 +571,21 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
                       className="min-h-[44px] touch-manipulation"
                     />
                   </div>
-                  <div className="flex items-end">
-                    <Button 
-                      onClick={handleAddItem} 
-                      className="w-full min-h-[44px] touch-manipulation"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Item
-                    </Button>
+                  <div className="space-y-2">
+                    <Label>Current Total</Label>
+                    <div className="min-h-[44px] flex items-center px-3 bg-muted rounded-md font-semibold text-accent">
+                      ₹{currentItemTotal.toFixed(2)}
+                    </div>
                   </div>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <Button 
+                    onClick={handleAddItem} 
+                    className="flex-1 min-h-[44px] touch-manipulation"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add to Table
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -573,7 +612,12 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
             {/* Grand Total and Actions */}
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-6 border-t">
               <div className="text-2xl font-bold animate-pulse-success">
-                Grand Total: ₹{grandTotal.toFixed(2)}
+                Grand Total: ₹{totalWithCurrentItem.toFixed(2)}
+                {currentItemTotal > 0 && items.length > 0 && (
+                  <div className="text-sm font-normal text-muted-foreground">
+                    (Table: ₹{grandTotal.toFixed(2)} + Current: ₹{currentItemTotal.toFixed(2)})
+                  </div>
+                )}
               </div>
               <div className="flex flex-wrap gap-2">
                 <Button 
@@ -599,7 +643,7 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
                 </Button>
                 <Button 
                   onClick={handleSavePDF} 
-                  disabled={items.length === 0 || !selectedCustomer || isGeneratingPDF}
+                  disabled={(!items.length && !currentItemTotal) || !selectedCustomer || isGeneratingPDF}
                   className="min-h-[44px] touch-manipulation"
                 >
                   {isGeneratingPDF ? (
