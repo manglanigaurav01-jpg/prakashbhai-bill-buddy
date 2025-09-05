@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, CreditCard, DollarSign, AlertCircle, TrendingUp } from "lucide-react";
-import { getCustomers, savePayment, getCustomerBalance, getAllCustomerBalances } from "@/lib/storage";
+import { ArrowLeft, FileText, AlertCircle, TrendingUp, Download } from "lucide-react";
+import { getCustomers, getCustomerBalance, getAllCustomerBalances } from "@/lib/storage";
+import { generateCustomerSummaryPDF } from "@/lib/pdf";
 import { Customer, CustomerBalance } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 
@@ -17,7 +18,6 @@ interface BalanceTrackerProps {
 export const BalanceTracker = ({ onNavigate }: BalanceTrackerProps) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
-  const [paymentAmount, setPaymentAmount] = useState<number>(0);
   const [customerBalance, setCustomerBalance] = useState<CustomerBalance | null>(null);
   const [allBalances, setAllBalances] = useState<CustomerBalance[]>([]);
   const { toast } = useToast();
@@ -37,54 +37,38 @@ export const BalanceTracker = ({ onNavigate }: BalanceTrackerProps) => {
     }
   }, [selectedCustomer]);
 
-  const handleRecordPayment = () => {
-    if (!selectedCustomer) {
+  const handleGenerateSummaryPDF = async (customerId: string) => {
+    try {
+      const result = await generateCustomerSummaryPDF(customerId);
+      if (result.success) {
+        toast({
+          title: "Summary Generated",
+          description: result.message,
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: result.message,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
       toast({
-        title: "No Customer Selected",
-        description: "Please select a customer first",
+        title: "Error",
+        description: "Failed to generate summary PDF",
         variant: "destructive",
       });
-      return;
     }
-
-    if (paymentAmount <= 0) {
-      toast({
-        title: "Invalid Amount",
-        description: "Please enter a valid payment amount",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const customer = customers.find(c => c.id === selectedCustomer);
-    if (!customer) return;
-
-    savePayment({
-      customerId: selectedCustomer,
-      customerName: customer.name,
-      amount: paymentAmount,
-      date: new Date().toISOString().split('T')[0],
-    });
-
-    // Refresh balances
-    const updatedBalance = getCustomerBalance(selectedCustomer);
-    setCustomerBalance(updatedBalance);
-    setAllBalances(getAllCustomerBalances());
-    setPaymentAmount(0);
-
-    toast({
-      title: "Payment Recorded",
-      description: `Payment of ₹${paymentAmount} recorded for ${customer.name}`,
-    });
   };
 
   const overallSummary = allBalances.reduce(
     (summary, balance) => ({
       totalSales: summary.totalSales + balance.totalSales,
       totalPaid: summary.totalPaid + balance.totalPaid,
-      totalPending: summary.totalPending + balance.pending,
+      totalPending: summary.totalPending + (balance.pending > 0 ? balance.pending : 0),
+      totalAdvance: summary.totalAdvance + (balance.pending < 0 ? Math.abs(balance.pending) : 0),
     }),
-    { totalSales: 0, totalPaid: 0, totalPending: 0 }
+    { totalSales: 0, totalPaid: 0, totalPending: 0, totalAdvance: 0 }
   );
 
   return (
@@ -99,48 +83,30 @@ export const BalanceTracker = ({ onNavigate }: BalanceTrackerProps) => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Payment Recording */}
           <div className="lg:col-span-2 space-y-6">
+            {/* Customer Selection */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <CreditCard className="w-5 h-5" />
-                  Record Payment
+                  <FileText className="w-5 h-5" />
+                  Customer Balance Details
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Customer</Label>
-                    <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select customer" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {customers.map(customer => (
-                          <SelectItem key={customer.id} value={customer.id}>
-                            {customer.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Amount Paid (₹)</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={paymentAmount}
-                        onChange={(e) => setPaymentAmount(Number(e.target.value))}
-                        placeholder="Enter amount"
-                      />
-                      <Button onClick={handleRecordPayment} disabled={!selectedCustomer || paymentAmount <= 0}>
-                        Record Payment
-                      </Button>
-                    </div>
-                  </div>
+                <div className="space-y-2">
+                  <Label>Select Customer</Label>
+                  <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select customer to view details" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {customers.map(customer => (
+                        <SelectItem key={customer.id} value={customer.id}>
+                          {customer.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardContent>
             </Card>
@@ -149,7 +115,16 @@ export const BalanceTracker = ({ onNavigate }: BalanceTrackerProps) => {
             {customerBalance && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Balance Details - {customerBalance.customerName}</CardTitle>
+                  <CardTitle className="flex items-center justify-between">
+                    <span>Balance Details - {customerBalance.customerName}</span>
+                    <Button 
+                      onClick={() => handleGenerateSummaryPDF(customerBalance.customerId)}
+                      className="flex items-center gap-2"
+                    >
+                      <Download className="w-4 h-4" />
+                      Generate PDF Summary
+                    </Button>
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <Textarea
@@ -157,9 +132,10 @@ export const BalanceTracker = ({ onNavigate }: BalanceTrackerProps) => {
                     value={`Customer: ${customerBalance.customerName}
 Total Sales: ₹${customerBalance.totalSales.toFixed(2)}
 Total Paid: ₹${customerBalance.totalPaid.toFixed(2)}
-Pending Amount: ₹${customerBalance.pending.toFixed(2)}
+${customerBalance.pending > 0 ? `Pending Amount: ₹${customerBalance.pending.toFixed(2)}` : 
+  customerBalance.pending < 0 ? `Advance Amount: ₹${Math.abs(customerBalance.pending).toFixed(2)}` : 'No Pending Amount'}
 
-Payment Status: ${customerBalance.pending > 0 ? 'Outstanding' : 'Cleared'}`}
+Payment Status: ${customerBalance.pending > 0 ? 'Outstanding' : customerBalance.pending < 0 ? 'Advance Given' : 'Cleared'}`}
                     className="h-32"
                   />
                 </CardContent>
@@ -189,9 +165,19 @@ Payment Status: ${customerBalance.pending > 0 ? 'Outstanding' : 'Cleared'}`}
                           <span className="text-accent">
                             Paid: ₹{balance.totalPaid.toFixed(2)}
                           </span>
-                          <span className={`font-medium ${balance.pending > 0 ? 'text-destructive' : 'text-accent'}`}>
-                            Pending: ₹{balance.pending.toFixed(2)}
-                          </span>
+                          {balance.pending > 0 ? (
+                            <span className="font-medium text-destructive">
+                              Pending: ₹{balance.pending.toFixed(2)}
+                            </span>
+                          ) : balance.pending < 0 ? (
+                            <span className="font-medium text-accent">
+                              Advance: ₹{Math.abs(balance.pending).toFixed(2)}
+                            </span>
+                          ) : (
+                            <span className="font-medium text-accent">
+                              Cleared
+                            </span>
+                          )}
                         </div>
                       </div>
                     ))
@@ -224,6 +210,12 @@ Payment Status: ${customerBalance.pending > 0 ? 'Outstanding' : 'Cleared'}`}
                     <span className="font-medium">Total Pending</span>
                     <span className="font-bold text-destructive">₹{overallSummary.totalPending.toFixed(2)}</span>
                   </div>
+                  {overallSummary.totalAdvance > 0 && (
+                    <div className="flex justify-between items-center p-3 bg-accent/5 rounded-lg">
+                      <span className="font-medium">Total Advance</span>
+                      <span className="font-bold text-accent">₹{overallSummary.totalAdvance.toFixed(2)}</span>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>

@@ -78,6 +78,11 @@ export const getCustomerBalance = (customerId: string): CustomerBalance => {
   };
 };
 
+// Get bills by customer
+export const getBillsByCustomer = (customerId: string): Bill[] => {
+  return getBills().filter(bill => bill.customerId === customerId);
+};
+
 export const getAllCustomerBalances = (): CustomerBalance[] => {
   const customers = getCustomers();
   return customers.map(customer => getCustomerBalance(customer.id));
