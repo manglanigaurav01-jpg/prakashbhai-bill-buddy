@@ -1,7 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Settings } from "@/components/Settings";
-import { FileText, Users, Calculator, CreditCard, TrendingUp, Package } from "lucide-react";
+import { FileText, Users, Calculator, CreditCard, TrendingUp, Package, Settings as SettingsIcon } from "lucide-react";
 
 interface DashboardProps {
   onNavigate: (view: string) => void;
@@ -16,9 +15,15 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             <h1 className="text-3xl font-bold text-foreground mb-2">Prakashbhai</h1>
             <p className="text-business-gray text-lg">Bill Manager</p>
           </div>
-          <div className="ml-4">
-            <Settings onNavigate={onNavigate} />
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onNavigate('settings')}
+            className="ml-4"
+          >
+            <SettingsIcon className="w-4 h-4 mr-2" />
+            Settings
+          </Button>
         </div>
         
         <Card className="shadow-lg">
