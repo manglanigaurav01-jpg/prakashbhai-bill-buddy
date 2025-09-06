@@ -64,3 +64,20 @@ export interface ItemUsage {
   totalQuantity: number;
   totalRevenue: number;
 }
+
+export interface Staff {
+  id: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface AttendanceRecord {
+  id: string;
+  staffId: string;
+  staffName: string;
+  date: string;
+  status: 'present' | 'absent';
+  regularHours: number; // in hours (e.g., 8.5 for 8 hours 30 minutes)
+  extraHours: number; // overtime hours
+  createdAt: string;
+}

@@ -1,4 +1,4 @@
-import { Customer, Bill, Payment, CustomerBalance, ItemMaster, ItemRateHistory, ItemUsage } from '@/types';
+import { Customer, Bill, Payment, CustomerBalance, ItemMaster, ItemRateHistory, ItemUsage, BillItem, Staff, AttendanceRecord } from '@/types';
 
 const STORAGE_KEYS = {
   CUSTOMERS: 'prakash_customers',
@@ -6,6 +6,8 @@ const STORAGE_KEYS = {
   PAYMENTS: 'prakash_payments',
   ITEMS: 'prakash_items',
   ITEM_RATE_HISTORY: 'prakash_item_rate_history',
+  STAFF: 'prakash_staff',
+  ATTENDANCE: 'prakash_attendance',
 };
 
 // Customer management
@@ -270,4 +272,119 @@ export const searchItems = (query: string): ItemMaster[] => {
     
     return a.name.localeCompare(b.name);
   });
+};
+
+// Staff Management Functions
+export const getStaff = (): Staff[] => {
+  const staff = localStorage.getItem(STORAGE_KEYS.STAFF);
+  return staff ? JSON.parse(staff) : [];
+};
+
+export const saveStaff = (staff: Omit<Staff, 'id' | 'createdAt'>): Staff => {
+  const allStaff = getStaff();
+  const newStaff: Staff = {
+    ...staff,
+    id: Date.now().toString(),
+    createdAt: new Date().toISOString(),
+  };
+  
+  allStaff.push(newStaff);
+  localStorage.setItem(STORAGE_KEYS.STAFF, JSON.stringify(allStaff));
+  return newStaff;
+};
+
+export const deleteStaff = (staffId: string): void => {
+  const allStaff = getStaff();
+  const updatedStaff = allStaff.filter(s => s.id !== staffId);
+  localStorage.setItem(STORAGE_KEYS.STAFF, JSON.stringify(updatedStaff));
+  
+  // Also remove all attendance records for this staff
+  const attendance = getAttendanceRecords();
+  const updatedAttendance = attendance.filter(a => a.staffId !== staffId);
+  localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(updatedAttendance));
+};
+
+// Attendance Management Functions
+export const getAttendanceRecords = (): AttendanceRecord[] => {
+  const attendance = localStorage.getItem(STORAGE_KEYS.ATTENDANCE);
+  return attendance ? JSON.parse(attendance) : [];
+};
+
+export const saveAttendanceRecord = (record: Omit<AttendanceRecord, 'id' | 'createdAt'>): AttendanceRecord => {
+  const allRecords = getAttendanceRecords();
+  const newRecord: AttendanceRecord = {
+    ...record,
+    id: Date.now().toString(),
+    createdAt: new Date().toISOString(),
+  };
+  
+  allRecords.push(newRecord);
+  localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(allRecords));
+  return newRecord;
+};
+
+export const getAttendanceByStaff = (staffId: string): AttendanceRecord[] => {
+  const allRecords = getAttendanceRecords();
+  return allRecords
+    .filter(record => record.staffId === staffId)
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+};
+
+export const getAttendanceByDate = (date: string): AttendanceRecord[] => {
+  const allRecords = getAttendanceRecords();
+  return allRecords.filter(record => record.date.split('T')[0] === date);
+};
+
+export const updateAttendanceRecord = (recordId: string, updates: Partial<Omit<AttendanceRecord, 'id' | 'createdAt'>>): AttendanceRecord | null => {
+  const allRecords = getAttendanceRecords();
+  const recordIndex = allRecords.findIndex(record => record.id === recordId);
+  
+  if (recordIndex === -1) {
+    return null;
+  }
+  
+  allRecords[recordIndex] = { ...allRecords[recordIndex], ...updates };
+  localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(allRecords));
+  return allRecords[recordIndex];
+};
+
+export const deleteAttendanceRecord = (recordId: string): void => {
+  const allRecords = getAttendanceRecords();
+  const updatedRecords = allRecords.filter(record => record.id !== recordId);
+  localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(updatedRecords));
+};
+
+export const getStaffAttendanceSummary = (staffId: string, month?: number, year?: number): {
+  totalDays: number;
+  presentDays: number;
+  absentDays: number;
+  totalRegularHours: number;
+  totalExtraHours: number;
+  attendanceRate: number;
+} => {
+  const allRecords = getAttendanceByStaff(staffId);
+  
+  let filteredRecords = allRecords;
+  if (month !== undefined && year !== undefined) {
+    filteredRecords = allRecords.filter(record => {
+      const recordDate = new Date(record.date);
+      return recordDate.getMonth() === month && recordDate.getFullYear() === year;
+    });
+  }
+  
+  const totalDays = filteredRecords.length;
+  const presentDays = filteredRecords.filter(record => record.status === 'present').length;
+  const absentDays = totalDays - presentDays;
+  const totalRegularHours = filteredRecords.reduce((sum, record) => sum + record.regularHours, 0);
+  const totalExtraHours = filteredRecords.reduce((sum, record) => sum + record.extraHours, 0);
+  const attendanceRate = totalDays > 0 ? (presentDays / totalDays) * 100 : 0;
+  
+  return {
+    totalDays,
+    presentDays,
+    absentDays,
+    totalRegularHours,
+    totalExtraHours,
+    attendanceRate: Math.round(attendanceRate * 100) / 100,
+  };
 };
