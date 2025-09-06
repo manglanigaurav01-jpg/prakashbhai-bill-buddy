@@ -5,35 +5,43 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Dashboard } from "@/components/Dashboard";
 import { CreateBill } from "@/components/CreateBill";
+import { EnhancedCreateBill } from "@/components/EnhancedCreateBill";
 import { Customers } from "@/components/Customers";
 import { BalanceTracker } from "@/components/BalanceTracker";
 import { AmountTracker } from "@/components/AmountTracker";
 import { LastBalance } from "@/components/LastBalance";
 import { TotalBusiness } from "@/components/TotalBusiness";
+import { ItemMaster } from "@/components/ItemMaster";
 
 const queryClient = new QueryClient();
 
-type View = 'dashboard' | 'create-bill' | 'customers' | 'balance' | 'amount-tracker' | 'last-balance' | 'total-business';
+type View = 'dashboard' | 'create-bill' | 'customers' | 'balance' | 'amount-tracker' | 'last-balance' | 'total-business' | 'item-master';
 
 const App = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
 
+  const handleNavigate = (view: string) => {
+    setCurrentView(view as View);
+  };
+
   const renderView = () => {
     switch (currentView) {
       case 'create-bill':
-        return <CreateBill onNavigate={setCurrentView} />;
+        return <EnhancedCreateBill onNavigate={handleNavigate} />;
       case 'customers':
-        return <Customers onNavigate={setCurrentView} />;
+        return <Customers onNavigate={handleNavigate} />;
       case 'balance':
-        return <BalanceTracker onNavigate={setCurrentView} />;
+        return <BalanceTracker onNavigate={handleNavigate} />;
       case 'amount-tracker':
-        return <AmountTracker onNavigate={setCurrentView} />;
+        return <AmountTracker onNavigate={handleNavigate} />;
       case 'last-balance':
-        return <LastBalance onNavigate={setCurrentView} />;
+        return <LastBalance onNavigate={handleNavigate} />;
       case 'total-business':
-        return <TotalBusiness onNavigate={setCurrentView} />;
+        return <TotalBusiness onNavigate={handleNavigate} />;
+      case 'item-master':
+        return <ItemMaster onNavigate={handleNavigate} />;
       default:
-        return <Dashboard onNavigate={setCurrentView} />;
+        return <Dashboard onNavigate={handleNavigate} />;
     }
   };
 

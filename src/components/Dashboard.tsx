@@ -1,9 +1,9 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, Users, Calculator, CreditCard, TrendingUp } from "lucide-react";
+import { FileText, Users, Calculator, CreditCard, TrendingUp, Package } from "lucide-react";
 
 interface DashboardProps {
-  onNavigate: (view: 'create-bill' | 'customers' | 'balance' | 'amount-tracker' | 'last-balance' | 'total-business' | 'dashboard') => void;
+  onNavigate: (view: string) => void;
 }
 
 export const Dashboard = ({ onNavigate }: DashboardProps) => {
@@ -57,18 +57,26 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 <TrendingUp className="w-8 h-8" />
                 <span className="text-sm font-medium">Total Business</span>
               </Button>
+
+              <Button
+                variant="outline"
+                size="lg"
+                className="h-24 flex-col gap-3 hover:bg-orange-500 hover:text-white transition-all duration-300 hover:scale-105"
+                onClick={() => onNavigate('item-master')}
+              >
+                <Package className="w-8 h-8" />
+                <span className="text-sm font-medium">Item Master</span>
+              </Button>
               
-              <div className="col-span-2">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="h-24 w-full flex-col gap-3 hover:bg-business-blue hover:text-primary-foreground transition-all duration-300 hover:scale-105"
-                  onClick={() => onNavigate('customers')}
-                >
-                  <Users className="w-8 h-8" />
-                  <span className="text-sm font-medium">Customers</span>
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                size="lg"
+                className="h-24 flex-col gap-3 hover:bg-business-blue hover:text-primary-foreground transition-all duration-300 hover:scale-105"
+                onClick={() => onNavigate('customers')}
+              >
+                <Users className="w-8 h-8" />
+                <span className="text-sm font-medium">Customers</span>
+              </Button>
             </div>
           </CardContent>
         </Card>

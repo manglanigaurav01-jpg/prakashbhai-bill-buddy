@@ -39,3 +39,28 @@ export interface CustomerBalance {
   totalPaid: number;
   pending: number;
 }
+
+export interface ItemMaster {
+  id: string;
+  name: string;
+  type: 'fixed' | 'variable';
+  rate?: number; // Only for fixed-price items
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ItemRateHistory {
+  id: string;
+  itemId: string;
+  oldRate: number;
+  newRate: number;
+  changedAt: string;
+}
+
+export interface ItemUsage {
+  itemId: string;
+  itemName: string;
+  usageCount: number;
+  totalQuantity: number;
+  totalRevenue: number;
+}
