@@ -1,5 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Settings } from "@/components/Settings";
 import { FileText, Users, Calculator, CreditCard, TrendingUp, Package } from "lucide-react";
 
 interface DashboardProps {
@@ -10,9 +11,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-soft to-accent-soft p-8">
       <div className="max-w-lg mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Prakashbhai</h1>
-          <p className="text-business-gray text-lg">Bill Manager</p>
+        <div className="flex justify-between items-start mb-8">
+          <div className="text-center flex-1">
+            <h1 className="text-3xl font-bold text-foreground mb-2">Prakashbhai</h1>
+            <p className="text-business-gray text-lg">Bill Manager</p>
+          </div>
+          <div className="ml-4">
+            <Settings onNavigate={onNavigate} />
+          </div>
         </div>
         
         <Card className="shadow-lg">
