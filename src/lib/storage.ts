@@ -60,6 +60,24 @@ export const savePayment = (payment: Omit<Payment, 'id' | 'createdAt'>): Payment
   return newPayment;
 };
 
+export const recordPayment = (customerId: string, customerName: string, amount: number): Payment => {
+  return savePayment({
+    customerId,
+    customerName,
+    amount,
+    date: new Date().toISOString(),
+  });
+};
+
+export const getPaymentHistory = (): Payment[] => {
+  return getPayments().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+};
+
+export const deletePayment = (paymentId: string): void => {
+  const payments = getPayments().filter(payment => payment.id !== paymentId);
+  localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(payments));
+};
+
 // Balance calculations
 export const getCustomerBalance = (customerId: string): CustomerBalance => {
   const bills = getBills().filter(bill => bill.customerId === customerId);

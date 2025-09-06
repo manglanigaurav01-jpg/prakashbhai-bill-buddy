@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { FileText, Users, Calculator, CreditCard } from "lucide-react";
 
 interface DashboardProps {
-  onNavigate: (view: 'create-bill' | 'customers' | 'balance' | 'dashboard') => void;
+  onNavigate: (view: 'create-bill' | 'customers' | 'balance' | 'amount-tracker' | 'last-balance' | 'dashboard') => void;
 }
 
 export const Dashboard = ({ onNavigate }: DashboardProps) => {
@@ -32,7 +32,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 variant="outline"
                 size="lg"
                 className="h-24 flex-col gap-3 hover:bg-accent hover:text-accent-foreground transition-all duration-300 hover:scale-105"
-                onClick={() => onNavigate('balance')}
+                onClick={() => onNavigate('amount-tracker')}
               >
                 <Calculator className="w-8 h-8" />
                 <span className="text-sm font-medium">Amount Paid/Not Paid</span>
@@ -42,7 +42,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 variant="outline"
                 size="lg"
                 className="h-24 flex-col gap-3 hover:bg-warning hover:text-warning-foreground transition-all duration-300 hover:scale-105"
-                onClick={() => onNavigate('balance')}
+                onClick={() => onNavigate('last-balance')}
               >
                 <CreditCard className="w-8 h-8" />
                 <span className="text-sm font-medium">Last Balance</span>

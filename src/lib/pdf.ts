@@ -15,20 +15,19 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
 
   const doc = new jsPDF();
   
-  // Header
-  doc.setFontSize(20);
+  // Header - Customer Name
+  doc.setFontSize(24);
   doc.setFont('helvetica', 'bold');
-  doc.text('Prakashbhai', 105, 20, { align: 'center' });
+  doc.text(balance.customerName, 105, 20, { align: 'center' });
   
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
-  doc.text('Customer Summary Report', 105, 30, { align: 'center' });
+  doc.text('Customer Summary Report', 105, 32, { align: 'center' });
   
-  // Customer details
-  doc.setFontSize(10);
+  // Date - Top Left
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Customer: ${balance.customerName}`, 20, 50);
-  doc.text(`Report Date: ${new Date().toLocaleDateString()}`, 20, 60);
+  doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 50);
   
   // Bills summary table
   const tableData = bills.map((bill, index) => {
@@ -45,7 +44,7 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
   autoTable(doc, {
     head: [['Sr No', 'Date', 'Items', 'Amount']],
     body: tableData,
-    startY: 80,
+    startY: 65,
     theme: 'grid',
     styles: {
       fontSize: 9,
@@ -59,6 +58,9 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
     alternateRowStyles: {
       fillColor: [245, 247, 250],
     },
+    tableLineWidth: 0.1,
+    showHead: 'everyPage',
+    pageBreak: 'auto',
   });
   
   // Summary section
@@ -119,22 +121,23 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
 export const generateBillPDF = async (bill: Bill) => {
   const doc = new jsPDF();
   
-  // Header
-  doc.setFontSize(20);
+  // Header - Customer Name
+  doc.setFontSize(24);
   doc.setFont('helvetica', 'bold');
-  doc.text('Prakashbhai', 105, 20, { align: 'center' });
+  doc.text(bill.customerName, 105, 20, { align: 'center' });
   
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
-  doc.text('Bill Manager', 105, 30, { align: 'center' });
+  doc.text('Bill Receipt', 105, 32, { align: 'center' });
   
-  // Bill details
-  doc.setFontSize(10);
+  // Date - Top Left
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
   doc.text(`Date: ${new Date(bill.date).toLocaleDateString()}`, 20, 50);
-  doc.text(`Customer: ${bill.customerName}`, 20, 60);
+  
   if (bill.particulars) {
-    doc.text(`Particulars: ${bill.particulars}`, 20, 70);
+    doc.setFontSize(10);
+    doc.text(`Particulars: ${bill.particulars}`, 20, 60);
   }
   
   // Items table
@@ -149,20 +152,23 @@ export const generateBillPDF = async (bill: Bill) => {
   autoTable(doc, {
     head: [['Sr No', 'Item Name', 'Quantity', 'Rate', 'Total']],
     body: tableData,
-    startY: bill.particulars ? 80 : 70,
+    startY: bill.particulars ? 70 : 60,
     theme: 'grid',
     styles: {
       fontSize: 10,
       cellPadding: 3,
     },
     headStyles: {
-      fillColor: [52, 73, 190], // Primary blue color
+      fillColor: [52, 73, 190],
       textColor: 255,
       fontStyle: 'bold',
     },
     alternateRowStyles: {
       fillColor: [245, 247, 250],
     },
+    tableLineWidth: 0.1,
+    showHead: 'everyPage',
+    pageBreak: 'auto',
   });
   
   // Grand total

@@ -7,10 +7,12 @@ import { Dashboard } from "@/components/Dashboard";
 import { CreateBill } from "@/components/CreateBill";
 import { Customers } from "@/components/Customers";
 import { BalanceTracker } from "@/components/BalanceTracker";
+import { AmountTracker } from "@/components/AmountTracker";
+import { LastBalance } from "@/components/LastBalance";
 
 const queryClient = new QueryClient();
 
-type View = 'dashboard' | 'create-bill' | 'customers' | 'balance';
+type View = 'dashboard' | 'create-bill' | 'customers' | 'balance' | 'amount-tracker' | 'last-balance';
 
 const App = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -23,6 +25,10 @@ const App = () => {
         return <Customers onNavigate={setCurrentView} />;
       case 'balance':
         return <BalanceTracker onNavigate={setCurrentView} />;
+      case 'amount-tracker':
+        return <AmountTracker onNavigate={setCurrentView} />;
+      case 'last-balance':
+        return <LastBalance onNavigate={setCurrentView} />;
       default:
         return <Dashboard onNavigate={setCurrentView} />;
     }
