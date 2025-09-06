@@ -46,7 +46,14 @@ export const TotalBusiness = ({ onNavigate }: TotalBusinessProps) => {
     
     doc.setFontSize(14);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 35);
+    const formatDate = (date: Date) => {
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    };
+    
+    doc.text(`Date: ${formatDate(new Date())}`, 20, 35);
     
     // Table data
     const tableData = pendingCustomers.map((customer, index) => [
@@ -95,7 +102,14 @@ export const TotalBusiness = ({ onNavigate }: TotalBusinessProps) => {
     
     doc.setFontSize(14);
     doc.setFont('helvetica', 'normal');
-    doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 35);
+    const formatDate = (date: Date) => {
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}/${month}/${year}`;
+    };
+    
+    doc.text(`Date: ${formatDate(new Date())}`, 20, 35);
     
     // Table data
     const tableData = advanceCustomers.map((customer, index) => [

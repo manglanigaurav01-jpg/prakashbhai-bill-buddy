@@ -148,7 +148,7 @@ export const AmountTracker = ({ onNavigate }: AmountTrackerProps) => {
                       )}
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {paymentDate ? format(paymentDate, "PPP") : <span>Pick a date</span>}
+                      {paymentDate ? format(paymentDate, "dd/MM/yyyy") : <span>Pick a date</span>}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
@@ -188,7 +188,13 @@ export const AmountTracker = ({ onNavigate }: AmountTrackerProps) => {
                       <div>
                         <div className="font-medium">{payment.customerName}</div>
                         <div className="text-sm text-muted-foreground">
-                          {new Date(payment.date).toLocaleDateString()} at{' '}
+                          {(() => {
+                            const date = new Date(payment.date);
+                            const day = date.getDate().toString().padStart(2, '0');
+                            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                            const year = date.getFullYear();
+                            return `${day}/${month}/${year}`;
+                          })()} at{' '}
                           {new Date(payment.date).toLocaleTimeString()}
                         </div>
                       </div>

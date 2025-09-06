@@ -120,7 +120,13 @@ export const Customers = ({ onNavigate }: CustomersProps) => {
                         <div>
                           <p className="font-medium">{customer.name}</p>
                           <p className="text-sm text-muted-foreground">
-                            Added on {new Date(customer.createdAt).toLocaleDateString()}
+                            Added on {(() => {
+                              const date = new Date(customer.createdAt);
+                              const day = date.getDate().toString().padStart(2, '0');
+                              const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                              const year = date.getFullYear();
+                              return `${day}/${month}/${year}`;
+                            })()}
                           </p>
                         </div>
                       </div>

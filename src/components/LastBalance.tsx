@@ -98,7 +98,7 @@ export const LastBalance = ({ onNavigate }: LastBalanceProps) => {
                         )}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {startDate ? format(startDate, "PPP") : <span>Pick start date</span>}
+                        {startDate ? format(startDate, "dd/MM/yyyy") : <span>Pick start date</span>}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
@@ -125,7 +125,7 @@ export const LastBalance = ({ onNavigate }: LastBalanceProps) => {
                         )}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {endDate ? format(endDate, "PPP") : <span>Pick end date</span>}
+                        {endDate ? format(endDate, "dd/MM/yyyy") : <span>Pick end date</span>}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">

@@ -4,6 +4,13 @@ import { Bill } from '@/types';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 
+const formatDate = (date: Date) => {
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
 export const generateCustomerSummaryPDF = async (customerId: string) => {
   const { getBillsByCustomer, getCustomerBalance, getPayments } = await import('@/lib/storage');
   const bills = getBillsByCustomer(customerId);
@@ -28,7 +35,7 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
   // Date - Top Left (increased font size)
   doc.setFontSize(14);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 50);
+  doc.text(`Date: ${formatDate(new Date())}`, 20, 50);
   
   // Prepare table data with payment information
   const tableData = [];
@@ -51,13 +58,13 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
     let jama = '-';
     if (paymentIndex < paymentsSorted.length) {
       const payment = paymentsSorted[paymentIndex++];
-      date2 = new Date(payment.date).toLocaleDateString();
+      date2 = formatDate(new Date(payment.date));
       jama = `Rs. ${payment.amount.toFixed(2)}`;
     }
 
     tableData.push([
       index + 1,
-      new Date(bill.date).toLocaleDateString(),
+      formatDate(new Date(bill.date)),
       itemsSummary.length > 30 ? itemsSummary.substring(0, 30) + '...' : itemsSummary,
       `Rs. ${bill.grandTotal.toFixed(2)}`,
       date2,
@@ -165,7 +172,7 @@ export const generateBillPDF = async (bill: Bill) => {
   // Date - Top Left (increased font size)
   doc.setFontSize(14);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Date: ${new Date(bill.date).toLocaleDateString()}`, 20, 50);
+  doc.text(`Date: ${formatDate(new Date(bill.date))}`, 20, 50);
   
   if (bill.particulars) {
     doc.setFontSize(10);
