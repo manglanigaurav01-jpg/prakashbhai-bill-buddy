@@ -5,9 +5,10 @@ import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 
 export const generateCustomerSummaryPDF = async (customerId: string) => {
-  const { getBillsByCustomer, getCustomerBalance } = await import('@/lib/storage');
+  const { getBillsByCustomer, getCustomerBalance, getPayments } = await import('@/lib/storage');
   const bills = getBillsByCustomer(customerId);
   const balance = getCustomerBalance(customerId);
+  const payments = getPayments().filter(payment => payment.customerId === customerId);
   
   if (bills.length === 0) {
     return { success: false, message: 'No bills found for this customer' };
@@ -15,40 +16,66 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
 
   const doc = new jsPDF();
   
-  // Header - Customer Name
-  doc.setFontSize(24);
+  // Header - Customer Name (top, large font)
+  doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text(balance.customerName, 105, 20, { align: 'center' });
+  doc.text(balance.customerName, 20, 20);
   
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
-  doc.text('Customer Summary Report', 105, 32, { align: 'center' });
+  doc.text('Customer Summary Report', 20, 32);
   
-  // Date - Top Left
-  doc.setFontSize(12);
+  // Date - Top Left (increased font size)
+  doc.setFontSize(14);
   doc.setFont('helvetica', 'normal');
   doc.text(`Date: ${new Date().toLocaleDateString()}`, 20, 50);
   
-  // Bills summary table
-  const tableData = bills.map((bill, index) => {
+  // Prepare table data with payment information
+  const tableData = [];
+  
+  bills.forEach((bill, index) => {
     // Get summary of items for each bill
     const itemsSummary = bill.items.map(item => `${item.itemName} (${item.quantity})`).join(', ');
-    return [
-      index + 1,
-      new Date(bill.date).toLocaleDateString(),
-      itemsSummary.length > 40 ? itemsSummary.substring(0, 40) + '...' : itemsSummary,
-      `Rs. ${bill.grandTotal.toFixed(2)}`
-    ];
+    
+    // Find payments for this bill date (approximate matching)
+    const billDate = new Date(bill.date);
+    const relatedPayments = payments.filter(payment => {
+      const paymentDate = new Date(payment.date);
+      return Math.abs(paymentDate.getTime() - billDate.getTime()) <= 7 * 24 * 60 * 60 * 1000; // Within 7 days
+    });
+    
+    if (relatedPayments.length > 0) {
+      relatedPayments.forEach(payment => {
+        tableData.push([
+          index + 1,
+          new Date(bill.date).toLocaleDateString(),
+          itemsSummary.length > 30 ? itemsSummary.substring(0, 30) + '...' : itemsSummary,
+          `Rs. ${bill.grandTotal.toFixed(2)}`,
+          new Date(payment.date).toLocaleDateString(),
+          `Rs. ${payment.amount.toFixed(2)}`
+        ]);
+      });
+    } else {
+      // No payment found for this bill
+      tableData.push([
+        index + 1,
+        new Date(bill.date).toLocaleDateString(),
+        itemsSummary.length > 30 ? itemsSummary.substring(0, 30) + '...' : itemsSummary,
+        `Rs. ${bill.grandTotal.toFixed(2)}`,
+        '-',
+        '-'
+      ]);
+    }
   });
   
   autoTable(doc, {
-    head: [['Sr No', 'Date', 'Items', 'Amount']],
+    head: [['Sr No', 'Date1', 'Item Name', 'Total', 'Date2', 'Jama']],
     body: tableData,
     startY: 65,
     theme: 'grid',
     styles: {
-      fontSize: 9,
-      cellPadding: 3,
+      fontSize: 8,
+      cellPadding: 2,
     },
     headStyles: {
       fillColor: [52, 73, 190],
@@ -61,6 +88,14 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
     tableLineWidth: 0.1,
     showHead: 'everyPage',
     pageBreak: 'auto',
+    columnStyles: {
+      0: { halign: 'center', cellWidth: 15 }, // Sr No
+      1: { cellWidth: 22 }, // Date1
+      2: { cellWidth: 35 }, // Item Name
+      3: { halign: 'right', cellWidth: 20 }, // Total
+      4: { cellWidth: 22 }, // Date2
+      5: { halign: 'right', cellWidth: 20 }, // Jama
+    },
   });
   
   // Summary section
@@ -121,17 +156,17 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
 export const generateBillPDF = async (bill: Bill) => {
   const doc = new jsPDF();
   
-  // Header - Customer Name
-  doc.setFontSize(24);
+  // Header - Customer Name (top, large font)
+  doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text(bill.customerName, 105, 20, { align: 'center' });
+  doc.text(bill.customerName, 20, 20);
   
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
-  doc.text('Bill Receipt', 105, 32, { align: 'center' });
+  doc.text('Bill Receipt', 20, 32);
   
-  // Date - Top Left
-  doc.setFontSize(12);
+  // Date - Top Left (increased font size)
+  doc.setFontSize(14);
   doc.setFont('helvetica', 'normal');
   doc.text(`Date: ${new Date(bill.date).toLocaleDateString()}`, 20, 50);
   

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,9 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { DatePicker } from "@/components/ui/date-picker";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { ProgressBar } from "@/components/ui/progress-bar";
-import { ArrowLeft, Plus, Trash2, FileDown, RotateCcw, Save, AlertCircle, CheckCircle2, Edit3 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, FileDown, Save, Edit3 } from "lucide-react";
 import { getCustomers, saveBill, saveCustomer } from "@/lib/storage";
-import { saveDraft, getDraft, clearDraft, hasDraft } from "@/lib/draft";
 import { generateBillPDF } from "@/lib/pdf";
 import { Customer, BillItem } from "@/types";
 import { useToast } from "@/hooks/use-toast";
@@ -28,78 +27,24 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
   const [particulars, setParticulars] = useState("");
   const [items, setItems] = useState<BillItem[]>([]);
   const [itemName, setItemName] = useState("");
-  const [quantity, setQuantity] = useState<number>(1);
-  const [rate, setRate] = useState<number>(0);
+  const [quantity, setQuantity] = useState<number | undefined>(undefined);
+  const [rate, setRate] = useState<number | undefined>(undefined);
   const [editingItem, setEditingItem] = useState<string | null>(null);
   const [editingValues, setEditingValues] = useState<Partial<BillItem>>({});
   
   // Loading and progress states
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [pdfProgress, setPdfProgress] = useState(0);
-  const [isSavingDraft, setIsSavingDraft] = useState(false);
-  const [draftSavedTime, setDraftSavedTime] = useState<string | null>(null);
-  const [showDraftAlert, setShowDraftAlert] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   
   const { toast } = useToast();
 
   useEffect(() => {
     setCustomers(getCustomers());
-    
-    // Check for existing draft
-    if (hasDraft()) {
-      setShowDraftAlert(true);
-    }
   }, []);
 
-  // Auto-save draft functionality
-  const autoSaveDraft = useCallback(() => {
-    if (items.length > 0 || particulars || selectedCustomer) {
-      setIsSavingDraft(true);
-      const customer = customers.find(c => c.id === selectedCustomer);
-      
-      saveDraft({
-        customerId: selectedCustomer,
-        customerName: customer?.name || '',
-        date: date.toISOString().split('T')[0],
-        particulars,
-        items,
-        grandTotal: items.reduce((sum, item) => sum + item.total, 0),
-      });
-      
-      setDraftSavedTime(new Date().toLocaleTimeString());
-      setTimeout(() => setIsSavingDraft(false), 500);
-    }
-  }, [selectedCustomer, date, particulars, items, customers]);
-
-  // Auto-save every 10 seconds when there's content
-  useEffect(() => {
-    const interval = setInterval(autoSaveDraft, 10000);
-    return () => clearInterval(interval);
-  }, [autoSaveDraft]);
-
-  // Load draft function
-  const loadDraft = () => {
-    const draft = getDraft();
-    if (draft) {
-      setSelectedCustomer(draft.customerId);
-      setDate(new Date(draft.date));
-      setParticulars(draft.particulars);
-      setItems(draft.items);
-      setShowDraftAlert(false);
-      toast({
-        title: "Draft Loaded",
-        description: "Your previous work has been restored",
-      });
-    }
-  };
-
-  const dismissDraft = () => {
-    clearDraft();
-    setShowDraftAlert(false);
-  };
-
   const handleAddItem = () => {
-    if (!itemName || quantity <= 0 || rate <= 0) {
+    if (!itemName || !quantity || quantity <= 0 || !rate || rate <= 0) {
       toast({
         title: "Invalid Item",
         description: "Please fill all item fields with valid values",
@@ -118,11 +63,8 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
 
     setItems([...items, newItem]);
     setItemName("");
-    setQuantity(1);
-    setRate(0);
-    
-    // Trigger auto-save after adding item
-    setTimeout(autoSaveDraft, 1000);
+    setQuantity(undefined);
+    setRate(undefined);
   };
 
   const handleRemoveItem = (id: string) => {
@@ -164,7 +106,7 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
   const grandTotal = items.reduce((sum, item) => sum + item.total, 0);
   
   // Calculate current item total (real-time as user types)
-  const currentItemTotal = (itemName && quantity > 0 && rate > 0) ? quantity * rate : 0;
+  const currentItemTotal = (itemName && quantity && quantity > 0 && rate && rate > 0) ? quantity * rate : 0;
   
   // Total including both table items and current item being typed
   const totalWithCurrentItem = grandTotal + currentItemTotal;
@@ -190,6 +132,78 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
     });
   };
 
+  const handleSave = async () => {
+    if (!selectedCustomer) {
+      toast({
+        title: "No Customer Selected",
+        description: "Please select a customer first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if we have items in table OR a current item being typed
+    const hasTableItems = items.length > 0;
+    const hasCurrentItem = itemName && quantity && quantity > 0 && rate && rate > 0;
+    
+    if (!hasTableItems && !hasCurrentItem) {
+      toast({
+        title: "No Items to Save",
+        description: "Please add at least one item or fill the current item fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const customer = customers.find(c => c.id === selectedCustomer);
+    if (!customer) return;
+
+    setIsSaving(true);
+
+    try {
+      // Prepare items for saving (include current item if exists and not in table)
+      let itemsToSave = [...items];
+      if (hasCurrentItem && !hasTableItems) {
+        // If no table items but has current item, save the current item
+        const currentItem: BillItem = {
+          id: Date.now().toString(),
+          itemName,
+          quantity,
+          rate,
+          total: currentItemTotal,
+        };
+        itemsToSave = [currentItem];
+      }
+
+      // Save bill to storage
+      saveBill({
+        customerId: selectedCustomer,
+        customerName: customer.name,
+        date: date.toISOString().split('T')[0],
+        particulars,
+        items: itemsToSave,
+        grandTotal: itemsToSave.reduce((sum, item) => sum + item.total, 0),
+      });
+
+      toast({
+        title: "✅ Bill Saved Successfully!",
+        description: "Bill has been saved to the system",
+      });
+
+      // Clear form after successful save
+      handleClear();
+
+    } catch (error) {
+      toast({
+        title: "Error Saving Bill",
+        description: "Please try again or contact support",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSavePDF = async () => {
     if (!selectedCustomer) {
       toast({
@@ -202,7 +216,7 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
 
     // Check if we have items in table OR a current item being typed
     const hasTableItems = items.length > 0;
-    const hasCurrentItem = itemName && quantity > 0 && rate > 0;
+    const hasCurrentItem = itemName && quantity && quantity > 0 && rate && rate > 0;
     
     if (!hasTableItems && !hasCurrentItem) {
       toast({
@@ -253,10 +267,6 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
 
       // Generate PDF
       const pdfResult = await generateBillPDF(bill);
-      
-      // Clear draft after successful save
-      clearDraft();
-      setDraftSavedTime(null);
 
       if (pdfResult.success) {
         toast({
@@ -264,6 +274,9 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
           description: pdfResult.message,
           className: "animate-pulse-success",
         });
+
+        // Clear form after successful save
+        handleClear();
       } else {
         toast({
           title: "Error Saving PDF",
@@ -290,14 +303,12 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
     setParticulars("");
     setItems([]);
     setItemName("");
-    setQuantity(1);
-    setRate(0);
+    setQuantity(undefined);
+    setRate(undefined);
     setShowNewCustomer(false);
     setNewCustomerName("");
     setEditingItem(null);
     setEditingValues({});
-    clearDraft();
-    setDraftSavedTime(null);
     
     toast({
       title: "Form Cleared",
@@ -308,56 +319,12 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
   return (
     <div className="min-h-screen bg-background p-4 md:p-6">
       <div className="max-w-6xl mx-auto animate-fade-in">
-        {/* Draft Alert */}
-        {showDraftAlert && (
-          <Card className="mb-6 border-warning bg-warning-soft animate-slide-up">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <AlertCircle className="w-5 h-5 text-warning" />
-                  <div>
-                    <p className="font-medium">Unsaved Draft Found</p>
-                    <p className="text-sm text-muted-foreground">
-                      You have an unsaved bill draft. Would you like to continue working on it?
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={dismissDraft}>
-                    Discard
-                  </Button>
-                  <Button size="sm" onClick={loadDraft}>
-                    Load Draft
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         <div className="flex items-center gap-4 mb-6">
           <Button variant="outline" onClick={() => onNavigate('dashboard')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboard
           </Button>
           <h1 className="text-2xl font-bold text-foreground">Create New Bill</h1>
-          
-          {/* Auto-save indicator */}
-          {draftSavedTime && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in">
-              {isSavingDraft ? (
-                <>
-                  <LoadingSpinner size="sm" />
-                  <span>Saving draft...</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-4 h-4 text-accent" />
-                  <span>Draft saved at {draftSavedTime}</span>
-                </>
-              )}
-            </div>
-          )}
         </div>
 
         <Card>
@@ -491,14 +458,14 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
                           <div className="flex gap-1">
                             {editingItem === item.id ? (
                               <>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleSaveEdit(item.id)}
-                                  className="min-h-[36px] touch-manipulation"
-                                >
-                                  <CheckCircle2 className="w-3 h-3" />
-                                </Button>
+                                 <Button
+                                   variant="outline"
+                                   size="sm"
+                                   onClick={() => handleSaveEdit(item.id)}
+                                   className="min-h-[36px] touch-manipulation"
+                                 >
+                                   ✓
+                                 </Button>
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -550,27 +517,29 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
                       className="min-h-[44px] touch-manipulation"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label>Quantity</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={quantity}
-                      onChange={(e) => setQuantity(Number(e.target.value))}
-                      className="min-h-[44px] touch-manipulation"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Rate (₹)</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={rate}
-                      onChange={(e) => setRate(Number(e.target.value))}
-                      className="min-h-[44px] touch-manipulation"
-                    />
-                  </div>
+                   <div className="space-y-2">
+                     <Label>Quantity</Label>
+                     <Input
+                       type="number"
+                       min="1"
+                       placeholder="Enter quantity"
+                       value={quantity || ''}
+                       onChange={(e) => setQuantity(e.target.value ? Number(e.target.value) : undefined)}
+                       className="min-h-[44px] touch-manipulation"
+                     />
+                   </div>
+                   <div className="space-y-2">
+                     <Label>Rate (₹)</Label>
+                     <Input
+                       type="number"
+                       min="0"
+                       step="0.01"
+                       placeholder="Enter rate"
+                       value={rate || ''}
+                       onChange={(e) => setRate(e.target.value ? Number(e.target.value) : undefined)}
+                       className="min-h-[44px] touch-manipulation"
+                     />
+                   </div>
                   <div className="space-y-2">
                     <Label>Current Total</Label>
                     <div className="min-h-[44px] flex items-center px-3 bg-muted rounded-md font-semibold text-accent">
@@ -619,41 +588,39 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
                   </div>
                 )}
               </div>
-              <div className="flex flex-wrap gap-2">
-                <Button 
-                  variant="outline" 
-                  onClick={autoSaveDraft}
-                  disabled={isSavingDraft}
-                  className="min-h-[44px] touch-manipulation"
-                >
-                  {isSavingDraft ? (
-                    <LoadingSpinner size="sm" className="mr-2" />
-                  ) : (
-                    <Save className="w-4 h-4 mr-2" />
-                  )}
-                  Save Draft
-                </Button>
-                <Button 
-                  variant="outline" 
-                  onClick={handleClear}
-                  className="min-h-[44px] touch-manipulation"
-                >
-                  <RotateCcw className="w-4 h-4 mr-2" />
-                  Clear
-                </Button>
-                <Button 
-                  onClick={handleSavePDF} 
-                  disabled={(!items.length && !currentItemTotal) || !selectedCustomer || isGeneratingPDF}
-                  className="min-h-[44px] touch-manipulation"
-                >
-                  {isGeneratingPDF ? (
-                    <LoadingSpinner size="sm" className="mr-2" />
-                  ) : (
-                    <FileDown className="w-4 h-4 mr-2" />
-                  )}
-                  {isGeneratingPDF ? 'Generating...' : 'Save as PDF'}
-                </Button>
-              </div>
+               <div className="flex flex-wrap gap-2">
+                 <Button 
+                   onClick={handleSave}
+                   disabled={(!items.length && !currentItemTotal) || !selectedCustomer || isSaving}
+                   className="min-h-[44px] touch-manipulation"
+                 >
+                   {isSaving ? (
+                     <LoadingSpinner size="sm" className="mr-2" />
+                   ) : (
+                     <Save className="w-4 h-4 mr-2" />
+                   )}
+                   {isSaving ? 'Saving...' : 'Save Bill'}
+                 </Button>
+                 <Button 
+                   variant="outline" 
+                   onClick={handleClear}
+                   className="min-h-[44px] touch-manipulation"
+                 >
+                   Clear
+                 </Button>
+                 <Button 
+                   onClick={handleSavePDF} 
+                   disabled={(!items.length && !currentItemTotal) || !selectedCustomer || isGeneratingPDF}
+                   className="min-h-[44px] touch-manipulation"
+                 >
+                   {isGeneratingPDF ? (
+                     <LoadingSpinner size="sm" className="mr-2" />
+                   ) : (
+                     <FileDown className="w-4 h-4 mr-2" />
+                   )}
+                   {isGeneratingPDF ? 'Generating...' : 'Save as PDF'}
+                 </Button>
+               </div>
             </div>
           </CardContent>
         </Card>
