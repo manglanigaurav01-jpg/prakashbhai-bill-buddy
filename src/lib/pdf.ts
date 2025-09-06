@@ -33,39 +33,36 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
   // Prepare table data with payment information
   const tableData = [];
   
-  bills.forEach((bill, index) => {
+  // Sort bills and payments chronologically and assign each payment at most once
+  const billsSorted = [...bills].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+  const paymentsSorted = [...payments].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+  let paymentIndex = 0;
+
+  billsSorted.forEach((bill, index) => {
     // Get summary of items for each bill
     const itemsSummary = bill.items.map(item => `${item.itemName} (${item.quantity})`).join(', ');
-    
-    // Find payments for this bill date (approximate matching)
-    const billDate = new Date(bill.date);
-    const relatedPayments = payments.filter(payment => {
-      const paymentDate = new Date(payment.date);
-      return Math.abs(paymentDate.getTime() - billDate.getTime()) <= 7 * 24 * 60 * 60 * 1000; // Within 7 days
-    });
-    
-    if (relatedPayments.length > 0) {
-      relatedPayments.forEach(payment => {
-        tableData.push([
-          index + 1,
-          new Date(bill.date).toLocaleDateString(),
-          itemsSummary.length > 30 ? itemsSummary.substring(0, 30) + '...' : itemsSummary,
-          `Rs. ${bill.grandTotal.toFixed(2)}`,
-          new Date(payment.date).toLocaleDateString(),
-          `Rs. ${payment.amount.toFixed(2)}`
-        ]);
-      });
-    } else {
-      // No payment found for this bill
-      tableData.push([
-        index + 1,
-        new Date(bill.date).toLocaleDateString(),
-        itemsSummary.length > 30 ? itemsSummary.substring(0, 30) + '...' : itemsSummary,
-        `Rs. ${bill.grandTotal.toFixed(2)}`,
-        '-',
-        '-'
-      ]);
+
+    // Consume at most one unmatched payment sequentially (prevents duplicates across bills)
+    let date2 = '-';
+    let jama = '-';
+    if (paymentIndex < paymentsSorted.length) {
+      const payment = paymentsSorted[paymentIndex++];
+      date2 = new Date(payment.date).toLocaleDateString();
+      jama = `Rs. ${payment.amount.toFixed(2)}`;
     }
+
+    tableData.push([
+      index + 1,
+      new Date(bill.date).toLocaleDateString(),
+      itemsSummary.length > 30 ? itemsSummary.substring(0, 30) + '...' : itemsSummary,
+      `Rs. ${bill.grandTotal.toFixed(2)}`,
+      date2,
+      jama
+    ]);
   });
   
   autoTable(doc, {
