@@ -4,19 +4,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, DollarSign, Save, Trash2 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { ArrowLeft, DollarSign, Save, Trash2, CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 import { getCustomers, recordPayment, getPaymentHistory, deletePayment } from "@/lib/storage";
 import { Customer, Payment } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 
 interface AmountTrackerProps {
-  onNavigate: (view: 'create-bill' | 'customers' | 'balance' | 'amount-tracker' | 'dashboard') => void;
+  onNavigate: (view: 'create-bill' | 'customers' | 'balance' | 'amount-tracker' | 'dashboard' | 'total-business' | 'last-balance') => void;
 }
 
 export const AmountTracker = ({ onNavigate }: AmountTrackerProps) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
+  const [paymentDate, setPaymentDate] = useState<Date>(new Date());
   const [paymentHistory, setPaymentHistory] = useState<Payment[]>([]);
   const { toast } = useToast();
 
@@ -31,7 +36,7 @@ export const AmountTracker = ({ onNavigate }: AmountTrackerProps) => {
     setPaymentHistory(history);
   };
 
-  const handleRecordPayment = () => {
+  const handleRecordPayment = async () => {
     if (!selectedCustomer || !amount) {
       toast({
         title: "Missing Information",
@@ -54,7 +59,15 @@ export const AmountTracker = ({ onNavigate }: AmountTrackerProps) => {
     const customer = customers.find(c => c.id === selectedCustomer);
     if (!customer) return;
 
-    recordPayment(selectedCustomer, customer.name, amountNum);
+    // Update the recordPayment function to accept a date
+    const { savePayment } = await import('@/lib/storage');
+    savePayment({
+      customerId: selectedCustomer,
+      customerName: customer.name,
+      amount: amountNum,
+      date: paymentDate.toISOString(),
+    });
+    
     loadPaymentHistory();
     
     toast({
@@ -121,6 +134,33 @@ export const AmountTracker = ({ onNavigate }: AmountTrackerProps) => {
                   step="0.01"
                   min="0"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Payment Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !paymentDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {paymentDate ? format(paymentDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={paymentDate}
+                      onSelect={(date) => date && setPaymentDate(date)}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <Button onClick={handleRecordPayment} className="w-full">
