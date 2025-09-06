@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "@/hooks/use-toast";
 import { getCustomers, saveBill, getItems, saveItem, searchItems, getMostUsedItems } from '@/lib/storage';
 import { generateBillPDF } from '@/lib/pdf';
@@ -24,6 +25,7 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [newCustomerName, setNewCustomerName] = useState('');
+  const [billDate, setBillDate] = useState<Date>(new Date());
   const [particulars, setParticulars] = useState('');
   const [billItems, setBillItems] = useState<BillItem[]>([
     { id: '1', itemName: '', quantity: 0, rate: 0, total: 0 }
@@ -205,7 +207,7 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
       const billData = {
         customerId: selectedCustomer!.id,
         customerName: selectedCustomer!.name,
-        date: new Date().toISOString(),
+        date: billDate.toISOString(),
         particulars,
         items: billItems,
         grandTotal: calculateGrandTotal(),
@@ -220,6 +222,7 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
       
       // Reset form
       setSelectedCustomer(null);
+      setBillDate(new Date());
       setParticulars('');
       setBillItems([{ id: '1', itemName: '', quantity: 0, rate: 0, total: 0 }]);
     } catch (error) {
@@ -241,7 +244,7 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
       const billData = {
         customerId: selectedCustomer!.id,
         customerName: selectedCustomer!.name,
-        date: new Date().toISOString(),
+        date: billDate.toISOString(),
         particulars,
         items: billItems,
         grandTotal: calculateGrandTotal(),
@@ -258,6 +261,7 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
         
         // Reset form
         setSelectedCustomer(null);
+        setBillDate(new Date());
         setParticulars('');
         setBillItems([{ id: '1', itemName: '', quantity: 0, rate: 0, total: 0 }]);
       } else {
@@ -460,6 +464,17 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
                   <SelectItem value="new">+ Add New Customer</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Bill Date */}
+            <div className="space-y-2">
+              <Label htmlFor="billDate">Bill Date</Label>
+              <DatePicker
+                date={billDate}
+                onDateChange={(date) => setBillDate(date || new Date())}
+                placeholder="Select bill date"
+                className="w-full"
+              />
             </div>
 
             {/* Particulars */}
