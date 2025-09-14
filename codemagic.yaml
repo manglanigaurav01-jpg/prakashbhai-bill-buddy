@@ -39,14 +39,28 @@ workflows:
         script: |
           cd android
           ./gradlew assembleDebug
-      - name: Set Java version and build APK
+     - name: Fix Java version and build APK
         script: |
           export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home
           export PATH=$JAVA_HOME/bin:$PATH
           java -version
           cd android
+          # Force Java 17 in all build files
           echo "org.gradle.java.home=$JAVA_HOME" >> gradle.properties
-          ./gradlew assembleDebug --stacktrace
+          echo "kotlin.jvm.target.validation.mode=warning" >> gradle.properties
+          # Update variables.gradle to use Java 17
+          if [ -f "variables.gradle" ]; then
+            sed -i '' 's/21/17/g' variables.gradle
+          fi
+          # Update app build.gradle
+          if [ -f "app/build.gradle" ]; then
+            sed -i '' 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g' app/build.gradle
+            sed -i '' 's/jvmTarget = "21"/jvmTarget = "17"/g' app/build.gradle
+            sed -i '' 's/sourceCompatibility JavaVersion.VERSION_21/sourceCompatibility JavaVersion.VERSION_17/g' app/build.gradle
+            sed -i '' 's/targetCompatibility JavaVersion.VERSION_21/targetCompatibility JavaVersion.VERSION_17/g' app/build.gradle
+          fi
+          # Build with explicit Java version
+          ./gradlew assembleDebug -Dorg.gradle.java.home=$JAVA_HOME --stacktrace
     artifacts:
       - android/app/build/outputs/**/*.apk
     publishing:
