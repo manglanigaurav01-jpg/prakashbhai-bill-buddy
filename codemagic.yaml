@@ -1,0 +1,125 @@
+workflows:
+  react-capacitor-android:
+    name: React Capacitor Android
+    max_build_duration: 120
+    instance_type: mac_mini_m1
+    integrations:
+      app_store_connect: codemagic
+    environment:
+      android_signing:
+        - keystore_reference
+      groups:
+        - google_play
+      vars:
+        PACKAGE_NAME: "com.manglanigaurav01.prakashbhaibillbuddy"
+        GOOGLE_PLAY_TRACK: alpha
+      node: 18
+      npm: latest
+    cache:
+      cache_paths:
+        - node_modules
+        - ~/.npm
+        - ~/.cache/npm
+        - $CM_BUILD_DIR/dist
+        - $CM_BUILD_DIR/build
+        - $CM_BUILD_DIR/node_modules/.vite
+        - $CM_BUILD_DIR/node_modules/.cache
+        - $CM_BUILD_DIR/android/.gradle
+        - $CM_BUILD_DIR/android/app/build
+        - ~/.gradle/caches
+    scripts:
+      - name: Install dependencies
+        script: |
+          npm ci
+      - name: Build React app
+        script: |
+          npm run build
+      - name: Setup Capacitor
+        script: |
+          npx cap add android
+          npx cap sync android
+      - name: Set Android permissions
+        script: |
+          chmod +x android/gradlew
+      - name: Build Android APK
+        script: |
+          cd android
+          ./gradlew assembleRelease
+    artifacts:
+      - android/app/build/outputs/**/*.apk
+      - android/app/build/outputs/**/mapping.txt
+    publishing:
+      email:
+        recipients:
+          - user@example.com
+        notify:
+          success: true
+          failure: false
+
+  react-capacitor-ios:
+    name: React Capacitor iOS
+    max_build_duration: 120
+    instance_type: mac_mini_m1
+    integrations:
+      app_store_connect: codemagic
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.manglanigaurav01.prakashbhaibillbuddy
+      groups:
+        - app_store
+      vars:
+        BUNDLE_ID: "com.manglanigaurav01.prakashbhaibillbuddy"
+        XCODE_WORKSPACE: "ios/App/App.xcworkspace"
+        XCODE_SCHEME: "App"
+      node: 18
+      npm: latest
+      xcode: latest
+      cocoapods: default
+    cache:
+      cache_paths:
+        - node_modules
+        - ~/.npm
+        - ~/.cache/npm
+        - $CM_BUILD_DIR/dist
+        - $CM_BUILD_DIR/build
+        - $CM_BUILD_DIR/node_modules/.vite
+        - $CM_BUILD_DIR/node_modules/.cache
+        - $CM_BUILD_DIR/ios/App/Pods
+        - $CM_BUILD_DIR/ios/App/build
+    scripts:
+      - name: Install dependencies
+        script: |
+          npm ci
+      - name: Build React app
+        script: |
+          npm run build
+      - name: Setup Capacitor iOS
+        script: |
+          npx cap add ios
+          npx cap sync ios
+      - name: Set up provisioning profiles
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files $BUNDLE_ID --type IOS_APP_STORE --create
+          keychain add-certificates
+          xcode-project use-profiles
+      - name: Build iOS
+        script: |
+          xcode-project build-ipa \
+            --workspace "$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+    publishing:
+      app_store_connect:
+        auth: integration
+      email:
+        recipients:
+          - user@example.com
+        notify:
+          success: true
+          failure: false
