@@ -44,14 +44,14 @@ workflows:
       - name: Build Android APK
         script: |
           cd android
-          ./gradlew assembleRelease
+          ./gradlew assembleDebug
     artifacts:
       - android/app/build/outputs/**/*.apk
       - android/app/build/outputs/**/mapping.txt
     publishing:
       email:
         recipients:
-          - user@example.com
+          - manglanigaurav01@gmail.com
         notify:
           success: true
           failure: false
