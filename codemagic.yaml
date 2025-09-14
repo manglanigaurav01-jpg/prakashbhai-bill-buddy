@@ -39,6 +39,14 @@ workflows:
         script: |
           cd android
           ./gradlew assembleDebug
+      - name: Set Java version and build APK
+        script: |
+          export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home
+          export PATH=$JAVA_HOME/bin:$PATH
+          java -version
+          cd android
+          echo "org.gradle.java.home=$JAVA_HOME" >> gradle.properties
+          ./gradlew assembleDebug --stacktrace
     artifacts:
       - android/app/build/outputs/**/*.apk
     publishing:
