@@ -8,6 +8,7 @@ workflows:
         PACKAGE_NAME: "com.manglanigaurav01.prakashbhaibillbuddy"
       node: 20
       npm: 9
+      java: 17
     cache:
       cache_paths:
         - node_modules
