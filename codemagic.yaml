@@ -6,7 +6,7 @@ workflows:
     environment:
       vars:
         PACKAGE_NAME: "com.manglanigaurav01.prakashbhaibillbuddy"
-      node: 18
+      node: 20
       npm: 9
     cache:
       cache_paths:
