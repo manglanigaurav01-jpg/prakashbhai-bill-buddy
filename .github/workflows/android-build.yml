@@ -5,8 +5,8 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:
-  
+  workflow_dispatch:  # Allows manual trigger
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -44,33 +44,32 @@ jobs:
       
     - name: Sync Capacitor
       run: npx cap sync android
-
+      
     - name: Force add storage permissions
       run: |
         cd android
-        # Find the actual AndroidManifest.xml location
+        # Define the path to the AndroidManifest.xml
         MANIFEST_PATH="app/src/main/AndroidManifest.xml"
         
-        # Backup original
+        # Backup the original manifest file
         cp $MANIFEST_PATH $MANIFEST_PATH.backup
         
-        # Add permissions before </manifest> tag
+        # Add permissions before the </manifest> tag
         sed -i '/<\/manifest>/i\    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />' $MANIFEST_PATH
         sed -i '/<\/manifest>/i\    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' $MANIFEST_PATH
         sed -i '/<\/manifest>/i\    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />' $MANIFEST_PATH
         
-        # Add legacy storage flag to application tag
+        # Add legacy storage flag to the application tag
         sed -i 's/<application/<application android:requestLegacyExternalStorage="true"/' $MANIFEST_PATH
         
         echo "Modified AndroidManifest.xml:"
         cat $MANIFEST_PATH
         
+        # Make the gradlew script executable
         chmod +x ./gradlew
-        
+
     - name: Build Android APK
       run: |
-        export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home
-        export PATH=$JAVA_HOME/bin:$PATH
         cd android
         ./gradlew clean
         ./gradlew assembleDebug --info
