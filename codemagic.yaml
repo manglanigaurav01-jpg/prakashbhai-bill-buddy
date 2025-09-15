@@ -38,7 +38,7 @@ workflows:
           # Create a temporary variables.gradle with Java 17 and higher SDK
           cat > android/variables.gradle << 'EOF'
           ext {
-              minSdkVersion = 22
+              minSdkVersion = 23
               compileSdkVersion = 35
               targetSdkVersion = 34
               androidxActivityVersion = '1.7.0'
