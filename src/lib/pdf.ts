@@ -11,6 +11,16 @@ const formatDate = (date: Date) => {
   return `${day}/${month}/${year}`;
 };
 
+// Helper function to convert arraybuffer to base64
+const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+};
+
 export const generateCustomerSummaryPDF = async (customerId: string) => {
   const { getBillsByCustomer, getCustomerBalance, getPayments } = await import('@/lib/storage');
   const bills = getBillsByCustomer(customerId);
@@ -137,13 +147,12 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
   try {
     if (Capacitor.isNativePlatform()) {
       const pdfOutput = doc.output('arraybuffer');
-      const base64Data = btoa(String.fromCharCode(...new Uint8Array(pdfOutput)));
+      const base64Data = arrayBufferToBase64(pdfOutput);
       
       await Filesystem.writeFile({
         path: `summaries/${fileName}`,
         data: base64Data,
         directory: Directory.Documents,
-        encoding: Encoding.UTF8,
       });
       
       return { success: true, message: 'Summary saved to Documents/summaries folder' };
@@ -228,13 +237,12 @@ export const generateBillPDF = async (bill: Bill) => {
     if (Capacitor.isNativePlatform()) {
       // Mobile: Use Capacitor Filesystem API
       const pdfOutput = doc.output('arraybuffer');
-      const base64Data = btoa(String.fromCharCode(...new Uint8Array(pdfOutput)));
+      const base64Data = arrayBufferToBase64(pdfOutput);
       
       await Filesystem.writeFile({
         path: `bills/${fileName}`,
         data: base64Data,
         directory: Directory.Documents,
-        encoding: Encoding.UTF8,
       });
       
       return { success: true, message: 'Bill saved to Documents/bills folder' };
