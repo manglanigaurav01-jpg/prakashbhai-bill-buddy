@@ -35,12 +35,12 @@ workflows:
           if [ -f "capacitor.config.ts" ]; then
             sed -i '' 's/"compileSdkVersion": 34/"compileSdkVersion": 33/g' capacitor.config.ts
           fi
-          # Create a temporary variables.gradle with Java 17
+          # Create a temporary variables.gradle with Java 17 and higher SDK
           cat > android/variables.gradle << 'EOF'
           ext {
               minSdkVersion = 22
-              compileSdkVersion = 33
-              targetSdkVersion = 33
+              compileSdkVersion = 35
+              targetSdkVersion = 34
               androidxActivityVersion = '1.7.0'
               androidxAppCompatVersion = '1.6.1'
               androidxCoordinatorLayoutVersion = '1.2.0'
