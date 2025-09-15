@@ -21,35 +21,55 @@ const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
   return btoa(binary);
 };
 
+// Helper function to request storage permissions
+const requestStoragePermissions = async () => {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const permissions = await Filesystem.requestPermissions();
+      return permissions.publicStorage === 'granted';
+    } catch (error) {
+      console.error('Permission request failed:', error);
+      return false;
+    }
+  }
+  return true;
+};
+
 export const generateCustomerSummaryPDF = async (customerId: string) => {
+  // Request permissions first
+  const hasPermission = await requestStoragePermissions();
+  if (!hasPermission) {
+    return { success: false, message: 'Storage permission required to save PDF' };
+  }
+
   const { getBillsByCustomer, getCustomerBalance, getPayments } = await import('@/lib/storage');
   const bills = getBillsByCustomer(customerId);
   const balance = getCustomerBalance(customerId);
   const payments = getPayments().filter(payment => payment.customerId === customerId);
-  
+
   if (bills.length === 0) {
     return { success: false, message: 'No bills found for this customer' };
   }
 
   const doc = new jsPDF();
-  
+
   // Header - Customer Name (top, large font)
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.text(balance.customerName, 20, 20);
-  
+
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
   doc.text('Customer Summary Report', 20, 32);
-  
+
   // Date - Top Left (increased font size)
   doc.setFontSize(14);
   doc.setFont('helvetica', 'normal');
   doc.text(`Date: ${formatDate(new Date())}`, 20, 50);
-  
+
   // Prepare table data with payment information
   const tableData = [];
-  
+
   // Sort bills and payments chronologically and assign each payment at most once
   const billsSorted = [...bills].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
@@ -81,7 +101,7 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
       jama
     ]);
   });
-  
+
   autoTable(doc, {
     head: [['Sr No', 'Date1', 'Item Name', 'Total', 'Date2', 'Jama']],
     body: tableData,
@@ -111,19 +131,19 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
       5: { halign: 'right', cellWidth: 20 }, // Jama
     },
   });
-  
+
   // Summary section
   const finalY = (doc as any).lastAutoTable.finalY + 10;
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.text('Summary', 20, finalY);
-  
+
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   const summaryY = finalY + 10;
   doc.text(`Total Sales: Rs. ${balance.totalSales.toFixed(2)}`, 20, summaryY);
   doc.text(`Total Paid: Rs. ${balance.totalPaid.toFixed(2)}`, 20, summaryY + 10);
-  
+
   if (balance.pending > 0) {
     doc.setTextColor(255, 0, 0); // Red for pending
     doc.text(`Pending Amount: Rs. ${balance.pending.toFixed(2)}`, 20, summaryY + 20);
@@ -134,28 +154,28 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
     doc.setTextColor(0, 128, 0); // Green for cleared
     doc.text('Payment Status: Cleared', 20, summaryY + 20);
   }
-  
+
   // Reset color for footer
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.text('Thank you for your business!', 105, doc.internal.pageSize.height - 20, { align: 'center' });
-  
+
   // Save the PDF
   const fileName = `${balance.customerName}_Summary_${new Date().toISOString().split('T')[0]}.pdf`;
-  
+
   try {
     if (Capacitor.isNativePlatform()) {
       const pdfOutput = doc.output('arraybuffer');
       const base64Data = arrayBufferToBase64(pdfOutput);
-      
+
       await Filesystem.writeFile({
-        path: `summaries/${fileName}`,
+        path: fileName,
         data: base64Data,
-        directory: Directory.Documents,
+        directory: Directory.Cache,
       });
-      
-      return { success: true, message: 'Summary saved to Documents/summaries folder' };
+
+      return { success: true, message: 'Summary saved successfully' };
     } else {
       doc.save(fileName);
       return { success: true, message: 'Summary downloaded successfully' };
@@ -167,27 +187,33 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
 };
 
 export const generateBillPDF = async (bill: Bill) => {
+  // Request permissions first
+  const hasPermission = await requestStoragePermissions();
+  if (!hasPermission) {
+    return { success: false, message: 'Storage permission required to save PDF' };
+  }
+
   const doc = new jsPDF();
-  
+
   // Header - Customer Name (top, large font)
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.text(bill.customerName, 20, 20);
-  
+
   doc.setFontSize(12);
   doc.setFont('helvetica', 'normal');
   doc.text('Bill Receipt', 20, 32);
-  
+
   // Date - Top Left (increased font size)
   doc.setFontSize(14);
   doc.setFont('helvetica', 'normal');
   doc.text(`Date: ${formatDate(new Date(bill.date))}`, 20, 50);
-  
+
   if (bill.particulars) {
     doc.setFontSize(10);
     doc.text(`Particulars: ${bill.particulars}`, 20, 60);
   }
-  
+
   // Items table
   const tableData = bill.items.map((item, index) => [
     index + 1,
@@ -196,7 +222,7 @@ export const generateBillPDF = async (bill: Bill) => {
     `Rs. ${item.rate.toFixed(2)}`,
     `Rs. ${item.total.toFixed(2)}`
   ]);
-  
+
   autoTable(doc, {
     head: [['Sr No', 'Item Name', 'Quantity', 'Rate', 'Total']],
     body: tableData,
@@ -218,34 +244,34 @@ export const generateBillPDF = async (bill: Bill) => {
     showHead: 'everyPage',
     pageBreak: 'auto',
   });
-  
+
   // Grand total
   const finalY = (doc as any).lastAutoTable.finalY + 10;
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.text(`Grand Total: Rs. ${bill.grandTotal.toFixed(2)}`, 20, finalY);
-  
+
   // Footer
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.text('Thank you for your business!', 105, doc.internal.pageSize.height - 20, { align: 'center' });
-  
+
   // Save the PDF
   const fileName = `${bill.customerName}_${new Date(bill.date).toISOString().split('T')[0]}_${bill.id}.pdf`;
-  
+
   try {
     if (Capacitor.isNativePlatform()) {
       // Mobile: Use Capacitor Filesystem API
       const pdfOutput = doc.output('arraybuffer');
       const base64Data = arrayBufferToBase64(pdfOutput);
-      
+
       await Filesystem.writeFile({
-        path: `bills/${fileName}`,
+        path: fileName,
         data: base64Data,
-        directory: Directory.Documents,
+        directory: Directory.Cache,
       });
-      
-      return { success: true, message: 'Bill saved to Documents/bills folder' };
+
+      return { success: true, message: 'Bill saved successfully' };
     } else {
       // Web: Use browser download
       doc.save(fileName);
@@ -255,4 +281,4 @@ export const generateBillPDF = async (bill: Bill) => {
     console.error('Error saving PDF:', error);
     return { success: false, message: 'Failed to save PDF. Please try again.' };
   }
-};
+}; 
