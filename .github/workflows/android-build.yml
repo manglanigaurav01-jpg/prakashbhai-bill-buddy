@@ -5,8 +5,8 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:  # Allows manual trigger
-
+  workflow_dispatch:
+  
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -44,20 +44,36 @@ jobs:
       
     - name: Sync Capacitor
       run: npx cap sync android
-      
-    - name: Copy Android Manifest
+
+    - name: Force add storage permissions
       run: |
-        if [ -f "android/app/src/main/AndroidManifest.xml" ]; then
-          echo "AndroidManifest.xml already exists"
-        else
-          echo "AndroidManifest.xml not found in project"
-        fi
+        cd android
+        # Find the actual AndroidManifest.xml location
+        MANIFEST_PATH="app/src/main/AndroidManifest.xml"
+        
+        # Backup original
+        cp $MANIFEST_PATH $MANIFEST_PATH.backup
+        
+        # Add permissions before </manifest> tag
+        sed -i '/<\/manifest>/i\    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />' $MANIFEST_PATH
+        sed -i '/<\/manifest>/i\    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' $MANIFEST_PATH
+        sed -i '/<\/manifest>/i\    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />' $MANIFEST_PATH
+        
+        # Add legacy storage flag to application tag
+        sed -i 's/<application/<application android:requestLegacyExternalStorage="true"/' $MANIFEST_PATH
+        
+        echo "Modified AndroidManifest.xml:"
+        cat $MANIFEST_PATH
+        
+        chmod +x ./gradlew
         
     - name: Build Android APK
       run: |
+        export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home
+        export PATH=$JAVA_HOME/bin:$PATH
         cd android
-        chmod +x ./gradlew
-        ./gradlew assembleDebug --no-daemon
+        ./gradlew clean
+        ./gradlew assembleDebug --info
         
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
