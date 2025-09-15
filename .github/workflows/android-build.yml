@@ -45,6 +45,14 @@ jobs:
     - name: Sync Capacitor
       run: npx cap sync android
       
+    - name: Copy Android Manifest
+      run: |
+        if [ -f "android/app/src/main/AndroidManifest.xml" ]; then
+          echo "AndroidManifest.xml already exists"
+        else
+          echo "AndroidManifest.xml not found in project"
+        fi
+        
     - name: Build Android APK
       run: |
         cd android
