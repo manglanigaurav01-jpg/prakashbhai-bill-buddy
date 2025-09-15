@@ -5,7 +5,7 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:  # Allows manual trigger
+  workflow_dispatch:
 
 jobs:
   build:
@@ -48,48 +48,24 @@ jobs:
     - name: Force add storage permissions
       run: |
         cd android
-        # Define the path to the AndroidManifest.xml
         MANIFEST_PATH="app/src/main/AndroidManifest.xml"
-        
-        # Backup the original manifest file
         cp $MANIFEST_PATH $MANIFEST_PATH.backup
-        
-        # Add permissions before the </manifest> tag
         sed -i '/<\/manifest>/i\    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />' $MANIFEST_PATH
         sed -i '/<\/manifest>/i\    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' $MANIFEST_PATH
         sed -i '/<\/manifest>/i\    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />' $MANIFEST_PATH
-        
-        # Add legacy storage flag to the application tag
         sed -i 's/<application/<application android:requestLegacyExternalStorage="true"/' $MANIFEST_PATH
-        
         echo "Modified AndroidManifest.xml:"
         cat $MANIFEST_PATH
-        
-        # Make the gradlew script executable
         chmod +x ./gradlew
-
+        
     - name: Build Android APK
       run: |
         cd android
         ./gradlew clean
-        ./gradlew assembleDebug --info
+        ./gradlew assembleDebug --no-daemon
         
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
         name: app-debug-apk
         path: android/app/build/outputs/apk/debug/app-debug.apk
-        
-    - name: Send email notification
-      if: success()
-      uses: dawidd6/action-send-mail@v3
-      with:
-        server_address: smtp.gmail.com
-        server_port: 587
-        username: ${{ secrets.EMAIL_USERNAME }}
-        password: ${{ secrets.EMAIL_PASSWORD }}
-        subject: "APK Build Successful"
-        body: "Your Android APK has been built successfully!"
-        to: manglanigaurav001@gmail.com
-        from: "GitHub Actions"
-        attachments: android/app/build/outputs/apk/debug/app-debug.apk
