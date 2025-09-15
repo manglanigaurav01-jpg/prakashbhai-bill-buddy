@@ -18,6 +18,10 @@ const config: CapacitorConfig = {
       backgroundColor: '#3449be',
       showSpinner: true,
       spinnerColor: '#ffffff'
+    },
+    Filesystem: {
+      iosStorageLocation: 'Documents',
+      androidStorageLocation: 'Documents'
     }
   }
 };
