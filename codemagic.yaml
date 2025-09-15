@@ -6,7 +6,6 @@ workflows:
     environment:
       vars:
         PACKAGE_NAME: "com.manglanigaurav01.prakashbhaibillbuddy"
-        JAVA_HOME: /Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home
       node: 20
       npm: 9
       java: 17
@@ -29,31 +28,53 @@ workflows:
       - name: Build React app
         script: |
           npm run build
-      - name: Setup Capacitor
+      - name: Setup Capacitor with Java 17 fix
         script: |
           npx cap add android
+          # Fix capacitor.config.ts to use Java 17
+          if [ -f "capacitor.config.ts" ]; then
+            sed -i '' 's/"compileSdkVersion": 34/"compileSdkVersion": 33/g' capacitor.config.ts
+          fi
+          # Create a temporary variables.gradle with Java 17
+          cat > android/variables.gradle << 'EOF'
+          ext {
+              minSdkVersion = 22
+              compileSdkVersion = 33
+              targetSdkVersion = 33
+              androidxActivityVersion = '1.7.0'
+              androidxAppCompatVersion = '1.6.1'
+              androidxCoordinatorLayoutVersion = '1.2.0'
+              androidxCoreVersion = '1.10.0'
+              androidxFragmentVersion = '1.5.6'
+              coreSplashScreenVersion = '1.0.0'
+              androidxWebkitVersion = '1.6.1'
+              junitVersion = '4.13.2'
+              androidxJunitVersion = '1.1.5'
+              androidxEspressoCoreVersion = '3.5.1'
+              cordovaAndroidVersion = '10.1.1'
+              javaVersion = JavaVersion.VERSION_17
+          }
+          EOF
           npx cap sync android
-      - name: Set Android permissions
+      - name: Force Java 17 in build files
         script: |
-          chmod +x android/gradlew
-      - name: Fix Java version and build APK
+          cd android
+          # Replace all Java 21 references with Java 17
+          find . -name "*.gradle" -exec sed -i '' 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g' {} \;
+          find . -name "*.gradle" -exec sed -i '' 's/VERSION_21/VERSION_17/g' {} \;
+          find . -name "*.gradle" -exec sed -i '' 's/jvmTarget = "21"/jvmTarget = "17"/g' {} \;
+          find . -name "*.gradle" -exec sed -i '' 's/jvmTarget = '\''21'\''/jvmTarget = '\''17'\''/g' {} \;
+          # Set Java 17 in gradle.properties
+          echo "org.gradle.java.home=/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home" >> gradle.properties
+          echo "kotlin.jvm.target.validation.mode=warning" >> gradle.properties
+          chmod +x gradlew
+      - name: Build Android Debug APK
         script: |
           export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home
           export PATH=$JAVA_HOME/bin:$PATH
-          java -version
           cd android
-          echo "org.gradle.java.home=$JAVA_HOME" >> gradle.properties
-          echo "kotlin.jvm.target.validation.mode=warning" >> gradle.properties
-          if [ -f "variables.gradle" ]; then
-            sed -i '' 's/21/17/g' variables.gradle
-          fi
-          if [ -f "app/build.gradle" ]; then
-            sed -i '' 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g' app/build.gradle
-            sed -i '' 's/jvmTarget = "21"/jvmTarget = "17"/g' app/build.gradle
-            sed -i '' 's/sourceCompatibility JavaVersion.VERSION_21/sourceCompatibility JavaVersion.VERSION_17/g' app/build.gradle
-            sed -i '' 's/targetCompatibility JavaVersion.VERSION_21/targetCompatibility JavaVersion.VERSION_17/g' app/build.gradle
-          fi
-          ./gradlew assembleDebug -Dorg.gradle.java.home=$JAVA_HOME --stacktrace
+          ./gradlew clean
+          ./gradlew assembleDebug --info
     artifacts:
       - android/app/build/outputs/**/*.apk
     publishing:
