@@ -6,9 +6,7 @@ import { ArrowLeft, TrendingUp, ChevronDown, Download } from "lucide-react";
 import { getAllCustomerBalances } from "@/lib/storage";
 import { CustomerBalance } from "@/types";
 import { useToast } from "@/hooks/use-toast";
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { Share } from '@capacitor/share'; // CHANGE 1: Import the Capacitor Share plugin
+import { generatePendingPDF, generateAdvancePDF } from "@/lib/pdf";
 
 interface TotalBusinessProps {
   onNavigate: (view: 'create-bill' | 'customers' | 'balance' | 'amount-tracker' | 'last-balance' | 'dashboard') => void;
@@ -37,132 +35,54 @@ export const TotalBusiness = ({ onNavigate }: TotalBusinessProps) => {
   const pendingCustomers = allBalances.filter(balance => balance.pending > 0);
   const advanceCustomers = allBalances.filter(balance => balance.pending < 0);
 
-  // CHANGE 2: Make the function async
-  const generatePendingPDF = async () => {
-    const doc = new jsPDF();
-
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Pending Amounts Report', 20, 20);
-
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'normal');
-    const formatDate = (date: Date) => {
-      const day = date.getDate().toString().padStart(2, '0');
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const year = date.getFullYear();
-      return `${day}/${month}/${year}`;
-    };
-
-    doc.text(`Date: ${formatDate(new Date())}`, 20, 35);
-
-    const tableData = pendingCustomers.map((customer, index) => [
-      index + 1,
-      customer.customerName,
-      `Rs. ${customer.pending.toFixed(2)}`
-    ]);
-
-    autoTable(doc, {
-      head: [['Sr No', 'Customer Name', 'Pending Amount']],
-      body: tableData,
-      startY: 50,
-      theme: 'grid',
-      styles: { fontSize: 10, cellPadding: 3 },
-      headStyles: { fillColor: [52, 73, 190], textColor: 255, fontStyle: 'bold' },
-    });
-
-    const finalY = (doc as any).lastAutoTable.finalY + 10;
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`Total Pending: Rs. ${businessSummary.totalPending.toFixed(2)}`, 20, finalY);
-
-    // CHANGE 3: Replace doc.save() with Capacitor Share logic
+  const handleGeneratePendingPDF = async () => {
     try {
-      // Get the PDF as a Base64 data URI string
-      const pdfDataUri = doc.output('datauristring');
-      const fileName = `Pending_Amounts_${new Date().toISOString().split('T')[0]}.pdf`;
-
-      await Share.share({
-        title: fileName,
-        text: `Pending amounts report generated on ${formatDate(new Date())}`,
-        url: pdfDataUri, // The file data
-        dialogTitle: 'Share or Save PDF',
-      });
-
-      // The toast is no longer needed as the share sheet provides feedback
+      const result = await generatePendingPDF(pendingCustomers, businessSummary.totalPending);
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: result.message,
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: result.message,
+          variant: "destructive",
+        });
+      }
     } catch (error) {
-      console.error('Error sharing PDF:', error);
       toast({
         title: "Error",
-        description: "Could not share the PDF file.",
+        description: "Failed to generate pending amounts report.",
         variant: "destructive",
       });
     }
   };
 
-  // CHANGE 4: Make the function async
-  const generateAdvancePDF = async () => {
-    const doc = new jsPDF();
-
-    doc.setFontSize(18);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Advance Amounts Report', 20, 20);
-
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'normal');
-    const formatDate = (date: Date) => {
-      const day = date.getDate().toString().padStart(2, '0');
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const year = date.getFullYear();
-      return `${day}/${month}/${year}`;
-    };
-
-    doc.text(`Date: ${formatDate(new Date())}`, 20, 35);
-
-    const tableData = advanceCustomers.map((customer, index) => [
-      index + 1,
-      customer.customerName,
-      `Rs. ${Math.abs(customer.pending).toFixed(2)}`
-    ]);
-
-    autoTable(doc, {
-      head: [['Sr No', 'Customer Name', 'Advance Amount']],
-      body: tableData,
-      startY: 50,
-      theme: 'grid',
-      styles: { fontSize: 10, cellPadding: 3 },
-      headStyles: { fillColor: [52, 73, 190], textColor: 255, fontStyle: 'bold' },
-    });
-
-    const finalY = (doc as any).lastAutoTable.finalY + 10;
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text(`Total Advance: Rs. ${businessSummary.totalAdvance.toFixed(2)}`, 20, finalY);
-
-    // CHANGE 5: Replace doc.save() with Capacitor Share logic
+  const handleGenerateAdvancePDF = async () => {
     try {
-      // Get the PDF as a Base64 data URI string
-      const pdfDataUri = doc.output('datauristring');
-      const fileName = `Advance_Amounts_${new Date().toISOString().split('T')[0]}.pdf`;
-
-      await Share.share({
-        title: fileName,
-        text: `Advance amounts report generated on ${formatDate(new Date())}`,
-        url: pdfDataUri, // The file data
-        dialogTitle: 'Share or Save PDF',
-      });
-
+      const result = await generateAdvancePDF(advanceCustomers, businessSummary.totalAdvance);
+      if (result.success) {
+        toast({
+          title: "Success",
+          description: result.message,
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: result.message,
+          variant: "destructive",
+        });
+      }
     } catch (error) {
-      console.error('Error sharing PDF:', error);
       toast({
         title: "Error",
-        description: "Could not share the PDF file.",
+        description: "Failed to generate advance amounts report.",
         variant: "destructive",
       });
     }
   };
 
-  // ... The rest of your component's JSX remains the same
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-4xl mx-auto">
@@ -218,7 +138,7 @@ export const TotalBusiness = ({ onNavigate }: TotalBusinessProps) => {
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation();
-                          generatePendingPDF();
+                          handleGeneratePendingPDF();
                         }}
                         disabled={pendingCustomers.length === 0}
                       >
@@ -266,7 +186,7 @@ export const TotalBusiness = ({ onNavigate }: TotalBusinessProps) => {
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            generateAdvancePDF();
+                            handleGenerateAdvancePDF();
                           }}
                           disabled={advanceCustomers.length === 0}
                         >
