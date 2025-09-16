@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Bill } from '@/types';
+import { Bill, CustomerBalance } from '@/types';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 
@@ -128,7 +128,7 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
     if (Capacitor.isNativePlatform()) {
       const pdfOutput = doc.output('arraybuffer');
       const base64Data = arrayBufferToBase64(pdfOutput);
-      
+
       await Filesystem.writeFile({
         path: fileName,
         data: base64Data,
@@ -140,7 +140,6 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
         path: fileName
       });
 
-      // Dynamic import to avoid build issues
       const { Share } = await import('@capacitor/share');
       await Share.share({
         title: 'Customer Summary PDF',
@@ -228,7 +227,6 @@ export const generateBillPDF = async (bill: Bill) => {
         path: fileName
       });
 
-      // Dynamic import to avoid build issues
       const { Share } = await import('@capacitor/share');
       await Share.share({
         title: 'Bill PDF',
@@ -245,5 +243,141 @@ export const generateBillPDF = async (bill: Bill) => {
   } catch (error) {
     console.error('Error saving PDF:', error);
     return { success: false, message: 'Failed to save PDF. Please try again.' };
+  }
+};
+
+export const generatePendingPDF = async (pendingCustomers: CustomerBalance[], totalPending: number) => {
+  const doc = new jsPDF();
+
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Pending Amounts Report', 20, 20);
+
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Date: ${formatDate(new Date())}`, 20, 35);
+
+  const tableData = pendingCustomers.map((customer, index) => [
+    index + 1,
+    customer.customerName,
+    `Rs. ${customer.pending.toFixed(2)}`
+  ]);
+
+  autoTable(doc, {
+    head: [['Sr No', 'Customer Name', 'Pending Amount']],
+    body: tableData,
+    startY: 50,
+    theme: 'grid',
+    styles: { fontSize: 10, cellPadding: 3 },
+    headStyles: { fillColor: [52, 73, 190], textColor: 255, fontStyle: 'bold' },
+  });
+
+  const finalY = (doc as any).lastAutoTable.finalY + 10;
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Total Pending: Rs. ${totalPending.toFixed(2)}`, 20, finalY);
+
+  const fileName = `Pending_Amounts_${new Date().toISOString().split('T')[0]}.pdf`;
+
+  try {
+    if (Capacitor.isNativePlatform()) {
+      const pdfOutput = doc.output('arraybuffer');
+      const base64Data = arrayBufferToBase64(pdfOutput);
+
+      await Filesystem.writeFile({
+        path: fileName,
+        data: base64Data,
+        directory: Directory.Cache,
+      });
+
+      const fileUri = await Filesystem.getUri({
+        directory: Directory.Cache,
+        path: fileName
+      });
+
+      const { Share } = await import('@capacitor/share');
+      await Share.share({
+        title: 'Pending Amounts Report',
+        text: `Pending amounts report generated on ${formatDate(new Date())}`,
+        url: fileUri.uri,
+        dialogTitle: 'Save or Share PDF'
+      });
+
+      return { success: true, message: 'PDF ready - choose where to save it!' };
+    } else {
+      doc.save(fileName);
+      return { success: true, message: 'Pending amounts report downloaded successfully' };
+    }
+  } catch (error) {
+    console.error('Error saving PDF:', error);
+    return { success: false, message: 'Failed to save pending amounts report. Please try again.' };
+  }
+};
+
+export const generateAdvancePDF = async (advanceCustomers: CustomerBalance[], totalAdvance: number) => {
+  const doc = new jsPDF();
+
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Advance Amounts Report', 20, 20);
+
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Date: ${formatDate(new Date())}`, 20, 35);
+
+  const tableData = advanceCustomers.map((customer, index) => [
+    index + 1,
+    customer.customerName,
+    `Rs. ${Math.abs(customer.pending).toFixed(2)}`
+  ]);
+
+  autoTable(doc, {
+    head: [['Sr No', 'Customer Name', 'Advance Amount']],
+    body: tableData,
+    startY: 50,
+    theme: 'grid',
+    styles: { fontSize: 10, cellPadding: 3 },
+    headStyles: { fillColor: [52, 73, 190], textColor: 255, fontStyle: 'bold' },
+  });
+
+  const finalY = (doc as any).lastAutoTable.finalY + 10;
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Total Advance: Rs. ${totalAdvance.toFixed(2)}`, 20, finalY);
+
+  const fileName = `Advance_Amounts_${new Date().toISOString().split('T')[0]}.pdf`;
+
+  try {
+    if (Capacitor.isNativePlatform()) {
+      const pdfOutput = doc.output('arraybuffer');
+      const base64Data = arrayBufferToBase64(pdfOutput);
+
+      await Filesystem.writeFile({
+        path: fileName,
+        data: base64Data,
+        directory: Directory.Cache,
+      });
+
+      const fileUri = await Filesystem.getUri({
+        directory: Directory.Cache,
+        path: fileName
+      });
+
+      const { Share } = await import('@capacitor/share');
+      await Share.share({
+        title: 'Advance Amounts Report',
+        text: `Advance amounts report generated on ${formatDate(new Date())}`,
+        url: fileUri.uri,
+        dialogTitle: 'Save or Share PDF'
+      });
+
+      return { success: true, message: 'PDF ready - choose where to save it!' };
+    } else {
+      doc.save(fileName);
+      return { success: true, message: 'Advance amounts report downloaded successfully' };
+    }
+  } catch (error) {
+    console.error('Error saving PDF:', error);
+    return { success: false, message: 'Failed to save advance amounts report. Please try again.' };
   }
 };
