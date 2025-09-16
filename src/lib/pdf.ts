@@ -1,8 +1,9 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Bill } from '@/types';
-import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
+import { Share } from '@capacitor/share';
 
 const formatDate = (date: Date) => {
   const day = date.getDate().toString().padStart(2, '0');
@@ -11,7 +12,6 @@ const formatDate = (date: Date) => {
   return `${day}/${month}/${year}`;
 };
 
-// Helper function to convert arraybuffer to base64
 const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
   const bytes = new Uint8Array(buffer);
   let binary = '';
@@ -21,27 +21,7 @@ const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
   return btoa(binary);
 };
 
-// Helper function to request storage permissions
-const requestStoragePermissions = async () => {
-  if (Capacitor.isNativePlatform()) {
-    try {
-      const permissions = await Filesystem.requestPermissions();
-      return permissions.publicStorage === 'granted';
-    } catch (error) {
-      console.error('Permission request failed:', error);
-      return false;
-    }
-  }
-  return true;
-};
-
 export const generateCustomerSummaryPDF = async (customerId: string) => {
-  // Request permissions first
-  const hasPermission = await requestStoragePermissions();
-  if (!hasPermission) {
-    return { success: false, message: 'Storage permission required to save PDF' };
-  }
-
   const { getBillsByCustomer, getCustomerBalance, getPayments } = await import('@/lib/storage');
   const bills = getBillsByCustomer(customerId);
   const balance = getCustomerBalance(customerId);
@@ -62,15 +42,11 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
   doc.setFont('helvetica', 'normal');
   doc.text('Customer Summary Report', 20, 32);
 
-  // Date - Top Left (increased font size)
   doc.setFontSize(14);
   doc.setFont('helvetica', 'normal');
   doc.text(`Date: ${formatDate(new Date())}`, 20, 50);
 
-  // Prepare table data with payment information
   const tableData = [];
-
-  // Sort bills and payments chronologically and assign each payment at most once
   const billsSorted = [...bills].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
@@ -80,10 +56,7 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
   let paymentIndex = 0;
 
   billsSorted.forEach((bill, index) => {
-    // Get summary of items for each bill
     const itemsSummary = bill.items.map(item => `${item.itemName} (${item.quantity})`).join(', ');
-
-    // Consume at most one unmatched payment sequentially (prevents duplicates across bills)
     let date2 = '-';
     let jama = '-';
     if (paymentIndex < paymentsSorted.length) {
@@ -107,32 +80,22 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
     body: tableData,
     startY: 65,
     theme: 'grid',
-    styles: {
-      fontSize: 8,
-      cellPadding: 2,
-    },
-    headStyles: {
-      fillColor: [52, 73, 190],
-      textColor: 255,
-      fontStyle: 'bold',
-    },
-    alternateRowStyles: {
-      fillColor: [245, 247, 250],
-    },
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [52, 73, 190], textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [245, 247, 250] },
     tableLineWidth: 0.1,
     showHead: 'everyPage',
     pageBreak: 'auto',
     columnStyles: {
-      0: { halign: 'center', cellWidth: 15 }, // Sr No
-      1: { cellWidth: 22 }, // Date1
-      2: { cellWidth: 35 }, // Item Name
-      3: { halign: 'right', cellWidth: 20 }, // Total
-      4: { cellWidth: 22 }, // Date2
-      5: { halign: 'right', cellWidth: 20 }, // Jama
+      0: { halign: 'center', cellWidth: 15 },
+      1: { cellWidth: 22 },
+      2: { cellWidth: 35 },
+      3: { halign: 'right', cellWidth: 20 },
+      4: { cellWidth: 22 },
+      5: { halign: 'right', cellWidth: 20 },
     },
   });
 
-  // Summary section
   const finalY = (doc as any).lastAutoTable.finalY + 10;
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
@@ -145,37 +108,49 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
   doc.text(`Total Paid: Rs. ${balance.totalPaid.toFixed(2)}`, 20, summaryY + 10);
 
   if (balance.pending > 0) {
-    doc.setTextColor(255, 0, 0); // Red for pending
+    doc.setTextColor(255, 0, 0);
     doc.text(`Pending Amount: Rs. ${balance.pending.toFixed(2)}`, 20, summaryY + 20);
   } else if (balance.pending < 0) {
-    doc.setTextColor(0, 128, 0); // Green for advance
+    doc.setTextColor(0, 128, 0);
     doc.text(`Advance Amount: Rs. ${Math.abs(balance.pending).toFixed(2)}`, 20, summaryY + 20);
   } else {
-    doc.setTextColor(0, 128, 0); // Green for cleared
+    doc.setTextColor(0, 128, 0);
     doc.text('Payment Status: Cleared', 20, summaryY + 20);
   }
 
-  // Reset color for footer
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.text('Thank you for your business!', 105, doc.internal.pageSize.height - 20, { align: 'center' });
 
-  // Save the PDF
   const fileName = `${balance.customerName}_Summary_${new Date().toISOString().split('T')[0]}.pdf`;
 
   try {
     if (Capacitor.isNativePlatform()) {
       const pdfOutput = doc.output('arraybuffer');
       const base64Data = arrayBufferToBase64(pdfOutput);
-
+      
+      // Write to temporary cache first
       await Filesystem.writeFile({
         path: fileName,
         data: base64Data,
         directory: Directory.Cache,
       });
 
-      return { success: true, message: 'Summary saved successfully' };
+      // Get the file URI and share it
+      const fileUri = await Filesystem.getUri({
+        directory: Directory.Cache,
+        path: fileName
+      });
+
+      await Share.share({
+        title: 'Customer Summary PDF',
+        text: `Summary for ${balance.customerName}`,
+        url: fileUri.uri,
+        dialogTitle: 'Save or Share PDF'
+      });
+
+      return { success: true, message: 'PDF ready - choose where to save it!' };
     } else {
       doc.save(fileName);
       return { success: true, message: 'Summary downloaded successfully' };
@@ -187,15 +162,8 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
 };
 
 export const generateBillPDF = async (bill: Bill) => {
-  // Request permissions first
-  const hasPermission = await requestStoragePermissions();
-  if (!hasPermission) {
-    return { success: false, message: 'Storage permission required to save PDF' };
-  }
-
   const doc = new jsPDF();
 
-  // Header - Customer Name (top, large font)
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
   doc.text(bill.customerName, 20, 20);
@@ -204,7 +172,6 @@ export const generateBillPDF = async (bill: Bill) => {
   doc.setFont('helvetica', 'normal');
   doc.text('Bill Receipt', 20, 32);
 
-  // Date - Top Left (increased font size)
   doc.setFontSize(14);
   doc.setFont('helvetica', 'normal');
   doc.text(`Date: ${formatDate(new Date(bill.date))}`, 20, 50);
@@ -214,7 +181,6 @@ export const generateBillPDF = async (bill: Bill) => {
     doc.text(`Particulars: ${bill.particulars}`, 20, 60);
   }
 
-  // Items table
   const tableData = bill.items.map((item, index) => [
     index + 1,
     item.itemName,
@@ -228,40 +194,27 @@ export const generateBillPDF = async (bill: Bill) => {
     body: tableData,
     startY: bill.particulars ? 70 : 60,
     theme: 'grid',
-    styles: {
-      fontSize: 10,
-      cellPadding: 3,
-    },
-    headStyles: {
-      fillColor: [52, 73, 190],
-      textColor: 255,
-      fontStyle: 'bold',
-    },
-    alternateRowStyles: {
-      fillColor: [245, 247, 250],
-    },
+    styles: { fontSize: 10, cellPadding: 3 },
+    headStyles: { fillColor: [52, 73, 190], textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [245, 247, 250] },
     tableLineWidth: 0.1,
     showHead: 'everyPage',
     pageBreak: 'auto',
   });
 
-  // Grand total
   const finalY = (doc as any).lastAutoTable.finalY + 10;
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.text(`Grand Total: Rs. ${bill.grandTotal.toFixed(2)}`, 20, finalY);
 
-  // Footer
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
   doc.text('Thank you for your business!', 105, doc.internal.pageSize.height - 20, { align: 'center' });
 
-  // Save the PDF
   const fileName = `${bill.customerName}_${new Date(bill.date).toISOString().split('T')[0]}_${bill.id}.pdf`;
 
   try {
     if (Capacitor.isNativePlatform()) {
-      // Mobile: Use Capacitor Filesystem API
       const pdfOutput = doc.output('arraybuffer');
       const base64Data = arrayBufferToBase64(pdfOutput);
 
@@ -271,9 +224,20 @@ export const generateBillPDF = async (bill: Bill) => {
         directory: Directory.Cache,
       });
 
-      return { success: true, message: 'Bill saved successfully' };
+      const fileUri = await Filesystem.getUri({
+        directory: Directory.Cache,
+        path: fileName
+      });
+
+      await Share.share({
+        title: 'Bill PDF',
+        text: `Bill for ${bill.customerName}`,
+        url: fileUri.uri,
+        dialogTitle: 'Save or Share PDF'
+      });
+
+      return { success: true, message: 'PDF ready - choose where to save it!' };
     } else {
-      // Web: Use browser download
       doc.save(fileName);
       return { success: true, message: 'Bill downloaded successfully' };
     }
@@ -281,4 +245,4 @@ export const generateBillPDF = async (bill: Bill) => {
     console.error('Error saving PDF:', error);
     return { success: false, message: 'Failed to save PDF. Please try again.' };
   }
-}; 
+};
