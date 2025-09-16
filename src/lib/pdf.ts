@@ -3,7 +3,6 @@ import autoTable from 'jspdf-autotable';
 import { Bill } from '@/types';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
-import { Share } from '@capacitor/share';
 
 const formatDate = (date: Date) => {
   const day = date.getDate().toString().padStart(2, '0');
@@ -130,19 +129,19 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
       const pdfOutput = doc.output('arraybuffer');
       const base64Data = arrayBufferToBase64(pdfOutput);
       
-      // Write to temporary cache first
       await Filesystem.writeFile({
         path: fileName,
         data: base64Data,
         directory: Directory.Cache,
       });
 
-      // Get the file URI and share it
       const fileUri = await Filesystem.getUri({
         directory: Directory.Cache,
         path: fileName
       });
 
+      // Dynamic import to avoid build issues
+      const { Share } = await import('@capacitor/share');
       await Share.share({
         title: 'Customer Summary PDF',
         text: `Summary for ${balance.customerName}`,
@@ -229,6 +228,8 @@ export const generateBillPDF = async (bill: Bill) => {
         path: fileName
       });
 
+      // Dynamic import to avoid build issues
+      const { Share } = await import('@capacitor/share');
       await Share.share({
         title: 'Bill PDF',
         text: `Bill for ${bill.customerName}`,
