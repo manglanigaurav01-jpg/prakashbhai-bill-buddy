@@ -81,15 +81,31 @@ export const ItemMaster: React.FC<ItemMasterProps> = ({ onNavigate }) => {
       ...(newItem.type === 'fixed' && { rate: parseFloat(newItem.rate) })
     };
 
-    saveItem(itemData);
-    loadItems();
-    setNewItem({ name: '', type: 'fixed', rate: '' });
-    setShowAddForm(false);
-    
-    toast({
-      title: "Success",
-      description: "Item added successfully"
-    });
+    try {
+      saveItem(itemData);
+      loadItems();
+      setNewItem({ name: '', type: 'fixed', rate: '' });
+      setShowAddForm(false);
+      
+      toast({
+        title: "Success",
+        description: "Item added successfully"
+      });
+    } catch (error: any) {
+      if (error && error.message === 'DUPLICATE_ITEM_NAME') {
+        toast({
+          title: "An item with this name already exists",
+          description: "Please use a different name",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to add item",
+          variant: "destructive"
+        });
+      }
+    }
   };
 
   const handleUpdateItem = () => {

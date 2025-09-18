@@ -121,15 +121,31 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
       return;
     }
 
-    const customer = saveCustomer({ name: newCustomerName.trim() });
-    setCustomers([...customers, customer]);
-    setSelectedCustomer(customer.id);
-    setNewCustomerName("");
-    setShowNewCustomer(false);
-    toast({
-      title: "Customer Created",
-      description: `${customer.name} has been added successfully`,
-    });
+    try {
+      const customer = saveCustomer({ name: newCustomerName.trim() });
+      setCustomers([...customers, customer]);
+      setSelectedCustomer(customer.id);
+      setNewCustomerName("");
+      setShowNewCustomer(false);
+      toast({
+        title: "Customer Created",
+        description: `${customer.name} has been added successfully`,
+      });
+    } catch (error: any) {
+      if (error && error.message === 'DUPLICATE_CUSTOMER_NAME') {
+        toast({
+          title: "A customer with this name already exists",
+          description: "Please use a different name",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to add customer",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   const handleSave = async () => {

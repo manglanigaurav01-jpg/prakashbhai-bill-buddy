@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, Users, Calculator, CreditCard, TrendingUp, Package, Clock, Settings as SettingsIcon } from "lucide-react";
+import { FileText, Users, Calculator, CreditCard, TrendingUp, Package, Settings as SettingsIcon, Edit3 } from "lucide-react";
 
 interface DashboardProps {
   onNavigate: (view: string) => void;
@@ -79,15 +79,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 <span className="text-sm font-medium">Item Master</span>
               </Button>
               
-              <Button
-                variant="outline"
-                size="lg"
-                className="h-24 flex-col gap-3 hover:bg-blue-500 hover:text-white transition-all duration-300 hover:scale-105"
-                onClick={() => onNavigate('staff-attendance')}
-              >
-                <Clock className="w-8 h-8" />
-                <span className="text-sm font-medium">Staff Attendance</span>
-              </Button>
+              
               
               <Button
                 variant="outline"
@@ -97,6 +89,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               >
                 <Users className="w-8 h-8" />
                 <span className="text-sm font-medium">Customers</span>
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="lg"
+                className="h-24 flex-col gap-3 hover:bg-purple-500 hover:text-white transition-all duration-300 hover:scale-105"
+                onClick={() => onNavigate('edit-bills')}
+              >
+                <Edit3 className="w-8 h-8" />
+                <span className="text-sm font-medium">Edit Bills</span>
               </Button>
             </div>
           </CardContent>

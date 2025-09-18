@@ -12,12 +12,12 @@ import { AmountTracker } from "@/components/AmountTracker";
 import { LastBalance } from "@/components/LastBalance";
 import { TotalBusiness } from "@/components/TotalBusiness";
 import { ItemMaster } from "@/components/ItemMaster";
-import { StaffAttendance } from "@/components/StaffAttendance";
 import { Settings } from "@/components/Settings";
+import { EditBills } from "@/components/EditBills";
 
 const queryClient = new QueryClient();
 
-type View = 'dashboard' | 'create-bill' | 'customers' | 'balance' | 'amount-tracker' | 'last-balance' | 'total-business' | 'item-master' | 'staff-attendance' | 'settings';
+type View = 'dashboard' | 'create-bill' | 'customers' | 'balance' | 'amount-tracker' | 'last-balance' | 'total-business' | 'item-master' | 'edit-bills' | 'settings';
 
 const App = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -42,8 +42,8 @@ const App = () => {
         return <TotalBusiness onNavigate={handleNavigate} />;
       case 'item-master':
         return <ItemMaster onNavigate={handleNavigate} />;
-      case 'staff-attendance':
-        return <StaffAttendance onNavigate={handleNavigate} />;
+      case 'edit-bills':
+        return <EditBills onNavigate={handleNavigate} />;
       case 'settings':
         return <Settings onNavigate={handleNavigate} />;
       default:

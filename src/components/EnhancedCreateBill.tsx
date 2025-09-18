@@ -13,7 +13,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "@/hooks/use-toast";
-import { getCustomers, saveBill, getItems, saveItem, searchItems, getMostUsedItems } from '@/lib/storage';
+import { getCustomers, saveBill, getItems, saveItem, searchItems, getMostUsedItems, saveCustomer } from '@/lib/storage';
 import { generateBillPDF } from '@/lib/pdf';
 import { Customer, BillItem, ItemMaster } from '@/types';
 
@@ -113,21 +113,37 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
       ...(newItemData.type === 'fixed' && { rate: parseFloat(newItemData.rate) })
     };
 
-    const savedItem = saveItem(itemToSave);
-    loadItems();
+    try {
+      const savedItem = saveItem(itemToSave);
+      loadItems();
 
     // Add to current bill if there's an active item index
     if (activeItemIndex !== null) {
       handleItemSelect(activeItemIndex, savedItem);
     }
 
-    setNewItemData({ name: '', type: 'variable', rate: '' });
-    setShowAddItemDialog(false);
-    
-    toast({
-      title: "Success",
-      description: "Item added to master and available for selection"
-    });
+      setNewItemData({ name: '', type: 'variable', rate: '' });
+      setShowAddItemDialog(false);
+      
+      toast({
+        title: "Success",
+        description: "Item added to master and available for selection"
+      });
+    } catch (error: any) {
+      if (error && error.message === 'DUPLICATE_ITEM_NAME') {
+        toast({
+          title: "An item with this name already exists",
+          description: "Please use a different name",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to add item",
+          variant: "destructive"
+        });
+      }
+    }
   };
 
   const handleItemNameChange = (index: number, value: string) => {
@@ -626,28 +642,31 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
             <Button 
               onClick={() => {
                 if (newCustomerName.trim()) {
-                  const newCustomer = {
-                    name: newCustomerName.trim(),
-                  };
-                  // This should use saveCustomer function
-                  const customers = getCustomers();
-                  const savedCustomer = {
-                    ...newCustomer,
-                    id: Date.now().toString(),
-                    createdAt: new Date().toISOString(),
-                  };
-                  customers.push(savedCustomer);
-                  localStorage.setItem('prakash_customers', JSON.stringify(customers));
-                  
-                  setSelectedCustomer(savedCustomer);
-                  loadCustomers();
-                  setNewCustomerName('');
-                  setShowNewCustomerDialog(false);
-                  
-                  toast({
-                    title: "Success",
-                    description: "Customer added successfully"
-                  });
+                  try {
+                    const savedCustomer = saveCustomer({ name: newCustomerName.trim() });
+                    setSelectedCustomer(savedCustomer);
+                    loadCustomers();
+                    setNewCustomerName('');
+                    setShowNewCustomerDialog(false);
+                    toast({
+                      title: "Success",
+                      description: "Customer added successfully"
+                    });
+                  } catch (error: any) {
+                    if (error && error.message === 'DUPLICATE_CUSTOMER_NAME') {
+                      toast({
+                        title: "A customer with this name already exists",
+                        description: "Please use a different name",
+                        variant: "destructive"
+                      });
+                    } else {
+                      toast({
+                        title: "Error",
+                        description: "Failed to add customer",
+                        variant: "destructive"
+                      });
+                    }
+                  }
                 }
               }}
             >
