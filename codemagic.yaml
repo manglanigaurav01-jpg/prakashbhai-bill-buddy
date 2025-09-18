@@ -25,8 +25,13 @@ workflows:
       - name: Install dependencies
         script: |
           npm ci
+          # Ensure peer tools are present for cloud/auth (placeholders used)
+          npm ls @capacitor/core jspdf || true
       - name: Build React app
         script: |
+          # Configure environment variables if needed for auth providers
+          # export VITE_GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
+          # export VITE_MSAL_CLIENT_ID=$MSAL_CLIENT_ID
           npm run build
       - name: Setup Capacitor with Java 17 fix
         script: |

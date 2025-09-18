@@ -100,6 +100,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 <Edit3 className="w-8 h-8" />
                 <span className="text-sm font-medium">Edit Bills</span>
               </Button>
+
+              <Button
+                variant="outline"
+                size="lg"
+                className="h-24 flex-col gap-3 hover:bg-emerald-500 hover:text-white transition-all duration-300 hover:scale-105"
+                onClick={() => onNavigate('edit-payments')}
+              >
+                <CreditCard className="w-8 h-8" />
+                <span className="text-sm font-medium">Edit Amt Paid</span>
+              </Button>
             </div>
           </CardContent>
         </Card>

@@ -104,6 +104,17 @@ export const deletePayment = (paymentId: string): void => {
   localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(payments));
 };
 
+export const updatePayment = (paymentId: string, updates: Partial<Omit<Payment, 'id' | 'createdAt'>>): Payment | null => {
+  const payments = getPayments();
+  const index = payments.findIndex(p => p.id === paymentId);
+  if (index === -1) return null;
+  const old = payments[index];
+  const updated: Payment = { ...old, ...updates };
+  payments[index] = updated;
+  localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(payments));
+  return updated;
+};
+
 // Balance calculations
 export const getCustomerBalance = (customerId: string): CustomerBalance => {
   const bills = getBills().filter(bill => bill.customerId === customerId);

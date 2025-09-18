@@ -14,10 +14,11 @@ import { TotalBusiness } from "@/components/TotalBusiness";
 import { ItemMaster } from "@/components/ItemMaster";
 import { Settings } from "@/components/Settings";
 import { EditBills } from "@/components/EditBills";
+import { EditPayments } from "@/components/EditPayments";
 
 const queryClient = new QueryClient();
 
-type View = 'dashboard' | 'create-bill' | 'customers' | 'balance' | 'amount-tracker' | 'last-balance' | 'total-business' | 'item-master' | 'edit-bills' | 'settings';
+type View = 'dashboard' | 'create-bill' | 'customers' | 'balance' | 'amount-tracker' | 'last-balance' | 'total-business' | 'item-master' | 'edit-bills' | 'edit-payments' | 'settings';
 
 const App = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -44,6 +45,8 @@ const App = () => {
         return <ItemMaster onNavigate={handleNavigate} />;
       case 'edit-bills':
         return <EditBills onNavigate={handleNavigate} />;
+      case 'edit-payments':
+        return <EditPayments onNavigate={handleNavigate} />;
       case 'settings':
         return <Settings onNavigate={handleNavigate} />;
       default:
