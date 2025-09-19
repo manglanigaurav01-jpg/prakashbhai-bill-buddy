@@ -303,7 +303,7 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
                 <div className="flex gap-2">
                   {!cloudUser ? (
                     <>
-                      <Button variant="outline" onClick={async () => { try { const u = await signInWithGoogle(); setCloudUser(u); initCloudSync(); toast({ title: 'Signed in', description: `Welcome ${u.displayName}` }); await syncDown(); } catch (e: any) { if (e?.message === 'REDIRECTING_FOR_GOOGLE_SIGNIN') return; toast({ title: 'Sign-in failed', description: 'Please try again', variant: 'destructive' }); } }}> <LogIn className="w-4 h-4 mr-2" /> Google</Button>
+                      <Button variant="outline" onClick={async () => { try { const u = await signInWithGoogle(); setCloudUser(u); initCloudSync(); toast({ title: 'Signed in', description: `Welcome ${u.displayName}` }); await syncDown(); } catch (e: any) { if (e?.message === 'REDIRECTING_FOR_GOOGLE_SIGNIN') return; const msg = (e && (e.message || e.code)) ? String(e.message || e.code) : 'Please try again'; toast({ title: 'Sign-in failed', description: msg, variant: 'destructive' }); } }}> <LogIn className="w-4 h-4 mr-2" /> Google</Button>
                       <Button variant="outline" onClick={async () => { try { const u = await signInWithMicrosoft(); setCloudUser(u); initCloudSync(); toast({ title: 'Signed in', description: `Welcome ${u.displayName}` }); await syncDown(); } catch {} }}> <LogIn className="w-4 h-4 mr-2" /> Microsoft</Button>
                     </>
                   ) : (
