@@ -1,5 +1,5 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut, type Auth } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut as fbSignOut, type Auth, type User } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, type Firestore } from 'firebase/firestore';
 
 export interface FirebaseServices {
@@ -29,17 +29,31 @@ export const initFirebase = (): FirebaseServices | null => {
   return services;
 };
 
-export const firebaseSignInWithGoogle = async () => {
+export const firebaseSignInWithGoogle = async (): Promise<User> => {
   const svc = initFirebase();
   if (!svc) throw new Error('FIREBASE_NOT_CONFIGURED');
-  const res = await signInWithPopup(svc.auth, svc.googleProvider);
-  return res.user;
+  try {
+    const res = await signInWithPopup(svc.auth, svc.googleProvider);
+    return res.user;
+  } catch (err: any) {
+    // Fallback to redirect for environments that block popups (mobile, some browsers)
+    await signInWithRedirect(svc.auth, svc.googleProvider);
+    // We won't have a user immediately; caller should call firebaseHandleRedirectResult on load
+    throw new Error('REDIRECTING_FOR_GOOGLE_SIGNIN');
+  }
 };
 
 export const firebaseSignOut = async () => {
   const svc = initFirebase();
   if (!svc) return;
   await fbSignOut(svc.auth);
+};
+
+export const firebaseHandleRedirectResult = async (): Promise<User | null> => {
+  const svc = initFirebase();
+  if (!svc) return null;
+  const res = await getRedirectResult(svc.auth).catch(() => null);
+  return res?.user || null;
 };
 
 export const getUserSnapshotDocRef = (uid: string) => {
