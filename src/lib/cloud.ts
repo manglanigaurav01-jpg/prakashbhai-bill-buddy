@@ -1,4 +1,5 @@
 import { getBackupConfig } from '@/lib/backup';
+import { initFirebase, firebaseSignInWithGoogle, firebaseSignOut, readUserSnapshot, writeUserSnapshot } from '@/lib/firebase';
 
 export type CloudProvider = 'google' | 'microsoft';
 
@@ -22,11 +23,10 @@ export const signOut = (): void => {
 
 // NOTE: Placeholder implementations to avoid extra deps. Replace with real SDK flows.
 export const signInWithGoogle = async (): Promise<CloudUser> => {
-  // In production, integrate Google Identity Services or Firebase Auth
-  // For now, prompt basic info to simulate login
-  const email = prompt('Enter Google email to simulate login:') || '';
-  if (!email) throw new Error('LOGIN_CANCELLED');
-  const user: CloudUser = { provider: 'google', userId: email.toLowerCase(), displayName: email.split('@')[0], email };
+  const svc = initFirebase();
+  if (!svc) throw new Error('FIREBASE_NOT_CONFIGURED');
+  const fbUser = await firebaseSignInWithGoogle();
+  const user: CloudUser = { provider: 'google', userId: fbUser.uid, displayName: fbUser.displayName || fbUser.email || 'User', email: fbUser.email || '' };
   localStorage.setItem(CLOUD_USER_KEY, JSON.stringify(user));
   return user;
 };
@@ -46,11 +46,18 @@ const CLOUD_STORE_PREFIX = 'mock_cloud_store_v1';
 const cloudKey = (user: CloudUser) => `${CLOUD_STORE_PREFIX}:${user.provider}:${user.userId}`;
 
 export const fetchCloudSnapshot = async (user: CloudUser): Promise<any | null> => {
+  if (user.provider === 'google') {
+    return await readUserSnapshot(user.userId);
+  }
   const raw = localStorage.getItem(cloudKey(user));
   return raw ? JSON.parse(raw) : null;
 };
 
 export const pushCloudSnapshot = async (user: CloudUser, snapshot: any): Promise<void> => {
+  if (user.provider === 'google') {
+    await writeUserSnapshot(user.userId, snapshot);
+    return;
+  }
   localStorage.setItem(cloudKey(user), JSON.stringify(snapshot));
 };
 
