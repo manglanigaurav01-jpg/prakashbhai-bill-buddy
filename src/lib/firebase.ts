@@ -18,7 +18,15 @@ export const initFirebase = (): FirebaseServices | null => {
   const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
   const appId = import.meta.env.VITE_FIREBASE_APP_ID;
   const storageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET;
-  if (!apiKey || !authDomain || !projectId || !appId) return null;
+  if (!apiKey || !authDomain || !projectId || !appId) {
+    const missing: string[] = [];
+    if (!apiKey) missing.push('VITE_FIREBASE_API_KEY');
+    if (!authDomain) missing.push('VITE_FIREBASE_AUTH_DOMAIN');
+    if (!projectId) missing.push('VITE_FIREBASE_PROJECT_ID');
+    if (!appId) missing.push('VITE_FIREBASE_APP_ID');
+    console.error('Firebase env missing:', missing.join(', '));
+    return null;
+  }
 
   const config = { apiKey, authDomain, projectId, appId, storageBucket } as any;
   const app = getApps().length ? getApps()[0] : initializeApp(config);
