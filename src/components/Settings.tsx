@@ -243,8 +243,10 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
                 <div>
                   <label className="text-sm font-medium">Manual Backup</label>
                   <div className="mt-1">
-                    <div className="flex gap-2">
-                      <Button className="w-full" onClick={handleManualBackup}>Create Backup Now</Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button onClick={handleManualBackup}>Create Backup</Button>
+                      <Button variant="outline" onClick={async () => { const password = prompt('Optional: Password to encrypt the backup (blank = none)') || undefined; const r = await runBackupNow(password, { providerLabel: 'OneDrive' }); toast({ title: r.success ? 'Backup complete' : 'Backup failed', description: r.message, variant: r.success ? 'default' : 'destructive' }); }}>Backup to OneDrive</Button>
+                      <Button variant="outline" onClick={async () => { const password = prompt('Optional: Password to encrypt the backup (blank = none)') || undefined; const r = await runBackupNow(password, { providerLabel: 'Google Drive' }); toast({ title: r.success ? 'Backup complete' : 'Backup failed', description: r.message, variant: r.success ? 'default' : 'destructive' }); }}>Backup to Google Drive</Button>
                       <Button variant="outline" onClick={handleRestore}>Restore</Button>
                     </div>
                   </div>

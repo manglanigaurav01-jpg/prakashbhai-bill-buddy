@@ -146,7 +146,7 @@ export const createBackupBlobSecure = async (password?: string): Promise<Blob> =
   return new Blob([JSON.stringify(plainPayload)], { type: 'application/json' });
 };
 
-export const runBackupNow = async (password?: string): Promise<{ success: boolean; message: string }> => {
+export const runBackupNow = async (password?: string, opts?: { providerLabel?: 'OneDrive' | 'Google Drive' }): Promise<{ success: boolean; message: string }> => {
   try {
     const blob = await createBackupBlobSecure(password);
     const fileName = `billbuddy_backup_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
@@ -164,8 +164,8 @@ export const runBackupNow = async (password?: string): Promise<{ success: boolea
       const fileUri = await Filesystem.getUri({ directory: Directory.Cache, path: fileName });
       const { Share } = await import('@capacitor/share');
       await Share.share({
-        title: 'Bill Buddy Backup',
-        text: 'App backup file',
+        title: opts?.providerLabel ? `Bill Buddy Backup (${opts.providerLabel})` : 'Bill Buddy Backup',
+        text: opts?.providerLabel ? `Backup for ${opts.providerLabel}` : 'App backup file',
         url: fileUri.uri,
         dialogTitle: 'Save or Share Backup (OneDrive, Files, etc.)',
       });
