@@ -46,57 +46,32 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
   doc.text(`Date: ${formatDate(new Date())}`, 20, 50);
 
   const tableData: any[] = [];
+  const billsSorted = [...bills].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+  const paymentsSorted = [...payments].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+  let paymentIndex = 0;
 
-  const normalizeDate = (value: string | Date): string => {
-    const d = value instanceof Date ? value : new Date(value);
-    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().split('T')[0];
-  };
-
-  const billsByDate = new Map<string, typeof bills>();
-  bills.forEach(bill => {
-    const key = normalizeDate(bill.date);
-    const list = billsByDate.get(key) || [];
-    list.push(bill);
-    billsByDate.set(key, list);
-  });
-
-  const paymentsByDate = new Map<string, typeof payments>();
-  payments.forEach(payment => {
-    const key = normalizeDate(payment.date);
-    const list = paymentsByDate.get(key) || [];
-    list.push(payment);
-    paymentsByDate.set(key, list);
-  });
-
-  const allDates = Array.from(new Set([...billsByDate.keys(), ...paymentsByDate.keys()]))
-    .sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
-
-  let rowIndex = 1;
-  allDates.forEach(dateKey => {
-    const dayBills = billsByDate.get(dateKey) || [];
-    const dayPayments = paymentsByDate.get(dateKey) || [];
-    const maxLen = Math.max(dayBills.length, dayPayments.length);
-
-    for (let i = 0; i < maxLen; i++) {
-      const bill = dayBills[i];
-      const payment = dayPayments[i];
-
-      const date1 = bill ? formatDate(new Date(bill.date)) : '-';
-      const itemsSummary = bill ? bill.items.map(item => `${item.itemName} (${item.quantity})`).join(', ') : '';
-      const trimmedItems = itemsSummary ? (itemsSummary.length > 30 ? itemsSummary.substring(0, 30) + '...' : itemsSummary) : '';
-      const total = bill ? `Rs. ${bill.grandTotal.toFixed(2)}` : '';
-      const date2 = payment ? formatDate(new Date(payment.date)) : '-';
-      const jama = payment ? `Rs. ${payment.amount.toFixed(2)}` : '-';
-
-      tableData.push([
-        rowIndex++,
-        date1,
-        trimmedItems,
-        total || '-',
-        date2,
-        jama
-      ]);
+  billsSorted.forEach((bill, index) => {
+    const itemsSummary = bill.items.map(item => `${item.itemName} (${item.quantity})`).join(', ');
+    let date2 = '-';
+    let jama = '-';
+    if (paymentIndex < paymentsSorted.length) {
+      const payment = paymentsSorted[paymentIndex++];
+      date2 = formatDate(new Date(payment.date));
+      jama = `Rs. ${payment.amount.toFixed(2)}`;
     }
+
+    tableData.push([
+      index + 1,
+      formatDate(new Date(bill.date)),
+      itemsSummary.length > 30 ? itemsSummary.substring(0, 30) + '...' : itemsSummary,
+      `Rs. ${bill.grandTotal.toFixed(2)}`,
+      date2,
+      jama
+    ]);
   });
 
   autoTable(doc, {
