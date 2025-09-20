@@ -149,7 +149,7 @@ export const ItemMaster: React.FC<ItemMasterProps> = ({ onNavigate }) => {
         setAnalytics(analyticsData);
         setMostUsed(mostUsedData);
       }
-    }, [showAnalytics]);
+    }, [showAnalytics, items]);
 
     const totalItems = analytics.length;
     const fixedPriceItems = items.filter(item => item.type === 'fixed').length;

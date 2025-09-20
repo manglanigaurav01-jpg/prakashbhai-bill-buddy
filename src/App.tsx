@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -22,6 +22,14 @@ type View = 'dashboard' | 'create-bill' | 'customers' | 'balance' | 'amount-trac
 
 const App = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
+
+  // Initialize theme on app start
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const shouldBeDark = savedTheme === 'dark' || (!savedTheme && systemPrefersDark);
+    document.documentElement.classList.toggle('dark', shouldBeDark);
+  }, []);
 
   const handleNavigate = (view: string) => {
     setCurrentView(view as View);

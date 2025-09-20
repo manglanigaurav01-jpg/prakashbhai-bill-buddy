@@ -13,6 +13,7 @@ import { getCustomers, saveBill, saveCustomer } from "@/lib/storage";
 import { generateBillPDF } from "@/lib/pdf";
 import { Customer, BillItem } from "@/types";
 import { useToast } from "@/hooks/use-toast";
+import { validateCustomerName, validateItemName, validateItemRate, validateItemQuantity, validateBillDate, validateForm, validateRequired } from "@/lib/validation";
 
 interface CreateBillProps {
   onNavigate: (view: 'create-bill' | 'customers' | 'balance' | 'dashboard') => void;
@@ -112,10 +113,11 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
   const totalWithCurrentItem = grandTotal + currentItemTotal;
 
   const handleCreateCustomer = () => {
-    if (!newCustomerName.trim()) {
+    const validation = validateCustomerName(newCustomerName);
+    if (!validation.isValid) {
       toast({
         title: "Invalid Customer Name",
-        description: "Please enter a customer name",
+        description: validation.error,
         variant: "destructive",
       });
       return;
@@ -149,23 +151,44 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
   };
 
   const handleSave = async () => {
-    if (!selectedCustomer) {
+    // Validate form data
+    const validations = [
+      validateRequired(selectedCustomer, 'Customer'),
+      validateBillDate(date, 'Bill date')
+    ];
+
+    // If we have a current item being typed, validate it
+    if (itemName || quantity || rate) {
+      validations.push(
+        validateItemName(itemName),
+        validateItemQuantity(quantity?.toString() || ''),
+        validateItemRate(rate?.toString() || '')
+      );
+    }
+
+    // If we have table items, validate them
+    if (items.length > 0) {
+      items.forEach((item, index) => {
+        validations.push(
+          validateItemName(item.itemName),
+          validateItemQuantity(item.quantity.toString()),
+          validateItemRate(item.rate.toString())
+        );
+      });
+    } else if (!itemName && !quantity && !rate) {
       toast({
-        title: "No Customer Selected",
-        description: "Please select a customer first",
+        title: "No Items to Save",
+        description: "Please add at least one item",
         variant: "destructive",
       });
       return;
     }
 
-    // Check if we have items in table OR a current item being typed
-    const hasTableItems = items.length > 0;
-    const hasCurrentItem = itemName && quantity && quantity > 0 && rate && rate > 0;
-    
-    if (!hasTableItems && !hasCurrentItem) {
+    const formValidation = validateForm(validations);
+    if (!formValidation.isValid) {
       toast({
-        title: "No Items to Save",
-        description: "Please add at least one item or fill the current item fields",
+        title: "Validation Error",
+        description: formValidation.errors[0],
         variant: "destructive",
       });
       return;

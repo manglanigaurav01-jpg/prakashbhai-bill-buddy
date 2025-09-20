@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Edit3, Trash2, Search, SortAsc, SortDesc, Save, Plus, X } from 'lucide-react';
+import { ArrowLeft, Edit3, Trash2, Search, SortAsc, SortDesc, Save, Plus, X, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { toast } from '@/hooks/use-toast';
 import { getBills, getCustomers, saveBill, updateBill, deleteBill } from '@/lib/storage';
 import { Bill, BillItem, Customer } from '@/types';
+import { useSwipeGestures } from '@/hooks/use-swipe-gestures';
 
 interface EditBillsProps {
   onNavigate: (view: string) => void;
@@ -187,29 +188,44 @@ export const EditBills: React.FC<EditBillsProps> = ({ onNavigate }) => {
 
         {/* Bills List */}
         <div className="space-y-3">
-          {filteredSortedBills.map((bill) => (
-            <Card key={bill.id}
-              onMouseDown={() => handlePressStart(bill.id)}
-              onMouseUp={() => handlePressEnd(bill.id)}
-              onTouchStart={() => handlePressStart(bill.id)}
-              onTouchEnd={() => handlePressEnd(bill.id)}
-              className="hover:shadow-md transition-shadow">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="text-sm text-muted-foreground">{formatDate(new Date(bill.date))}</div>
-                    <div className="text-lg font-semibold">{bill.customerName}</div>
-                    <div className="text-sm text-muted-foreground">Items: {bill.items.length} • Total: ₹{bill.grandTotal.toFixed(2)}</div>
+          {filteredSortedBills.map((bill) => {
+            const swipeGestures = useSwipeGestures({
+              onSwipeLeft: () => {
+                toast({
+                  title: "Delete Bill",
+                  description: "Long press to delete this bill",
+                  variant: "destructive"
+                });
+              },
+              onSwipeRight: () => startEdit(bill)
+            });
+
+            return (
+              <Card key={bill.id}
+                {...swipeGestures}
+                onMouseDown={() => handlePressStart(bill.id)}
+                onMouseUp={() => handlePressEnd(bill.id)}
+                className="hover:shadow-md transition-all duration-200 active:scale-95">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="text-sm text-muted-foreground">{formatDate(new Date(bill.date))}</div>
+                      <div className="text-lg font-semibold">{bill.customerName}</div>
+                      <div className="text-sm text-muted-foreground">Items: {bill.items.length} • Total: ₹{bill.grandTotal.toFixed(2)}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        💡 Swipe right to edit • Swipe left for delete
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" onClick={() => startEdit(bill)}>
+                        <Edit3 className="w-4 h-4 mr-1" /> Edit
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={() => startEdit(bill)}>
-                      <Edit3 className="w-4 h-4 mr-1" /> Edit
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
           {filteredSortedBills.length === 0 && (
             <Card>
               <CardContent className="p-8 text-center text-muted-foreground">No bills found</CardContent>

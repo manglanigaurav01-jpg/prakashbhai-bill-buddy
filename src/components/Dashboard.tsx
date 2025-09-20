@@ -1,12 +1,29 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, Users, Calculator, CreditCard, TrendingUp, Package, Settings as SettingsIcon, Edit3 } from "lucide-react";
+import { FileText, Users, Calculator, CreditCard, TrendingUp, Package, Settings as SettingsIcon, Edit3, Sun, Moon } from "lucide-react";
+import { useState, useEffect } from "react";
 
 interface DashboardProps {
   onNavigate: (view: string) => void;
 }
 
 export const Dashboard = ({ onNavigate }: DashboardProps) => {
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const shouldBeDark = savedTheme === 'dark' || (!savedTheme && systemPrefersDark);
+    setIsDarkMode(shouldBeDark);
+  }, []);
+
+  const toggleTheme = () => {
+    const newTheme = !isDarkMode;
+    setIsDarkMode(newTheme);
+    localStorage.setItem('theme', newTheme ? 'dark' : 'light');
+    document.documentElement.classList.toggle('dark', newTheme);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-soft to-accent-soft p-8">
       <div className="max-w-lg mx-auto">
@@ -15,15 +32,24 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             <h1 className="text-3xl font-bold text-foreground mb-2">Prakashbhai</h1>
             <p className="text-business-gray text-lg">Bill Manager</p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onNavigate('settings')}
-            className="ml-4"
-          >
-            <SettingsIcon className="w-4 h-4 mr-2" />
-            Settings
-          </Button>
+          <div className="flex gap-2 ml-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleTheme}
+              className="transition-all duration-200 hover:scale-105"
+            >
+              {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onNavigate('settings')}
+            >
+              <SettingsIcon className="w-4 h-4 mr-2" />
+              Settings
+            </Button>
+          </div>
         </div>
         
         <Card className="shadow-lg">

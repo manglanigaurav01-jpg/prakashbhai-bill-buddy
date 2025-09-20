@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { getBackupConfig, saveBackupConfig, runBackupNow, initAutoBackup, restoreBackupFromBlob } from '@/lib/backup';
+import { getOneDriveConfig, saveOneDriveConfig, connectOneDrive, disconnectOneDrive, checkOneDriveConnection } from '@/lib/onedrive';
 
 interface SettingsProps {
   onNavigate: (view: string) => void;
@@ -23,6 +24,8 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
   const [backupFrequency, setBackupFrequency] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
   const [lastBackupAt, setLastBackupAt] = useState<string | undefined>(undefined);
   const [cloudUser, setCloudUser] = useState<ReturnType<typeof getCurrentUser>>(null);
+  const [oneDriveConnected, setOneDriveConnected] = useState(false);
+  const [oneDriveAccount, setOneDriveAccount] = useState<string | undefined>(undefined);
 
   // Check for existing dark mode preference
   useEffect(() => {
@@ -41,6 +44,11 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
     initAutoBackup();
     setCloudUser(getCurrentUser());
     initCloudSync();
+    
+    // Load OneDrive configuration
+    const oneDriveCfg = getOneDriveConfig();
+    setOneDriveConnected(oneDriveCfg.isConnected);
+    setOneDriveAccount(oneDriveCfg.accountEmail);
     // Handle Google redirect sign-in result on load
     (async () => {
       try {
@@ -53,9 +61,11 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
           toast({ title: 'Signed in', description: `Welcome ${u.displayName}` });
           await syncDown();
         }
-      } catch {}
+      } catch (e) {
+        console.warn('Auto sign-in failed:', e);
+      }
     })();
-  }, []);
+  }, [toast]);
 
   const toggleDarkMode = (enabled: boolean) => {
     setIsDarkMode(enabled);
@@ -152,6 +162,41 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
     } catch (e) {
       toast({ title: 'Restore failed', description: 'Could not restore backup', variant: 'destructive' });
     }
+  };
+
+  const handleConnectOneDrive = async () => {
+    const result = await connectOneDrive();
+    if (result.success) {
+      saveOneDriveConfig({
+        isConnected: true,
+        accountEmail: result.accountEmail,
+        lastConnectedAt: new Date().toISOString()
+      });
+      setOneDriveConnected(true);
+      setOneDriveAccount(result.accountEmail);
+      toast({ title: 'OneDrive Connected', description: result.message });
+    } else {
+      toast({ title: 'OneDrive Connection Failed', description: result.message, variant: 'destructive' });
+    }
+  };
+
+  const handleDisconnectOneDrive = () => {
+    disconnectOneDrive();
+    setOneDriveConnected(false);
+    setOneDriveAccount(undefined);
+    toast({ title: 'OneDrive Disconnected', description: 'OneDrive integration has been disabled' });
+  };
+
+  const handleOneDriveBackup = async () => {
+    if (!oneDriveConnected) {
+      toast({ title: 'OneDrive Not Connected', description: 'Please connect OneDrive first', variant: 'destructive' });
+      return;
+    }
+    
+    const password = prompt('Optional: Set a password to encrypt the backup (leave blank for none)') || undefined;
+    const result = await runBackupNow(password, { providerLabel: 'OneDrive' });
+    setLastBackupAt(new Date().toISOString());
+    toast({ title: result.success ? 'OneDrive Backup Complete' : 'OneDrive Backup Failed', description: result.message, variant: result.success ? 'default' : 'destructive' });
   };
 
   return (
@@ -260,7 +305,9 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
                   <div className="mt-1">
                     <div className="flex flex-wrap gap-2">
                       <Button onClick={handleManualBackup}>Create Backup</Button>
-                      <Button variant="outline" onClick={async () => { const password = prompt('Optional: Password to encrypt the backup (blank = none)') || undefined; const r = await runBackupNow(password, { providerLabel: 'OneDrive' }); toast({ title: r.success ? 'Backup complete' : 'Backup failed', description: r.message, variant: r.success ? 'default' : 'destructive' }); }}>Backup to OneDrive</Button>
+                      <Button variant="outline" onClick={handleOneDriveBackup} disabled={!oneDriveConnected}>
+                        {oneDriveConnected ? 'Backup to OneDrive' : 'Connect OneDrive First'}
+                      </Button>
                       <Button variant="outline" onClick={async () => { const password = prompt('Optional: Password to encrypt the backup (blank = none)') || undefined; const r = await runBackupNow(password, { providerLabel: 'Google Drive' }); toast({ title: r.success ? 'Backup complete' : 'Backup failed', description: r.message, variant: r.success ? 'default' : 'destructive' }); }}>Backup to Google Drive</Button>
                       <Button variant="outline" onClick={handleRestore}>Restore</Button>
                     </div>
@@ -274,6 +321,49 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
                 </div>
                 <Button variant="outline" onClick={saveBackupSettings}>Save Backup Settings</Button>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* OneDrive Integration */}
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Cloud className="w-5 h-5" />
+                OneDrive Integration
+              </CardTitle>
+              <CardDescription>
+                Connect your OneDrive account for automatic backup storage.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <div className="text-sm font-medium">OneDrive Account</div>
+                  <div className="text-sm text-muted-foreground">
+                    {oneDriveConnected ? `Connected: ${oneDriveAccount}` : 'Not connected'}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {!oneDriveConnected ? (
+                    <Button variant="outline" onClick={handleConnectOneDrive}>
+                      <LogIn className="w-4 h-4 mr-2" />
+                      Connect OneDrive
+                    </Button>
+                  ) : (
+                    <Button variant="destructive" onClick={handleDisconnectOneDrive}>
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Disconnect
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {oneDriveConnected && (
+                <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                  <div className="text-sm text-green-800 dark:text-green-200">
+                    ✅ OneDrive connected! You can now use "Backup to OneDrive" for automatic cloud storage.
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -304,7 +394,7 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
                   {!cloudUser ? (
                     <>
                       <Button variant="outline" onClick={async () => { try { const u = await signInWithGoogle(); setCloudUser(u); initCloudSync(); toast({ title: 'Signed in', description: `Welcome ${u.displayName}` }); await syncDown(); } catch (e: any) { if (e?.message === 'REDIRECTING_FOR_GOOGLE_SIGNIN') return; const msg = (e && (e.message || e.code)) ? String(e.message || e.code) : 'Please try again'; toast({ title: 'Sign-in failed', description: msg, variant: 'destructive' }); } }}> <LogIn className="w-4 h-4 mr-2" /> Google</Button>
-                      <Button variant="outline" onClick={async () => { try { const u = await signInWithMicrosoft(); setCloudUser(u); initCloudSync(); toast({ title: 'Signed in', description: `Welcome ${u.displayName}` }); await syncDown(); } catch {} }}> <LogIn className="w-4 h-4 mr-2" /> Microsoft</Button>
+                      <Button variant="outline" onClick={async () => { try { const u = await signInWithMicrosoft(); setCloudUser(u); initCloudSync(); toast({ title: 'Signed in', description: `Welcome ${u.displayName}` }); await syncDown(); } catch (e) { console.warn('Microsoft sign-in failed:', e); } }}> <LogIn className="w-4 h-4 mr-2" /> Microsoft</Button>
                     </>
                   ) : (
                     <Button variant="destructive" onClick={() => { signOut(); setCloudUser(null); toast({ title: 'Signed out' }); }}> <LogOut className="w-4 h-4 mr-2" /> Logout</Button>

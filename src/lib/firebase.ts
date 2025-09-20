@@ -43,6 +43,14 @@ export const initFirebase = (): FirebaseServices | null => {
   const auth = getAuth(app);
   const db = getFirestore(app);
   const googleProvider = new GoogleAuthProvider();
+  
+  // Configure Google provider for better compatibility
+  googleProvider.addScope('email');
+  googleProvider.addScope('profile');
+  googleProvider.setCustomParameters({
+    prompt: 'select_account'
+  });
+  
   services = { app, auth, db, googleProvider };
   return services;
 };
@@ -50,14 +58,32 @@ export const initFirebase = (): FirebaseServices | null => {
 export const firebaseSignInWithGoogle = async (): Promise<User> => {
   const svc = initFirebase();
   if (!svc) throw new Error('FIREBASE_NOT_CONFIGURED');
+  
   try {
+    // Try popup first (works better on desktop)
     const res = await signInWithPopup(svc.auth, svc.googleProvider);
     return res.user;
   } catch (err: any) {
-    // Fallback to redirect for environments that block popups (mobile, some browsers)
-    await signInWithRedirect(svc.auth, svc.googleProvider);
-    // We won't have a user immediately; caller should call firebaseHandleRedirectResult on load
-    throw new Error('REDIRECTING_FOR_GOOGLE_SIGNIN');
+    console.error('Google sign-in error:', err);
+    
+    // Handle specific error cases
+    if (err.code === 'auth/popup-closed-by-user') {
+      throw new Error('Sign-in cancelled by user');
+    } else if (err.code === 'auth/popup-blocked') {
+      // Fallback to redirect for environments that block popups
+      try {
+        await signInWithRedirect(svc.auth, svc.googleProvider);
+        throw new Error('REDIRECTING_FOR_GOOGLE_SIGNIN');
+      } catch (redirectErr: any) {
+        throw new Error(`Sign-in failed: ${redirectErr.message || 'Unknown error'}`);
+      }
+    } else if (err.code === 'auth/unauthorized-domain') {
+      throw new Error('Domain not authorized. Please check Firebase console settings.');
+    } else if (err.code === 'auth/operation-not-allowed') {
+      throw new Error('Google sign-in not enabled. Please enable it in Firebase console.');
+    } else {
+      throw new Error(`Sign-in failed: ${err.message || 'Unknown error'}`);
+    }
   }
 };
 

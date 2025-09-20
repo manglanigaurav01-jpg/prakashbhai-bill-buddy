@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
+import { uploadToOneDrive, checkOneDriveConnection } from './onedrive';
 
 type BackupFrequency = 'daily' | 'weekly' | 'monthly';
 type BackupMode = 'automatic' | 'manual';
@@ -171,15 +172,36 @@ export const runBackupNow = async (password?: string, opts?: { providerLabel?: '
         dialogTitle: 'Save or Share Backup (OneDrive, Files, etc.)',
       });
     } else {
-      // Web: trigger download
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      // Web: trigger download or share
+      if (opts?.providerLabel === 'OneDrive') {
+        // For OneDrive on web, use Share API
+        const { Share } = await import('@capacitor/share');
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            resolve(result.split(',')[1]);
+          };
+          reader.readAsDataURL(blob);
+        });
+
+        await Share.share({
+          title: 'Bill Buddy Backup',
+          text: `Backup file: ${fileName}`,
+          url: `data:application/json;base64,${base64}`,
+          dialogTitle: 'Save to OneDrive'
+        });
+      } else {
+        // Regular download
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
     }
 
     // Update last run
@@ -187,7 +209,12 @@ export const runBackupNow = async (password?: string, opts?: { providerLabel?: '
     cfg.lastRunAt = new Date().toISOString();
     saveBackupConfig(cfg);
 
-    return { success: true, message: 'Backup created successfully' };
+    return { 
+      success: true, 
+      message: opts?.providerLabel === 'OneDrive' 
+        ? 'Backup shared to OneDrive successfully' 
+        : 'Backup created successfully' 
+    };
   } catch (error) {
     console.error('Backup failed:', error);
     return { success: false, message: 'Failed to create backup' };

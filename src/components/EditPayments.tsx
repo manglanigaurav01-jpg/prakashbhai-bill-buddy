@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { toast } from '@/hooks/use-toast';
 import { getPayments, getCustomers, updatePayment, deletePayment } from '@/lib/storage';
 import { Customer, Payment } from '@/types';
+import { useSwipeGestures } from '@/hooks/use-swipe-gestures';
 
 interface EditPaymentsProps {
   onNavigate: (view: string) => void;
@@ -172,27 +173,42 @@ export const EditPayments: React.FC<EditPaymentsProps> = ({ onNavigate }) => {
         </Card>
 
         <div className="space-y-3">
-          {filteredSorted.map((p) => (
-            <Card key={p.id}
-              onMouseDown={() => pressStart(p.id)}
-              onMouseUp={() => pressEnd(p.id)}
-              onTouchStart={() => pressStart(p.id)}
-              onTouchEnd={() => pressEnd(p.id)}
-              className="hover:shadow-md transition-shadow">
-              <CardContent className="p-4 flex items-center justify-between">
-                <div>
-                  <div className="text-sm text-muted-foreground">{formatDate(new Date(p.date))}</div>
-                  <div className="text-lg font-semibold">{p.customerName}</div>
-                  <div className="text-sm text-muted-foreground">Amount: ₹{p.amount.toFixed(2)}</div>
-                </div>
-                <div>
-                  <Button size="sm" variant="outline" onClick={() => startEdit(p)}>
-                    <Edit3 className="w-4 h-4 mr-1" /> Edit
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          {filteredSorted.map((p) => {
+            const swipeGestures = useSwipeGestures({
+              onSwipeLeft: () => {
+                toast({
+                  title: "Delete Payment",
+                  description: "Long press to delete this payment",
+                  variant: "destructive"
+                });
+              },
+              onSwipeRight: () => startEdit(p)
+            });
+
+            return (
+              <Card key={p.id}
+                {...swipeGestures}
+                onMouseDown={() => pressStart(p.id)}
+                onMouseUp={() => pressEnd(p.id)}
+                className="hover:shadow-md transition-all duration-200 active:scale-95">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="text-sm text-muted-foreground">{formatDate(new Date(p.date))}</div>
+                    <div className="text-lg font-semibold">{p.customerName}</div>
+                    <div className="text-sm text-muted-foreground">Amount: ₹{p.amount.toFixed(2)}</div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      💡 Swipe right to edit • Swipe left for delete
+                    </div>
+                  </div>
+                  <div>
+                    <Button size="sm" variant="outline" onClick={() => startEdit(p)}>
+                      <Edit3 className="w-4 h-4 mr-1" /> Edit
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
           {filteredSorted.length === 0 && (
             <Card>
               <CardContent className="p-8 text-center text-muted-foreground">No payments found</CardContent>
