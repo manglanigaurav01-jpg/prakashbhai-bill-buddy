@@ -162,7 +162,8 @@ export const runBackupNow = async (password?: string, opts?: { providerLabel?: '
       });
 
       const fileUri = await Filesystem.getUri({ directory: Directory.Cache, path: fileName });
-      const { Share } = await import('@capacitor/share');
+      // Avoid bundler resolution errors on web/dev where plugin isn't installed
+      const { Share } = await import(/* @vite-ignore */ '@capacitor/share');
       await Share.share({
         title: opts?.providerLabel ? `Bill Buddy Backup (${opts.providerLabel})` : 'Bill Buddy Backup',
         text: opts?.providerLabel ? `Backup for ${opts.providerLabel}` : 'App backup file',

@@ -1,6 +1,7 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut as fbSignOut, type Auth, type User } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, type Firestore } from 'firebase/firestore';
+import { FIREBASE_FALLBACK_CONFIG } from './firebase.local.config';
 
 export interface FirebaseServices {
   app: FirebaseApp;
@@ -13,22 +14,31 @@ let services: FirebaseServices | null = null;
 
 export const initFirebase = (): FirebaseServices | null => {
   if (services) return services;
+  
+  // Try environment variables first
   const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
   const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN;
   const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
   const appId = import.meta.env.VITE_FIREBASE_APP_ID;
   const storageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET;
+  
+  let config: any;
+  
   if (!apiKey || !authDomain || !projectId || !appId) {
     const missing: string[] = [];
     if (!apiKey) missing.push('VITE_FIREBASE_API_KEY');
     if (!authDomain) missing.push('VITE_FIREBASE_AUTH_DOMAIN');
     if (!projectId) missing.push('VITE_FIREBASE_PROJECT_ID');
     if (!appId) missing.push('VITE_FIREBASE_APP_ID');
-    console.error('Firebase env missing:', missing.join(', '));
-    return null;
+    console.warn('Firebase env missing:', missing.join(', '), '- using fallback config');
+    
+    // Use fallback configuration
+    config = FIREBASE_FALLBACK_CONFIG;
+  } else {
+    // Use environment variables
+    config = { apiKey, authDomain, projectId, appId, storageBucket };
   }
 
-  const config = { apiKey, authDomain, projectId, appId, storageBucket } as any;
   const app = getApps().length ? getApps()[0] : initializeApp(config);
   const auth = getAuth(app);
   const db = getFirestore(app);
