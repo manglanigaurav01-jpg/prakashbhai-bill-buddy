@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertTriangle, ArrowLeft, Moon, Sun, Trash2, Cloud, CalendarClock, LogIn, LogOut } from "lucide-react";
-import { getCurrentUser, signInWithGoogle, signInWithMicrosoft, signOut, syncDown, syncUp, initCloudSync } from '@/lib/cloud';
+import { AutoSync } from './AutoSync';
 import { firebaseHandleRedirectResult } from '@/lib/firebase';
 import { useToast } from "@/hooks/use-toast";
 import { Filesystem, Directory } from '@capacitor/filesystem';
@@ -23,7 +23,6 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
   const [backupMode, setBackupMode] = useState<'automatic' | 'manual'>('automatic');
   const [backupFrequency, setBackupFrequency] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
   const [lastBackupAt, setLastBackupAt] = useState<string | undefined>(undefined);
-  const [cloudUser, setCloudUser] = useState<ReturnType<typeof getCurrentUser>>(null);
   const [oneDriveConnected, setOneDriveConnected] = useState(false);
   const [oneDriveAccount, setOneDriveAccount] = useState<string | undefined>(undefined);
 
@@ -42,30 +41,12 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
     setBackupFrequency(cfg.frequency);
     setLastBackupAt(cfg.lastRunAt);
     initAutoBackup();
-    setCloudUser(getCurrentUser());
-    initCloudSync();
     
     // Load OneDrive configuration
     const oneDriveCfg = getOneDriveConfig();
     setOneDriveConnected(oneDriveCfg.isConnected);
     setOneDriveAccount(oneDriveCfg.accountEmail);
-    // Handle Google redirect sign-in result on load
-    (async () => {
-      try {
-        const firebaseUser = await firebaseHandleRedirectResult();
-        if (firebaseUser) {
-          // Trigger cloud layer sign-in mapping
-          const u = await signInWithGoogle();
-          setCloudUser(u);
-          initCloudSync();
-          toast({ title: 'Signed in', description: `Welcome ${u.displayName}` });
-          await syncDown();
-        }
-      } catch (e) {
-        console.warn('Auto sign-in failed:', e);
-      }
-    })();
-  }, [toast]);
+  }, []);
 
   const toggleDarkMode = (enabled: boolean) => {
     setIsDarkMode(enabled);
@@ -367,47 +348,8 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
             </CardContent>
           </Card>
 
-          {/* Cloud Sync & Auth */}
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Cloud className="w-5 h-5" />
-                Cloud Sync
-              </CardTitle>
-              <CardDescription>
-                Sign in with Google or Microsoft and sync your data across devices.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="text-sm">
-                  {cloudUser ? (
-                    <>
-                      <div className="font-medium">{cloudUser.displayName}</div>
-                      <div className="text-muted-foreground">{cloudUser.email} • {cloudUser.provider}</div>
-                    </>
-                  ) : (
-                    <div className="text-muted-foreground">Not signed in</div>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  {!cloudUser ? (
-                    <>
-                      <Button variant="outline" onClick={async () => { try { const u = await signInWithGoogle(); setCloudUser(u); initCloudSync(); toast({ title: 'Signed in', description: `Welcome ${u.displayName}` }); await syncDown(); } catch (e: any) { if (e?.message === 'REDIRECTING_FOR_GOOGLE_SIGNIN') return; const msg = (e && (e.message || e.code)) ? String(e.message || e.code) : 'Please try again'; toast({ title: 'Sign-in failed', description: msg, variant: 'destructive' }); } }}> <LogIn className="w-4 h-4 mr-2" /> Google</Button>
-                      <Button variant="outline" onClick={async () => { try { const u = await signInWithMicrosoft(); setCloudUser(u); initCloudSync(); toast({ title: 'Signed in', description: `Welcome ${u.displayName}` }); await syncDown(); } catch (e) { console.warn('Microsoft sign-in failed:', e); } }}> <LogIn className="w-4 h-4 mr-2" /> Microsoft</Button>
-                    </>
-                  ) : (
-                    <Button variant="destructive" onClick={() => { signOut(); setCloudUser(null); toast({ title: 'Signed out' }); }}> <LogOut className="w-4 h-4 mr-2" /> Logout</Button>
-                  )}
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={async () => { const r = await syncDown(); toast({ title: r.success ? 'Sync Down' : 'Sync Failed', description: r.message, variant: r.success ? 'default' : 'destructive' }); }} disabled={!cloudUser}>Sync From Cloud</Button>
-                <Button variant="outline" onClick={async () => { const r = await syncUp(); toast({ title: r.success ? 'Sync Up' : 'Sync Failed', description: r.message, variant: r.success ? 'default' : 'destructive' }); }} disabled={!cloudUser}>Sync To Cloud</Button>
-              </div>
-              <p className="text-xs text-muted-foreground">Google sync uses Firebase (live). Microsoft/OneDrive uses Share-based backups for now; direct OneDrive login can be added next.</p>
-            </CardContent>
-          </Card>
+          {/* Auto Cloud Sync */}
+          <AutoSync />
         </div>
 
         {/* Confirmation Dialog */}
