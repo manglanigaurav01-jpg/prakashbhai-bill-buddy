@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { signUp, signIn, signOutUser, initializeAuth } from '@/lib/firebase-realtime';
+import { signUp, signIn, signOutUser, initializeAuth, syncToCloud, syncFromCloud } from '@/lib/firebase-realtime';
+import { getAuth } from 'firebase/auth';
 import { toast } from '@/hooks/use-toast';
 
 export const AutoSync = () => {
@@ -111,6 +112,45 @@ export const AutoSync = () => {
             </div>
             <div className="text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
               ✓ Auto-sync is active. Any changes you make will automatically appear on all your devices.
+            </div>
+            <div className="flex gap-2 mt-4">
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  const auth = getAuth();
+                  const user = auth.currentUser;
+                  if (user) {
+                    const result = await syncToCloud(user.uid);
+                    toast({
+                      title: result.success ? 'Sync Complete' : 'Sync Failed',
+                      description: result.success ? 'Data pushed to cloud successfully' : result.error,
+                      variant: result.success ? 'default' : 'destructive'
+                    });
+                  }
+                }}
+              >
+                Push to Cloud
+              </Button>
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  const auth = getAuth();
+                  const user = auth.currentUser;
+                  if (user) {
+                    const result = await syncFromCloud(user.uid);
+                    toast({
+                      title: result.success ? 'Sync Complete' : 'Sync Failed',
+                      description: result.success ? 'Data pulled from cloud successfully' : result.error,
+                      variant: result.success ? 'default' : 'destructive'
+                    });
+                    if (result.success) {
+                      window.location.reload(); // Refresh to show updated data
+                    }
+                  }
+                }}
+              >
+                Pull from Cloud
+              </Button>
             </div>
           </div>
         )}

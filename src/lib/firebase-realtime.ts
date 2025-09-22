@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { getFirestore, doc, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 import { getBills, getPayments, getCustomers, getItems } from '@/lib/storage';
 
 const firebaseConfig = {
@@ -19,12 +19,78 @@ const db = getFirestore(app);
 
 let unsubscribeSnapshot: (() => void) | null = null;
 
+// Fetch initial data from Firestore
+const fetchInitialData = async (userId: string) => {
+  try {
+    const docRef = doc(db, 'users', userId);
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+      const data = docSnap.data();
+      localStorage.setItem('prakash_bills', JSON.stringify(data.bills || []));
+      localStorage.setItem('prakash_customers', JSON.stringify(data.customers || []));
+      localStorage.setItem('prakash_payments', JSON.stringify(data.payments || []));
+      localStorage.setItem('prakash_items', JSON.stringify(data.items || []));
+      localStorage.setItem('lastSyncTime', data.lastUpdate?.toString() || Date.now().toString());
+      
+      // Trigger UI refresh
+      window.dispatchEvent(new Event('storage'));
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error fetching initial data:', error);
+    return false;
+  }
+};
+
+// Manual sync to cloud
+export const syncToCloud = async (userId: string) => {
+  try {
+    const currentTime = Date.now();
+    const data = {
+      bills: getBills(),
+      customers: getCustomers(),
+      payments: getPayments(),
+      items: getItems(),
+      lastUpdate: currentTime
+    };
+    
+    await setDoc(doc(db, 'users', userId), data);
+    localStorage.setItem('lastSyncTime', currentTime.toString());
+    return { success: true, message: 'Data synced to cloud successfully' };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
+// Manual sync from cloud
+export const syncFromCloud = async (userId: string) => {
+  try {
+    const success = await fetchInitialData(userId);
+    return { 
+      success, 
+      message: success ? 'Data synced from cloud successfully' : 'No data found in cloud'
+    };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+};
+
 // Auto-sync function
 const setupRealtimeSync = (userId: string) => {
   // Unsubscribe from previous listener if exists
   if (unsubscribeSnapshot) {
     unsubscribeSnapshot();
   }
+
+  // First fetch initial data
+  fetchInitialData(userId).then((success) => {
+    if (!success) {
+      // If no data exists, push current local data
+      syncToCloud(userId);
+    }
+  });
 
   // Listen for remote changes
   unsubscribeSnapshot = onSnapshot(doc(db, 'users', userId), (doc) => {
