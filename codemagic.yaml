@@ -35,7 +35,10 @@ workflows:
           npm run build
       - name: Setup Capacitor with Java 17 fix
         script: |
-          npx cap add android
+          # Only add android platform if it doesn't exist
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
           # Fix capacitor.config.ts to use Java 17
           if [ -f "capacitor.config.ts" ]; then
             sed -i '' 's/"compileSdkVersion": 34/"compileSdkVersion": 33/g' capacitor.config.ts
