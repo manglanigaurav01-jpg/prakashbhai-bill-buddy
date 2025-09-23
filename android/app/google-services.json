@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "491579424292",
+    "project_id": "prakashbhai-bill-buddy-85123",
+    "storage_bucket": "prakashbhai-bill-buddy-85123.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:491579424292:android:93a7e573e3498a6cdee2b1",
+        "android_client_info": {
+          "package_name": "app.lovable.fefdfaed58db469497b3784882c36196"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "491579424292-96mflt0oeh6m50pvdgokapi718puocuh.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCD-kUBQCrz7kuNYHewynw1-8blwZsQb4w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "491579424292-96mflt0oeh6m50pvdgokapi718puocuh.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

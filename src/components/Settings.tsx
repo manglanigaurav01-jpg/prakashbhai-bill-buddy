@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { getBackupConfig, saveBackupConfig, runBackupNow, initAutoBackup, restoreBackupFromBlob } from '@/lib/backup';
-import { getOneDriveConfig, saveOneDriveConfig, connectOneDrive, disconnectOneDrive, checkOneDriveConnection } from '@/lib/onedrive';
+import { backupToGoogleDrive, restoreFromGoogleDrive } from '@/lib/google-drive';
 
 interface SettingsProps {
   onNavigate: (view: string) => void;
@@ -23,9 +23,6 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
   const [backupMode, setBackupMode] = useState<'automatic' | 'manual'>('automatic');
   const [backupFrequency, setBackupFrequency] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
   const [lastBackupAt, setLastBackupAt] = useState<string | undefined>(undefined);
-  const [oneDriveConnected, setOneDriveConnected] = useState(false);
-  const [oneDriveAccount, setOneDriveAccount] = useState<string | undefined>(undefined);
-
   // Check for existing dark mode preference
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -41,11 +38,6 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
     setBackupFrequency(cfg.frequency);
     setLastBackupAt(cfg.lastRunAt);
     initAutoBackup();
-    
-    // Load OneDrive configuration
-    const oneDriveCfg = getOneDriveConfig();
-    setOneDriveConnected(oneDriveCfg.isConnected);
-    setOneDriveAccount(oneDriveCfg.accountEmail);
   }, []);
 
   const toggleDarkMode = (enabled: boolean) => {
@@ -265,32 +257,44 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Mode</label>
-                  <div className="mt-1 flex gap-2">
-                    <Button variant={backupMode === 'automatic' ? 'default' : 'outline'} onClick={() => setBackupMode('automatic')}>Automatic</Button>
-                    <Button variant={backupMode === 'manual' ? 'default' : 'outline'} onClick={() => setBackupMode('manual')}>Manual</Button>
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">Local Backup Mode</label>
+                    <div className="mt-1 flex gap-2">
+                      <Button variant={backupMode === 'automatic' ? 'default' : 'outline'} onClick={() => setBackupMode('automatic')}>Automatic</Button>
+                      <Button variant={backupMode === 'manual' ? 'default' : 'outline'} onClick={() => setBackupMode('manual')}>Manual</Button>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Backup Frequency</label>
+                    <div className="mt-1 flex gap-2">
+                      <Button variant={backupFrequency === 'daily' ? 'default' : 'outline'} onClick={() => setBackupFrequency('daily')}>Daily</Button>
+                      <Button variant={backupFrequency === 'weekly' ? 'default' : 'outline'} onClick={() => setBackupFrequency('weekly')}>Weekly</Button>
+                      <Button variant={backupFrequency === 'monthly' ? 'default' : 'outline'} onClick={() => setBackupFrequency('monthly')}>Monthly</Button>
+                    </div>
                   </div>
                 </div>
                 <div>
-                  <label className="text-sm font-medium">Frequency</label>
-                  <div className="mt-1 flex gap-2">
-                    <Button variant={backupFrequency === 'daily' ? 'default' : 'outline'} onClick={() => setBackupFrequency('daily')}>Daily</Button>
-                    <Button variant={backupFrequency === 'weekly' ? 'default' : 'outline'} onClick={() => setBackupFrequency('weekly')}>Weekly</Button>
-                    <Button variant={backupFrequency === 'monthly' ? 'default' : 'outline'} onClick={() => setBackupFrequency('monthly')}>Monthly</Button>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Manual Backup</label>
+                  <label className="text-sm font-medium">Backup Options</label>
                   <div className="mt-1">
                     <div className="flex flex-wrap gap-2">
-                      <Button onClick={handleManualBackup}>Create Backup</Button>
-                      <Button variant="outline" onClick={handleOneDriveBackup} disabled={!oneDriveConnected}>
-                        {oneDriveConnected ? 'Backup to OneDrive' : 'Connect OneDrive First'}
+                      <Button onClick={handleManualBackup}>Local Backup</Button>
+                      <Button variant="outline" onClick={async () => {
+                        const password = prompt('Optional: Set a password to encrypt the backup (leave blank for none)') || undefined;
+                        const result = await backupToGoogleDrive(password);
+                        if (result.success) {
+                          setLastBackupAt(new Date().toISOString());
+                        }
+                        toast({
+                          title: result.success ? 'Google Drive Backup Complete' : 'Backup Failed',
+                          description: result.message,
+                          variant: result.success ? 'default' : 'destructive'
+                        });
+                      }}>
+                        Backup to Google Drive
                       </Button>
-                      <Button variant="outline" onClick={async () => { const password = prompt('Optional: Password to encrypt the backup (blank = none)') || undefined; const r = await runBackupNow(password, { providerLabel: 'Google Drive' }); toast({ title: r.success ? 'Backup complete' : 'Backup failed', description: r.message, variant: r.success ? 'default' : 'destructive' }); }}>Backup to Google Drive</Button>
-                      <Button variant="outline" onClick={handleRestore}>Restore</Button>
+                      <Button variant="outline" onClick={handleRestore}>Restore Backup</Button>
                     </div>
                   </div>
                 </div>
@@ -305,48 +309,7 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
             </CardContent>
           </Card>
 
-          {/* OneDrive Integration */}
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Cloud className="w-5 h-5" />
-                OneDrive Integration
-              </CardTitle>
-              <CardDescription>
-                Connect your OneDrive account for automatic backup storage.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <div className="text-sm font-medium">OneDrive Account</div>
-                  <div className="text-sm text-muted-foreground">
-                    {oneDriveConnected ? `Connected: ${oneDriveAccount}` : 'Not connected'}
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  {!oneDriveConnected ? (
-                    <Button variant="outline" onClick={handleConnectOneDrive}>
-                      <LogIn className="w-4 h-4 mr-2" />
-                      Connect OneDrive
-                    </Button>
-                  ) : (
-                    <Button variant="destructive" onClick={handleDisconnectOneDrive}>
-                      <LogOut className="w-4 h-4 mr-2" />
-                      Disconnect
-                    </Button>
-                  )}
-                </div>
-              </div>
-              {oneDriveConnected && (
-                <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                  <div className="text-sm text-green-800 dark:text-green-200">
-                    ✅ OneDrive connected! You can now use "Backup to OneDrive" for automatic cloud storage.
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+
 
           {/* Auto Cloud Sync */}
           <AutoSync />

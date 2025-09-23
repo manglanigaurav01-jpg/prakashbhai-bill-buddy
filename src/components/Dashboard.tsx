@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, Users, Calculator, CreditCard, TrendingUp, Package, Settings as SettingsIcon, Edit3, Sun, Moon } from "lucide-react";
+import { FileText, Users, Calculator, CreditCard, TrendingUp, Package, Settings as SettingsIcon, Edit3, Sun, Moon, BarChart } from "lucide-react";
 import { useState, useEffect } from "react";
 
 interface DashboardProps {
@@ -104,8 +104,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 <Package className="w-8 h-8" />
                 <span className="text-sm font-medium">Item Master</span>
               </Button>
-              
-              
+
+              <Button
+                variant="outline"
+                size="lg"
+                className="h-24 flex-col gap-3 hover:bg-indigo-500 hover:text-white transition-all duration-300 hover:scale-105"
+                onClick={() => onNavigate('analytics')}
+              >
+                <BarChart className="w-8 h-8" />
+                <span className="text-sm font-medium">Analytics</span>
+              </Button>
               
               <Button
                 variant="outline"

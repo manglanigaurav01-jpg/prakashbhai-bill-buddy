@@ -223,7 +223,7 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
       const billData = {
         customerId: selectedCustomer!.id,
         customerName: selectedCustomer!.name,
-        date: billDate.toISOString(),
+        date: billDate.toISOString().split('T')[0],
         particulars,
         items: billItems,
         grandTotal: calculateGrandTotal(),
@@ -260,7 +260,7 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
       const billData = {
         customerId: selectedCustomer!.id,
         customerName: selectedCustomer!.name,
-        date: billDate.toISOString(),
+        date: billDate.toISOString().split('T')[0],
         particulars,
         items: billItems,
         grandTotal: calculateGrandTotal(),

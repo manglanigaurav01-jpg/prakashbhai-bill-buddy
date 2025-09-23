@@ -65,7 +65,7 @@ export const AmountTracker = ({ onNavigate }: AmountTrackerProps) => {
       customerId: selectedCustomer,
       customerName: customer.name,
       amount: amountNum,
-      date: paymentDate.toISOString(),
+      date: paymentDate.toISOString().split('T')[0],
     });
     
     loadPaymentHistory();

@@ -25,6 +25,8 @@ export const EditPayments: React.FC<EditPaymentsProps> = ({ onNavigate }) => {
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [sortAsc, setSortAsc] = useState<boolean>(false);
   const [filterDate, setFilterDate] = useState<Date | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [editing, setEditing] = useState<Payment | null>(null);
   const [editingDate, setEditingDate] = useState<Date>(new Date());
@@ -33,8 +35,35 @@ export const EditPayments: React.FC<EditPaymentsProps> = ({ onNavigate }) => {
   const [showDeleteId, setShowDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
-    setPayments(getPayments());
-    setCustomers(getCustomers());
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const allPayments = getPayments();
+        const allCustomers = getCustomers();
+        
+        console.log('Loaded payments:', allPayments); // Debug log
+        console.log('Loaded customers:', allCustomers); // Debug log
+        
+        setPayments(allPayments);
+        setCustomers(allCustomers);
+      } catch (err) {
+        console.error('Error loading data:', err);
+        setError('Failed to load payments and customers');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadData();
+    
+    // Add event listener for storage changes
+    window.addEventListener('storage', loadData);
+    
+    return () => {
+      window.removeEventListener('storage', loadData);
+    };
   }, []);
 
   const filteredSorted = useMemo(() => {
@@ -85,7 +114,7 @@ export const EditPayments: React.FC<EditPaymentsProps> = ({ onNavigate }) => {
       customerId: editingCustomer.id,
       customerName: editingCustomer.name,
       amount: amt,
-      date: editingDate.toISOString(),
+      date: editingDate.toISOString().split('T')[0],
     });
     if (updated) {
       setPayments(getPayments());
@@ -124,6 +153,53 @@ export const EditPayments: React.FC<EditPaymentsProps> = ({ onNavigate }) => {
     const year = date.getFullYear();
     return `${day}/${month}/${year}`;
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background p-4">
+        <div className="max-w-5xl mx-auto space-y-6">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" onClick={() => onNavigate('dashboard')}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold">Edit Amt Paid</h1>
+              <p className="text-muted-foreground">Loading payments...</p>
+            </div>
+          </div>
+          <div className="text-center py-8">
+            <div className="text-lg">Loading payments and customers...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background p-4">
+        <div className="max-w-5xl mx-auto space-y-6">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" onClick={() => onNavigate('dashboard')}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold">Edit Amt Paid</h1>
+              <p className="text-muted-foreground">Error loading data</p>
+            </div>
+          </div>
+          <Card>
+            <CardContent className="p-8 text-center">
+              <div className="text-red-600 mb-4">{error}</div>
+              <Button onClick={() => window.location.reload()}>Retry</Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background p-4">
@@ -171,6 +247,17 @@ export const EditPayments: React.FC<EditPaymentsProps> = ({ onNavigate }) => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Debug Info */}
+        {payments.length > 0 && (
+          <Card>
+            <CardContent className="p-4">
+              <div className="text-sm text-muted-foreground">
+                Debug: Found {payments.length} payments, showing {filteredSorted.length} after filtering
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         <div className="space-y-3">
           {filteredSorted.map((p) => {

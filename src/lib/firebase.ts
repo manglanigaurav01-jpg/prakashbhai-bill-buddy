@@ -15,29 +15,15 @@ let services: FirebaseServices | null = null;
 export const initFirebase = (): FirebaseServices | null => {
   if (services) return services;
   
-  // Try environment variables first
-  const apiKey = import.meta.env.VITE_FIREBASE_API_KEY;
-  const authDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN;
-  const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
-  const appId = import.meta.env.VITE_FIREBASE_APP_ID;
-  const storageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET;
-  
-  let config: any;
-  
-  if (!apiKey || !authDomain || !projectId || !appId) {
-    const missing: string[] = [];
-    if (!apiKey) missing.push('VITE_FIREBASE_API_KEY');
-    if (!authDomain) missing.push('VITE_FIREBASE_AUTH_DOMAIN');
-    if (!projectId) missing.push('VITE_FIREBASE_PROJECT_ID');
-    if (!appId) missing.push('VITE_FIREBASE_APP_ID');
-    console.warn('Firebase env missing:', missing.join(', '), '- using fallback config');
-    
-    // Use fallback configuration
-    config = FIREBASE_FALLBACK_CONFIG;
-  } else {
-    // Use environment variables
-    config = { apiKey, authDomain, projectId, appId, storageBucket };
-  }
+  // Always use fallback config for consistency across platforms
+  const config = {
+    apiKey: "AIzaSyCv415KjC8orC9LJgwO921Bxi80ziYBIBY",
+    authDomain: "prakashbhai-bill-buddy-2b72e.firebaseapp.com",
+    projectId: "prakashbhai-bill-buddy-2b72e",
+    storageBucket: "prakashbhai-bill-buddy-2b72e.firebasestorage.app",
+    messagingSenderId: "970292294646",
+    appId: "1:970292294646:web:d135ab542783bc773c0dd7"
+  };
 
   const app = getApps().length ? getApps()[0] : initializeApp(config);
   const auth = getAuth(app);

@@ -46,6 +46,8 @@ export const saveBill = (bill: Omit<Bill, 'id' | 'createdAt'>): Bill => {
   };
   bills.push(newBill);
   localStorage.setItem(STORAGE_KEYS.BILLS, JSON.stringify(bills));
+  // Dispatch storage event for other components
+  window.dispatchEvent(new Event('storage'));
   return newBill;
 };
 
