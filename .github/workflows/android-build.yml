@@ -57,13 +57,27 @@ jobs:
       run: |
         cd android
         MANIFEST_PATH="app/src/main/AndroidManifest.xml"
-        cp $MANIFEST_PATH $MANIFEST_PATH.backup
-        sed -i '/<\/manifest>/i\    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />' $MANIFEST_PATH
-        sed -i '/<\/manifest>/i\    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' $MANIFEST_PATH
-        sed -i '/<\/manifest>/i\    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />' $MANIFEST_PATH
-        sed -i 's/<application/<application android:requestLegacyExternalStorage="true"/' $MANIFEST_PATH
-        echo "Modified AndroidManifest.xml:"
-        cat $MANIFEST_PATH
+        
+        # Check if AndroidManifest.xml exists
+        if [ -f "$MANIFEST_PATH" ]; then
+          echo "AndroidManifest.xml found, modifying permissions..."
+          cp "$MANIFEST_PATH" "$MANIFEST_PATH.backup"
+          sed -i '/<\/manifest>/i\    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />' "$MANIFEST_PATH"
+          sed -i '/<\/manifest>/i\    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />' "$MANIFEST_PATH"
+          sed -i '/<\/manifest>/i\    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />' "$MANIFEST_PATH"
+          sed -i 's/<application/<application android:requestLegacyExternalStorage="true"/' "$MANIFEST_PATH"
+          echo "Modified AndroidManifest.xml:"
+          cat "$MANIFEST_PATH"
+        else
+          echo "AndroidManifest.xml not found at $MANIFEST_PATH"
+          echo "Listing android/app/src/main contents:"
+          ls -la app/src/main/ || echo "Directory app/src/main/ does not exist"
+          echo "Listing current directory contents:"
+          ls -la
+          echo "Searching for AndroidManifest.xml files:"
+          find . -name "AndroidManifest.xml" -type f
+        fi
+        
         chmod +x ./gradlew
         
     - name: Build Android APK
