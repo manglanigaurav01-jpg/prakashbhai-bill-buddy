@@ -4,13 +4,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertTriangle, ArrowLeft, Moon, Sun, Trash2, Cloud, CalendarClock, LogIn, LogOut } from "lucide-react";
-import { AutoSync } from './AutoSync';
-import { firebaseHandleRedirectResult } from '@/lib/firebase';
+import { AutoSync } from "./AutoSync";
 import { useToast } from "@/hooks/use-toast";
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { getBackupConfig, saveBackupConfig, runBackupNow, initAutoBackup, restoreBackupFromBlob } from '@/lib/backup';
-import { backupToGoogleDrive, restoreFromGoogleDrive } from '@/lib/google-drive';
+import { isPasswordSet, setPassword, verifyPassword, changePassword, removePassword } from '@/lib/password';
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 interface SettingsProps {
   onNavigate: (view: string) => void;
@@ -23,6 +24,14 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
   const [backupMode, setBackupMode] = useState<'automatic' | 'manual'>('automatic');
   const [backupFrequency, setBackupFrequency] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
   const [lastBackupAt, setLastBackupAt] = useState<string | undefined>(undefined);
+  const [passwordEnabled, setPasswordEnabled] = useState(isPasswordSet());
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [passwordAction, setPasswordAction] = useState<'set' | 'change' | 'remove' | 'confirmClear'>('set');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
+
   // Check for existing dark mode preference
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -52,6 +61,11 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
   };
 
   const clearAllData = async () => {
+    if (isPasswordSet() && !verifyPassword(passwordInput)) {
+      toast({ title: "Incorrect Password", description: "Please enter the correct password to clear data.", variant: "destructive" });
+      return;
+    }
+
     try {
       // Clear localStorage data but preserve theme
       const currentTheme = localStorage.getItem('theme');
@@ -89,6 +103,8 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
       
       // Close dialog and navigate back
       setIsConfirmOpen(false);
+      setShowPasswordDialog(false);
+      setPasswordInput('');
       onNavigate('dashboard');
       
       // Refresh the page to reset the app state
@@ -102,6 +118,68 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleClearDataClick = () => {
+    if (isPasswordSet()) {
+      setPasswordAction('confirmClear');
+      setShowPasswordDialog(true);
+    } else {
+      setIsConfirmOpen(true);
+    }
+  };
+
+  const handlePasswordDialogSubmit = () => {
+    switch (passwordAction) {
+      case 'confirmClear':
+        if (verifyPassword(passwordInput)) {
+          clearAllData();
+        } else {
+          toast({ title: "Incorrect Password", description: "The password you entered is incorrect.", variant: "destructive" });
+        }
+        break;
+      case 'set':
+        if (newPassword !== confirmNewPassword) {
+          toast({ title: "Passwords don't match", variant: "destructive" });
+          return;
+        }
+        const setResult = setPassword(newPassword);
+        toast({ title: setResult.success ? "Password Set" : "Error", description: setResult.message, variant: setResult.success ? "default" : "destructive" });
+        if (setResult.success) {
+          setPasswordEnabled(true);
+          setShowPasswordDialog(false);
+          resetPasswordFields();
+        }
+        break;
+      case 'change':
+        if (newPassword !== confirmNewPassword) {
+          toast({ title: "New passwords don't match", variant: "destructive" });
+          return;
+        }
+        const changeResult = changePassword(currentPassword, newPassword);
+        toast({ title: changeResult.success ? "Password Changed" : "Error", description: changeResult.message, variant: changeResult.success ? "default" : "destructive" });
+        if (changeResult.success) {
+          setShowPasswordDialog(false);
+          resetPasswordFields();
+        }
+        break;
+      case 'remove':
+        const removeResult = removePassword(currentPassword);
+        toast({ title: removeResult.success ? "Password Removed" : "Error", description: removeResult.message, variant: removeResult.success ? "default" : "destructive" });
+        if (removeResult.success) {
+          setPasswordEnabled(false);
+          setShowPasswordDialog(false);
+          resetPasswordFields();
+        }
+        break;
+    }
+  };
+
+  const resetPasswordFields = () => {
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmNewPassword('');
+    setPasswordInput('');
   };
 
   const saveBackupSettings = () => {
@@ -233,7 +311,7 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
                 <Button
                   variant="destructive"
                   className="w-full justify-start"
-                  onClick={() => setIsConfirmOpen(true)}
+                  onClick={handleClearDataClick}
                 >
                   <Trash2 className="w-4 h-4 mr-2" />
                   Clear All Data
@@ -242,6 +320,34 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
                   This will permanently delete all customers, bills, payments, items, and PDF files
                 </p>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Security Settings */}
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5" />
+                Security
+              </CardTitle>
+              <CardDescription>
+                Protect sensitive actions with a password.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {passwordEnabled ? (
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => { setPasswordAction('change'); setShowPasswordDialog(true); }}>Change Password</Button>
+                  <Button variant="destructive" onClick={() => { setPasswordAction('remove'); setShowPasswordDialog(true); }}>Remove Password</Button>
+                </div>
+              ) : (
+                <Button onClick={() => { setPasswordAction('set'); setShowPasswordDialog(true); }}>
+                  Set 4-Digit Password
+                </Button>
+              )}
+              <p className="text-xs text-muted-foreground mt-2">
+                This password will be required to clear all data.
+              </p>
             </CardContent>
           </Card>
 
@@ -350,6 +456,61 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
                 className="w-full sm:w-auto"
               >
                 Yes, Clear All Data
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Password Dialog */}
+        <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                {passwordAction === 'set' && 'Set New Password'}
+                {passwordAction === 'change' && 'Change Password'}
+                {passwordAction === 'remove' && 'Remove Password Protection'}
+                {passwordAction === 'confirmClear' && 'Enter Password to Clear Data'}
+              </DialogTitle>
+              <DialogDescription>
+                {passwordAction === 'set' && 'Create a 4-digit numeric password.'}
+                {passwordAction === 'change' && 'Enter your current and new password.'}
+                {passwordAction === 'remove' && 'Enter your current password to remove protection.'}
+                {passwordAction === 'confirmClear' && 'This is a destructive action. Please confirm.'}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              {(passwordAction === 'change' || passwordAction === 'remove') && (
+                <div className="space-y-2">
+                  <Label htmlFor="current-password">Current Password</Label>
+                  <Input id="current-password" type="password" inputMode="numeric" pattern="[0-9]*" maxLength={4} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
+                </div>
+              )}
+              {(passwordAction === 'set' || passwordAction === 'change') && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="new-password">New 4-Digit Password</Label>
+                    <Input id="new-password" type="password" inputMode="numeric" pattern="[0-9]*" maxLength={4} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="confirm-new-password">Confirm New Password</Label>
+                    <Input id="confirm-new-password" type="password" inputMode="numeric" pattern="[0-9]*" maxLength={4} value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} />
+                  </div>
+                </>
+              )}
+              {passwordAction === 'confirmClear' && (
+                <div className="space-y-2">
+                  <Label htmlFor="password-input">Enter 4-Digit Password</Label>
+                  <Input id="password-input" type="password" inputMode="numeric" pattern="[0-9]*" maxLength={4} value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} />
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => { setShowPasswordDialog(false); resetPasswordFields(); }}>Cancel</Button>
+              <Button
+                onClick={handlePasswordDialogSubmit}
+                variant={passwordAction === 'confirmClear' || passwordAction === 'remove' ? 'destructive' : 'default'}
+              >
+                Confirm
               </Button>
             </DialogFooter>
           </DialogContent>
