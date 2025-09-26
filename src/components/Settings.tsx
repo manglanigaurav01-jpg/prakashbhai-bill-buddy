@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { getBackupConfig, saveBackupConfig, runBackupNow, initAutoBackup, restoreBackupFromBlob } from '@/lib/backup';
-import { isPasswordSet, setPassword, verifyPassword, changePassword, removePassword } from '@/lib/password';
+import { isPasswordSet, setPassword, verifyPassword, changePassword, removePassword } from '@/components/password';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
