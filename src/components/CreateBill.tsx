@@ -154,11 +154,15 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
     // Validate form data
     const validations = [
       validateRequired(selectedCustomer, 'Customer'),
-      validateBillDate(date, 'Bill date')
+      validateBillDate(date)
     ];
 
+    // Check if we have items to save
+    const hasCurrentItem = itemName && quantity && rate;
+    const hasTableItems = items.length > 0;
+
     // If we have a current item being typed, validate it
-    if (itemName || quantity || rate) {
+    if (hasCurrentItem) {
       validations.push(
         validateItemName(itemName),
         validateItemQuantity(quantity?.toString() || ''),
@@ -167,7 +171,7 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
     }
 
     // If we have table items, validate them
-    if (items.length > 0) {
+    if (hasTableItems) {
       items.forEach((item, index) => {
         validations.push(
           validateItemName(item.itemName),
@@ -175,7 +179,7 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
           validateItemRate(item.rate.toString())
         );
       });
-    } else if (!itemName && !quantity && !rate) {
+    } else if (!hasCurrentItem) {
       toast({
         title: "No Items to Save",
         description: "Please add at least one item",

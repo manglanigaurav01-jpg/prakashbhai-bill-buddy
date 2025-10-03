@@ -8,7 +8,7 @@ import { getBills, getPayments, getItems, getAllCustomerBalances } from '@/lib/s
 interface AnalyticsData {
   revenues: { date: string; amount: number }[];
   topItems: { name: string; quantity: number; revenue: number }[];
-  customerPatterns: { customer: string; totalAmount: number; paymentFrequency: number }[];
+  customerPatterns: { customer: string; totalAmount: number; billCount: number; paymentFrequency: number }[];
   outstandingPayments: { customer: string; amount: number; daysOverdue: number }[];
   seasonalTrends: { month: string; currentYear: number; previousYear: number }[];
 }

@@ -5,11 +5,13 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertTriangle, ArrowLeft, Moon, Sun, Trash2, Cloud, CalendarClock, LogIn, LogOut } from "lucide-react";
 import { AutoSync } from "./AutoSync";
+import { RecycleBin } from "./RecycleBin";
 import { useToast } from "@/hooks/use-toast";
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { getBackupConfig, saveBackupConfig, runBackupNow, initAutoBackup, restoreBackupFromBlob } from '@/lib/backup';
 import { isPasswordSet, setPassword, verifyPassword, changePassword, removePassword } from '@/components/password';
+import { backupToGoogleDrive } from '@/lib/google-drive';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -216,38 +218,30 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
   };
 
   const handleConnectOneDrive = async () => {
-    const result = await connectOneDrive();
-    if (result.success) {
-      saveOneDriveConfig({
-        isConnected: true,
-        accountEmail: result.accountEmail,
-        lastConnectedAt: new Date().toISOString()
-      });
-      setOneDriveConnected(true);
-      setOneDriveAccount(result.accountEmail);
-      toast({ title: 'OneDrive Connected', description: result.message });
-    } else {
-      toast({ title: 'OneDrive Connection Failed', description: result.message, variant: 'destructive' });
-    }
+    // OneDrive integration placeholder - not implemented
+    toast({ 
+      title: 'OneDrive Not Available', 
+      description: 'OneDrive integration is not currently implemented', 
+      variant: 'destructive' 
+    });
   };
 
   const handleDisconnectOneDrive = () => {
-    disconnectOneDrive();
-    setOneDriveConnected(false);
-    setOneDriveAccount(undefined);
-    toast({ title: 'OneDrive Disconnected', description: 'OneDrive integration has been disabled' });
+    // OneDrive integration placeholder - not implemented
+    toast({ 
+      title: 'OneDrive Not Available', 
+      description: 'OneDrive integration is not currently implemented', 
+      variant: 'destructive' 
+    });
   };
 
   const handleOneDriveBackup = async () => {
-    if (!oneDriveConnected) {
-      toast({ title: 'OneDrive Not Connected', description: 'Please connect OneDrive first', variant: 'destructive' });
-      return;
-    }
-    
-    const password = prompt('Optional: Set a password to encrypt the backup (leave blank for none)') || undefined;
-    const result = await runBackupNow(password, { providerLabel: 'OneDrive' });
-    setLastBackupAt(new Date().toISOString());
-    toast({ title: result.success ? 'OneDrive Backup Complete' : 'OneDrive Backup Failed', description: result.message, variant: result.success ? 'default' : 'destructive' });
+    // OneDrive integration placeholder - not implemented
+    toast({ 
+      title: 'OneDrive Not Available', 
+      description: 'OneDrive integration is not currently implemented', 
+      variant: 'destructive' 
+    });
   };
 
   return (
@@ -415,7 +409,8 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
             </CardContent>
           </Card>
 
-
+          {/* Recycle Bin */}
+          <RecycleBin />
 
           {/* Auto Cloud Sync */}
           <AutoSync />

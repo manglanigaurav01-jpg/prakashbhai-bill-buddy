@@ -66,8 +66,15 @@ export const updateBill = (billId: string, updates: Partial<Omit<Bill, 'id' | 'c
 };
 
 export const deleteBill = (billId: string): void => {
-  const bills = getBills().filter(b => b.id !== billId);
-  localStorage.setItem(STORAGE_KEYS.BILLS, JSON.stringify(bills));
+  const bills = getBills();
+  const bill = bills.find(b => b.id === billId);
+  if (bill) {
+    const { addToRecycleBin } = require('./recycle-bin');
+    addToRecycleBin('bill', bill, `Bill #${billId.slice(-6)} - ${bill.customerName} - ₹${bill.grandTotal}`);
+  }
+  const updatedBills = bills.filter(b => b.id !== billId);
+  localStorage.setItem(STORAGE_KEYS.BILLS, JSON.stringify(updatedBills));
+  window.dispatchEvent(new Event('storage'));
 };
 
 // Payment management
@@ -102,8 +109,15 @@ export const getPaymentHistory = (): Payment[] => {
 };
 
 export const deletePayment = (paymentId: string): void => {
-  const payments = getPayments().filter(payment => payment.id !== paymentId);
-  localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(payments));
+  const payments = getPayments();
+  const payment = payments.find(p => p.id === paymentId);
+  if (payment) {
+    const { addToRecycleBin } = require('./recycle-bin');
+    addToRecycleBin('payment', payment, `Payment - ${payment.customerName} - ₹${payment.amount}`);
+  }
+  const updatedPayments = payments.filter(p => p.id !== paymentId);
+  localStorage.setItem(STORAGE_KEYS.PAYMENTS, JSON.stringify(updatedPayments));
+  window.dispatchEvent(new Event('storage'));
 };
 
 export const updatePayment = (paymentId: string, updates: Partial<Omit<Payment, 'id' | 'createdAt'>>): Payment | null => {
@@ -198,8 +212,15 @@ export const updateItem = (itemId: string, updates: Partial<Omit<ItemMaster, 'id
 };
 
 export const deleteItem = (itemId: string): void => {
-  const items = getItems().filter(item => item.id !== itemId);
-  localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(items));
+  const items = getItems();
+  const item = items.find(i => i.id === itemId);
+  if (item) {
+    const { addToRecycleBin } = require('./recycle-bin');
+    addToRecycleBin('customer', item as any, `Item - ${item.name}`);
+  }
+  const updatedItems = items.filter(i => i.id !== itemId);
+  localStorage.setItem(STORAGE_KEYS.ITEMS, JSON.stringify(updatedItems));
+  window.dispatchEvent(new Event('storage'));
 };
 
 export const getItemById = (itemId: string): ItemMaster | null => {
