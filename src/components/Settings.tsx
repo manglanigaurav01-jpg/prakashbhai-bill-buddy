@@ -63,11 +63,6 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
   };
 
   const clearAllData = async () => {
-    if (isPasswordSet() && !verifyPassword(passwordInput)) {
-      toast({ title: "Incorrect Password", description: "Please enter the correct password to clear data.", variant: "destructive" });
-      return;
-    }
-
     try {
       // Clear localStorage data but preserve theme
       const currentTheme = localStorage.getItem('theme');
