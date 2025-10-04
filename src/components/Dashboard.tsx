@@ -1,7 +1,8 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, Users, Calculator, CreditCard, TrendingUp, Package, Settings as SettingsIcon, Edit3, Sun, Moon, BarChart } from "lucide-react";
+import { FileText, Users, Calculator, CreditCard, TrendingUp, Package, Settings as SettingsIcon, Edit3, Sun, Moon, BarChart, Search } from "lucide-react";
 import { useState, useEffect } from "react";
+import { GlobalSearch } from "@/components/GlobalSearch";
 
 interface DashboardProps {
   onNavigate: (view: string) => void;
@@ -9,6 +10,7 @@ interface DashboardProps {
 
 export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
@@ -36,6 +38,14 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => setShowGlobalSearch(true)}
+              className="transition-all duration-200 hover:scale-105"
+            >
+              <Search className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={toggleTheme}
               className="transition-all duration-200 hover:scale-105"
             >
@@ -51,6 +61,12 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
             </Button>
           </div>
         </div>
+        
+        <GlobalSearch 
+          open={showGlobalSearch} 
+          onOpenChange={setShowGlobalSearch}
+          onNavigate={onNavigate}
+        />
         
         <Card className="shadow-lg">
           <CardContent className="p-8">
@@ -113,6 +129,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               >
                 <BarChart className="w-8 h-8" />
                 <span className="text-sm font-medium">Analytics</span>
+              </Button>
+              
+              <Button
+                variant="outline"
+                size="lg"
+                className="h-24 flex-col gap-3 hover:bg-teal-500 hover:text-white transition-all duration-300 hover:scale-105"
+                onClick={() => onNavigate('advanced-reports')}
+              >
+                <TrendingUp className="w-8 h-8" />
+                <span className="text-sm font-medium">Advanced Reports</span>
               </Button>
               
               <Button

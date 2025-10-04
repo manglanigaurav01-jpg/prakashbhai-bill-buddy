@@ -1,8 +1,3 @@
-export interface Customer {
-  id: string;
-  name: string;
-  createdAt: string;
-}
 
 export interface BillItem {
   id: string;
@@ -19,7 +14,10 @@ export interface Bill {
   date: string;
   particulars: string;
   items: BillItem[];
+  discount?: number;
+  discountType?: 'percentage' | 'flat';
   grandTotal: number;
+  status?: 'paid' | 'partial' | 'unpaid';
   createdAt: string;
 }
 
@@ -29,6 +27,7 @@ export interface Payment {
   customerName: string;
   amount: number;
   date: string;
+  paymentMethod?: 'Cash' | 'UPI' | 'Bank Transfer' | 'Cheque' | 'Other';
   createdAt: string;
 }
 
@@ -38,6 +37,14 @@ export interface CustomerBalance {
   totalSales: number;
   totalPaid: number;
   pending: number;
+  phone?: string;
+}
+
+export interface Customer {
+  id: string;
+  name: string;
+  phone?: string;
+  createdAt: string;
 }
 
 export interface ItemMaster {

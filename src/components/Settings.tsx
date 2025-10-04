@@ -340,6 +340,19 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
             </CardContent>
           </Card>
 
+          {/* PDF Customization */}
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle>PDF Customization</CardTitle>
+              <CardDescription>Customize bill PDF templates</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => onNavigate('pdf-customization')} className="w-full">
+                Customize PDF Templates
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Backup Settings */}
           <Card className="shadow-lg">
             <CardHeader>
