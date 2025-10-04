@@ -42,24 +42,26 @@ jobs:
     - name: Install Capacitor CLI
       run: npm install -g @capacitor/cli
       
-    - name: Add Android platform
+    - name: Remove and re-add Android platform
       run: |
-        if [ ! -d "android" ]; then
-          npx cap add android
-        else
-          echo "Android platform already exists, skipping add step"
+        if [ -d "android" ]; then
+          echo "Removing existing Android platform"
+          rm -rf android
         fi
+        npx cap add android
       
     - name: Sync Capacitor
       run: npx cap sync android
       
-    - name: Make gradlew executable
+    - name: Verify and fix Gradle wrapper
       run: |
-        if [ -f "android/gradlew" ]; then
-          chmod +x android/gradlew
-        else
-          echo "gradlew not found"
+        cd android
+        if [ ! -f "gradlew" ]; then
+          echo "Gradle wrapper not found, generating it..."
+          gradle wrapper --gradle-version=8.5
         fi
+        chmod +x gradlew
+        ls -la gradlew
         
     - name: Build Android APK
       run: |
