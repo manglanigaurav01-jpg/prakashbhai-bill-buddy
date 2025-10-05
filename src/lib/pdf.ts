@@ -160,23 +160,51 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
 };
 
 export const generateBillPDF = async (bill: Bill) => {
+  // Load custom PDF settings from localStorage
+  const savedSettings = localStorage.getItem('pdfSettings');
+  const settings = savedSettings ? JSON.parse(savedSettings) : {
+    headerColor: '#3449be',
+    textColor: '#000000',
+    companyName: 'Prakashbhai Bill Buddy',
+    tableHeaders: {
+      srNo: 'Sr No',
+      itemName: 'Item Name',
+      quantity: 'Quantity',
+      rate: 'Rate',
+      total: 'Total'
+    }
+  };
+
   const doc = new jsPDF();
+
+  // Convert hex to RGB
+  const hexToRgb = (hex: string): [number, number, number] => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? [
+      parseInt(result[1], 16),
+      parseInt(result[2], 16),
+      parseInt(result[3], 16)
+    ] : [52, 73, 190];
+  };
+
+  const headerRgb = hexToRgb(settings.headerColor);
+  const textRgb = hexToRgb(settings.textColor);
 
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text(bill.customerName, 20, 20);
-
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Bill Receipt', 20, 32);
+  doc.setTextColor(textRgb[0], textRgb[1], textRgb[2]);
+  doc.text(settings.companyName, 20, 20);
 
   doc.setFontSize(14);
   doc.setFont('helvetica', 'normal');
-  doc.text(`Date: ${formatDate(new Date(bill.date))}`, 20, 50);
+  doc.text(bill.customerName, 20, 32);
+
+  doc.setFontSize(12);
+  doc.text(`Date: ${formatDate(new Date(bill.date))}`, 20, 44);
 
   if (bill.particulars) {
     doc.setFontSize(10);
-    doc.text(`Particulars: ${bill.particulars}`, 20, 60);
+    doc.text(`Particulars: ${bill.particulars}`, 20, 54);
   }
 
   const tableData = bill.items.map((item, index) => [
@@ -187,20 +215,46 @@ export const generateBillPDF = async (bill: Bill) => {
     `Rs. ${item.total.toFixed(2)}`
   ]);
 
+  const subtotal = bill.items.reduce((sum, item) => sum + item.total, 0);
+
   autoTable(doc, {
-    head: [['Sr No', 'Item Name', 'Quantity', 'Rate', 'Total']],
+    head: [[
+      settings.tableHeaders.srNo,
+      settings.tableHeaders.itemName,
+      settings.tableHeaders.quantity,
+      settings.tableHeaders.rate,
+      settings.tableHeaders.total
+    ]],
     body: tableData,
-    startY: bill.particulars ? 70 : 60,
+    startY: bill.particulars ? 64 : 54,
     theme: 'grid',
-    styles: { fontSize: 10, cellPadding: 3 },
-    headStyles: { fillColor: [52, 73, 190], textColor: 255, fontStyle: 'bold' },
+    styles: { fontSize: 10, cellPadding: 3, textColor: textRgb },
+    headStyles: { fillColor: headerRgb, textColor: 255, fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [245, 247, 250] },
     tableLineWidth: 0.1,
     showHead: 'everyPage',
     pageBreak: 'auto',
   });
 
-  const finalY = (doc as any).lastAutoTable.finalY + 10;
+  let finalY = (doc as any).lastAutoTable.finalY + 10;
+
+  doc.setTextColor(textRgb[0], textRgb[1], textRgb[2]);
+  
+  if (bill.discount && bill.discount > 0) {
+    doc.setFontSize(10);
+    doc.text(`Subtotal: Rs. ${subtotal.toFixed(2)}`, 20, finalY);
+    finalY += 7;
+    
+    const discountAmount = bill.discountType === 'percentage' 
+      ? (subtotal * bill.discount / 100)
+      : bill.discount;
+    const discountLabel = bill.discountType === 'percentage' 
+      ? `Discount (${bill.discount}%):` 
+      : 'Discount:';
+    doc.text(`${discountLabel} -Rs. ${discountAmount.toFixed(2)}`, 20, finalY);
+    finalY += 10;
+  }
+
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.text(`Grand Total: Rs. ${bill.grandTotal.toFixed(2)}`, 20, finalY);

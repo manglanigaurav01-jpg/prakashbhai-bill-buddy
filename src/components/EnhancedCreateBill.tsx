@@ -41,6 +41,8 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
     rate: ''
   });
   const [activeItemIndex, setActiveItemIndex] = useState<number | null>(null);
+  const [discount, setDiscount] = useState<string>('');
+  const [discountType, setDiscountType] = useState<'percentage' | 'flat'>('percentage');
 
   const itemInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
@@ -186,7 +188,20 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
   };
 
   const calculateGrandTotal = () => {
-    return billItems.reduce((total, item) => total + item.total, 0);
+    const subtotal = billItems.reduce((total, item) => total + item.total, 0);
+    const discountValue = parseFloat(discount) || 0;
+    const discountAmount = discountType === 'percentage' 
+      ? (subtotal * discountValue / 100)
+      : discountValue;
+    return subtotal - discountAmount;
+  };
+
+  const getDiscountAmount = () => {
+    const subtotal = billItems.reduce((total, item) => total + item.total, 0);
+    const discountValue = parseFloat(discount) || 0;
+    return discountType === 'percentage' 
+      ? (subtotal * discountValue / 100)
+      : discountValue;
   };
 
   const validateBill = () => {
@@ -220,13 +235,16 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
 
     setIsLoading(true);
     try {
+      const discountValue = parseFloat(discount) || 0;
       const billData = {
         customerId: selectedCustomer!.id,
         customerName: selectedCustomer!.name,
         date: billDate.toISOString().split('T')[0],
         particulars,
         items: billItems,
+        ...(discountValue > 0 && { discount: discountValue, discountType }),
         grandTotal: calculateGrandTotal(),
+        status: 'unpaid' as const,
       };
 
       saveBill(billData);
@@ -241,6 +259,8 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
       setBillDate(new Date());
       setParticulars('');
       setBillItems([{ id: '1', itemName: '', quantity: 0, rate: 0, total: 0 }]);
+      setDiscount('');
+      setDiscountType('percentage');
     } catch (error) {
       toast({
         title: "Error",
@@ -257,13 +277,16 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
 
     setIsLoading(true);
     try {
+      const discountValue = parseFloat(discount) || 0;
       const billData = {
         customerId: selectedCustomer!.id,
         customerName: selectedCustomer!.name,
         date: billDate.toISOString().split('T')[0],
         particulars,
         items: billItems,
+        ...(discountValue > 0 && { discount: discountValue, discountType }),
         grandTotal: calculateGrandTotal(),
+        status: 'unpaid' as const,
       };
 
       const savedBill = saveBill(billData);
@@ -280,6 +303,8 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
         setBillDate(new Date());
         setParticulars('');
         setBillItems([{ id: '1', itemName: '', quantity: 0, rate: 0, total: 0 }]);
+        setDiscount('');
+        setDiscountType('percentage');
       } else {
         toast({
           title: "Error",
@@ -578,9 +603,50 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
               </div>
             </div>
 
+            {/* Discount Section */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label>Discount Type</Label>
+                <Select value={discountType} onValueChange={(value: 'percentage' | 'flat') => setDiscountType(value)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="percentage">Percentage (%)</SelectItem>
+                    <SelectItem value="flat">Flat Amount (₹)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Discount Value</Label>
+                <Input
+                  type="number"
+                  value={discount}
+                  onChange={(e) => setDiscount(e.target.value)}
+                  placeholder={discountType === 'percentage' ? 'Enter %' : 'Enter ₹'}
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              {(parseFloat(discount) || 0) > 0 && (
+                <div className="space-y-2">
+                  <Label>Discount Amount</Label>
+                  <div className="p-2 bg-muted rounded-md text-sm font-medium">
+                    -₹{getDiscountAmount().toFixed(2)}
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Grand Total */}
             <Separator />
-            <div className="flex justify-end items-center gap-4">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-sm text-muted-foreground">Subtotal: ₹{billItems.reduce((total, item) => total + item.total, 0).toFixed(2)}</p>
+                {(parseFloat(discount) || 0) > 0 && (
+                  <p className="text-sm text-destructive">Discount: -₹{getDiscountAmount().toFixed(2)}</p>
+                )}
+              </div>
               <div className="text-right">
                 <p className="text-sm text-muted-foreground">Grand Total</p>
                 <p className="text-2xl font-bold">₹{calculateGrandTotal().toFixed(2)}</p>

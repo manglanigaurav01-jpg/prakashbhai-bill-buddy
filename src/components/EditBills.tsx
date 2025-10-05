@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Edit3, Trash2, Search, SortAsc, SortDesc, Save, Plus, X, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Edit3, Trash2, Search, SortAsc, SortDesc, Save, Plus, X, CheckCircle, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,9 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DatePicker } from '@/components/ui/date-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
 import { getBills, getCustomers, saveBill, updateBill, deleteBill } from '@/lib/storage';
 import { Bill, BillItem, Customer } from '@/types';
+import { shareViaWhatsApp, createBillMessage } from '@/lib/whatsapp';
+import { generateBillPDF } from '@/lib/pdf';
 
 
 interface EditBillsProps {
@@ -25,6 +28,9 @@ export const EditBills: React.FC<EditBillsProps> = ({ onNavigate }) => {
   const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [sortAsc, setSortAsc] = useState<boolean>(false);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'partial' | 'unpaid'>('all');
+  const [dateFrom, setDateFrom] = useState<Date | null>(null);
+  const [dateTo, setDateTo] = useState<Date | null>(null);
   const [editing, setEditing] = useState<Bill | null>(null);
   const [editingItems, setEditingItems] = useState<BillItem[]>([]);
   const [editingDate, setEditingDate] = useState<Date>(new Date());
@@ -67,9 +73,21 @@ export const EditBills: React.FC<EditBillsProps> = ({ onNavigate }) => {
 
   const filteredSortedBills = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const filtered = bills.filter(b =>
-      !q || b.customerName.toLowerCase().includes(q) || b.items.some(i => i.itemName.toLowerCase().includes(q))
-    );
+    const filtered = bills.filter(b => {
+      // Text search
+      const matchesText = !q || b.customerName.toLowerCase().includes(q) || b.items.some(i => i.itemName.toLowerCase().includes(q));
+      if (!matchesText) return false;
+      
+      // Status filter
+      if (statusFilter !== 'all' && b.status !== statusFilter) return false;
+      
+      // Date range filter
+      const billDate = new Date(b.date);
+      if (dateFrom && billDate < dateFrom) return false;
+      if (dateTo && billDate > dateTo) return false;
+      
+      return true;
+    });
     const sorted = [...filtered].sort((a, b) => {
       if (sortKey === 'date') {
         const da = new Date(a.date).getTime();
@@ -82,7 +100,7 @@ export const EditBills: React.FC<EditBillsProps> = ({ onNavigate }) => {
       }
     });
     return sorted;
-  }, [bills, query, sortKey, sortAsc]);
+  }, [bills, query, sortKey, sortAsc, statusFilter, dateFrom, dateTo]);
 
   const formatDate = (date: Date) => {
     const day = date.getDate().toString().padStart(2, '0');
@@ -233,31 +251,57 @@ export const EditBills: React.FC<EditBillsProps> = ({ onNavigate }) => {
           </div>
         </div>
 
-        {/* Search and Sort */}
+        {/* Search and Filters */}
         <Card>
-          <CardContent className="p-4 flex flex-col md:flex-row gap-3 items-start md:items-center">
-            <div className="relative flex-1 w-full">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search by customer or item..."
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                className="pl-9"
-              />
+          <CardContent className="p-4 space-y-3">
+            <div className="flex flex-col md:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search by customer or item..."
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
+                  <SelectTrigger className="min-w-[160px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date">Sort by Date</SelectItem>
+                    <SelectItem value="customerName">Sort by Customer</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button variant="outline" onClick={() => setSortAsc(s => !s)}>
+                  {sortAsc ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />}
+                </Button>
+              </div>
             </div>
-            <div className="flex gap-2 w-full md:w-auto">
-              <Select value={sortKey} onValueChange={(v) => setSortKey(v as SortKey)}>
-                <SelectTrigger className="min-w-[160px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="date">Sort by Date</SelectItem>
-                  <SelectItem value="customerName">Sort by Customer</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button variant="outline" onClick={() => setSortAsc(s => !s)}>
-                {sortAsc ? <SortAsc className="w-4 h-4" /> : <SortDesc className="w-4 h-4" />}
-              </Button>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div>
+                <Label className="text-sm mb-1 block">Status</Label>
+                <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Status</SelectItem>
+                    <SelectItem value="paid">Paid</SelectItem>
+                    <SelectItem value="partial">Partial</SelectItem>
+                    <SelectItem value="unpaid">Unpaid</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-sm mb-1 block">From Date</Label>
+                <DatePicker date={dateFrom || undefined} onDateChange={(d) => setDateFrom(d || null)} placeholder="Start date" />
+              </div>
+              <div>
+                <Label className="text-sm mb-1 block">To Date</Label>
+                <DatePicker date={dateTo || undefined} onDateChange={(d) => setDateTo(d || null)} placeholder="End date" />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -285,11 +329,29 @@ export const EditBills: React.FC<EditBillsProps> = ({ onNavigate }) => {
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="text-sm text-muted-foreground">{formatDate(new Date(bill.date))}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm text-muted-foreground">{formatDate(new Date(bill.date))}</div>
+                      {bill.status && (
+                        <Badge variant={bill.status === 'paid' ? 'default' : bill.status === 'partial' ? 'secondary' : 'destructive'}>
+                          {bill.status}
+                        </Badge>
+                      )}
+                    </div>
                     <div className="text-lg font-semibold">{bill.customerName}</div>
                     <div className="text-sm text-muted-foreground">Items: {bill.items.length} • Total: ₹{bill.grandTotal.toFixed(2)}</div>
                   </div>
                   <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={async () => {
+                      const customer = customers.find(c => c.id === bill.customerId);
+                      if (customer?.phone) {
+                        const message = createBillMessage(bill);
+                        await shareViaWhatsApp(customer.phone, message);
+                      } else {
+                        toast({ title: 'No phone number', description: 'This customer has no phone number', variant: 'destructive' });
+                      }
+                    }}>
+                      <Share2 className="w-4 h-4" />
+                    </Button>
                     <Button size="sm" variant="outline" onClick={() => startEdit(bill)}>
                       <Edit3 className="w-4 h-4 mr-1" /> Edit
                     </Button>

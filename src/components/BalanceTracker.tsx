@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, FileText, AlertCircle, TrendingUp, Download } from "lucide-react";
+import { ArrowLeft, FileText, AlertCircle, TrendingUp, Download, MessageCircle } from "lucide-react";
 import { getCustomers, getCustomerBalance, getAllCustomerBalances } from "@/lib/storage";
 import { generateCustomerSummaryPDF } from "@/lib/pdf";
+import { shareViaWhatsApp, createPaymentReminderMessage } from "@/lib/whatsapp";
 import { Customer, CustomerBalance } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 
@@ -115,15 +116,35 @@ export const BalanceTracker = ({ onNavigate }: BalanceTrackerProps) => {
             {customerBalance && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
+                <CardTitle className="flex items-center justify-between">
                     <span>Balance Details - {customerBalance.customerName}</span>
-                    <Button 
-                      onClick={() => handleGenerateSummaryPDF(customerBalance.customerId)}
-                      className="flex items-center gap-2"
-                    >
-                      <Download className="w-4 h-4" />
-                      Generate PDF Summary
-                    </Button>
+                    <div className="flex gap-2">
+                      {customerBalance.pending > 0 && (
+                        <Button 
+                          onClick={async () => {
+                            const customer = customers.find(c => c.id === customerBalance.customerId);
+                            if (customer?.phone) {
+                              const message = createPaymentReminderMessage(customerBalance.customerName, customerBalance.pending);
+                              await shareViaWhatsApp(customer.phone, message);
+                            } else {
+                              toast({ title: 'No phone number', description: 'This customer has no phone number', variant: 'destructive' });
+                            }
+                          }}
+                          variant="outline"
+                          className="flex items-center gap-2"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                          Send Reminder
+                        </Button>
+                      )}
+                      <Button 
+                        onClick={() => handleGenerateSummaryPDF(customerBalance.customerId)}
+                        className="flex items-center gap-2"
+                      >
+                        <Download className="w-4 h-4" />
+                        Generate PDF
+                      </Button>
+                    </div>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>

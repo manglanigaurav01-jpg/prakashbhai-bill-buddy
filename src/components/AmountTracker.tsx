@@ -22,6 +22,7 @@ export const AmountTracker = ({ onNavigate }: AmountTrackerProps) => {
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
   const [paymentDate, setPaymentDate] = useState<Date>(new Date());
+  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'UPI' | 'Bank Transfer' | 'Cheque' | 'Other'>('Cash');
   const [paymentHistory, setPaymentHistory] = useState<Payment[]>([]);
   const { toast } = useToast();
 
@@ -59,13 +60,14 @@ export const AmountTracker = ({ onNavigate }: AmountTrackerProps) => {
     const customer = customers.find(c => c.id === selectedCustomer);
     if (!customer) return;
 
-    // Update the recordPayment function to accept a date
+    // Update the recordPayment function to accept a date and payment method
     const { savePayment } = await import('@/lib/storage');
     savePayment({
       customerId: selectedCustomer,
       customerName: customer.name,
       amount: amountNum,
       date: paymentDate.toISOString().split('T')[0],
+      paymentMethod,
     });
     
     loadPaymentHistory();
@@ -163,6 +165,22 @@ export const AmountTracker = ({ onNavigate }: AmountTrackerProps) => {
                 </Popover>
               </div>
 
+              <div className="space-y-2">
+                <Label>Payment Method</Label>
+                <Select value={paymentMethod} onValueChange={(value: any) => setPaymentMethod(value)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Cash">Cash</SelectItem>
+                    <SelectItem value="UPI">UPI</SelectItem>
+                    <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                    <SelectItem value="Cheque">Cheque</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <Button onClick={handleRecordPayment} className="w-full">
                 <Save className="w-4 h-4 mr-2" />
                 Record Payment
@@ -194,8 +212,8 @@ export const AmountTracker = ({ onNavigate }: AmountTrackerProps) => {
                             const month = (date.getMonth() + 1).toString().padStart(2, '0');
                             const year = date.getFullYear();
                             return `${day}/${month}/${year}`;
-                          })()} at{' '}
-                          {new Date(payment.date).toLocaleTimeString()}
+                          })()}
+                          {payment.paymentMethod && ` • ${payment.paymentMethod}`}
                         </div>
                       </div>
                       <div className="flex items-center gap-2">

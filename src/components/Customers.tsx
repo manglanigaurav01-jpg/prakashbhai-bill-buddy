@@ -26,6 +26,7 @@ interface CustomersProps {
 export const Customers = ({ onNavigate }: CustomersProps) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [newCustomerName, setNewCustomerName] = useState("");
+  const [newCustomerPhone, setNewCustomerPhone] = useState("");
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const { toast } = useToast();
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
@@ -46,9 +47,13 @@ export const Customers = ({ onNavigate }: CustomersProps) => {
     }
 
     try {
-      const customer = saveCustomer({ name: newCustomerName.trim() });
+      const customer = saveCustomer({ 
+        name: newCustomerName.trim(),
+        ...(newCustomerPhone.trim() && { phone: newCustomerPhone.trim() })
+      });
       setCustomers([...customers, customer]);
       setNewCustomerName("");
+      setNewCustomerPhone("");
       toast({
         title: "Customer Added",
         description: `${customer.name} has been added successfully`,
@@ -139,8 +144,8 @@ export const Customers = ({ onNavigate }: CustomersProps) => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex gap-2">
-                <div className="flex-1">
+              <div className="space-y-3">
+                <div>
                   <Label htmlFor="customerName">Customer Name</Label>
                   <Input
                     id="customerName"
@@ -151,12 +156,21 @@ export const Customers = ({ onNavigate }: CustomersProps) => {
                     className="mt-1"
                   />
                 </div>
-                <div className="flex items-end">
-                  <Button onClick={handleAddCustomer} disabled={!newCustomerName.trim()}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Customer
-                  </Button>
+                <div>
+                  <Label htmlFor="customerPhone">Phone Number (Optional)</Label>
+                  <Input
+                    id="customerPhone"
+                    placeholder="Enter phone number"
+                    value={newCustomerPhone}
+                    onChange={(e) => setNewCustomerPhone(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    className="mt-1"
+                  />
                 </div>
+                <Button onClick={handleAddCustomer} disabled={!newCustomerName.trim()} className="w-full">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Customer
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -197,6 +211,9 @@ export const Customers = ({ onNavigate }: CustomersProps) => {
                         </div>
                         <div>
                           <p className="font-medium">{customer.name}</p>
+                          {customer.phone && (
+                            <p className="text-sm text-accent">📱 {customer.phone}</p>
+                          )}
                           <p className="text-sm text-muted-foreground">
                             Added on {(() => {
                               const date = new Date(customer.createdAt);
