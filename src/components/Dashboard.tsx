@@ -134,16 +134,6 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               <Button
                 variant="outline"
                 size="lg"
-                className="h-24 flex-col gap-3 hover:bg-teal-500 hover:text-white transition-all duration-300 hover:scale-105"
-                onClick={() => onNavigate('advanced-reports')}
-              >
-                <TrendingUp className="w-8 h-8" />
-                <span className="text-sm font-medium">Advanced Reports</span>
-              </Button>
-              
-              <Button
-                variant="outline"
-                size="lg"
                 className="h-24 flex-col gap-3 hover:bg-business-blue hover:text-primary-foreground transition-all duration-300 hover:scale-105"
                 onClick={() => onNavigate('customers')}
               >

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,17 @@ import { ArrowLeft, Plus, Trash2, User } from "lucide-react";
 import { getCustomers, saveCustomer } from "@/lib/storage";
 import { Customer } from "@/types";
 import { useToast } from "@/hooks/use-toast";
+import { addToRecycleBin } from "@/lib/recycle-bin";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface CustomersProps {
   onNavigate: (view: 'create-bill' | 'customers' | 'balance' | 'dashboard') => void;
@@ -15,7 +26,10 @@ interface CustomersProps {
 export const Customers = ({ onNavigate }: CustomersProps) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [newCustomerName, setNewCustomerName] = useState("");
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const { toast } = useToast();
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const longPressTriggered = useRef(false);
 
   useEffect(() => {
     setCustomers(getCustomers());
@@ -59,6 +73,48 @@ export const Customers = ({ onNavigate }: CustomersProps) => {
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleAddCustomer();
+    }
+  };
+
+  const handleLongPressStart = (customer: Customer) => {
+    longPressTriggered.current = false;
+    longPressTimer.current = setTimeout(() => {
+      longPressTriggered.current = true;
+      setCustomerToDelete(customer);
+    }, 500); // 500ms long press
+  };
+
+  const handleLongPressEnd = () => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
+  const handleDeleteCustomer = () => {
+    if (!customerToDelete) return;
+
+    try {
+      // Add to recycle bin
+      addToRecycleBin('customer', customerToDelete, customerToDelete.name);
+
+      // Remove from local state and storage
+      const updatedCustomers = customers.filter(c => c.id !== customerToDelete.id);
+      setCustomers(updatedCustomers);
+      localStorage.setItem('customers', JSON.stringify(updatedCustomers));
+
+      toast({
+        title: "Customer Deleted",
+        description: `${customerToDelete.name} has been moved to recycle bin`,
+      });
+
+      setCustomerToDelete(null);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete customer",
+        variant: "destructive",
+      });
     }
   };
 
@@ -125,7 +181,13 @@ export const Customers = ({ onNavigate }: CustomersProps) => {
                   {customers.map((customer, index) => (
                     <div
                       key={customer.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors active:bg-muted cursor-pointer select-none"
+                      onTouchStart={() => handleLongPressStart(customer)}
+                      onTouchEnd={handleLongPressEnd}
+                      onTouchCancel={handleLongPressEnd}
+                      onMouseDown={() => handleLongPressStart(customer)}
+                      onMouseUp={handleLongPressEnd}
+                      onMouseLeave={handleLongPressEnd}
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
@@ -154,6 +216,23 @@ export const Customers = ({ onNavigate }: CustomersProps) => {
           </Card>
         </div>
       </div>
+
+      <AlertDialog open={!!customerToDelete} onOpenChange={(open) => !open && setCustomerToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Customer</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{customerToDelete?.name}"? This customer will be moved to the recycle bin for 30 days.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteCustomer} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
