@@ -14,7 +14,7 @@
         <activity
             android:exported="true"
             android:launchMode="singleTask"
-            android:name="com.manglanigaurav01.prakashbhaibillbuddy.MainActivity"
+            android:name="app.lovable.fefdfaed58db469497b3784882c36196.MainActivity"
             android:theme="@style/AppTheme.NoActionBarLaunch">
 
             <intent-filter>
