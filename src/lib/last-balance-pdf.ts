@@ -3,7 +3,7 @@ import autoTable from 'jspdf-autotable';
 import { Bill, CustomerBalance, MonthlyBalance } from '@/types';
 import { startOfMonth, endOfMonth, subMonths, format, isSameMonth } from 'date-fns';
 import { generateMonthlyBalances } from './monthly-balance';
-import { Filesystem, Directory } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
 import { getCustomerBalance, getBillsByCustomer, getPayments } from './storage';
