@@ -48,49 +48,46 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
   doc.text(customerName, 20, 20);
 
   doc.setFontSize(14);
-  doc.text('Last Balance Statement', 20, 30);
+  doc.text('Customer Summary Report', 20, 30);
 
   doc.setFontSize(12);
   doc.text(`Date: ${format(new Date(), 'dd/MM/yyyy')}`, 20, 40);
 
-  // Table data
-  const tableData: any[] = [];
+  // Get payments for this customer
+  const payments = await getPayments();
+  const customerPayments = payments.filter(p => p.customerId === customerId);
 
-  // Add previous month's closing balance as opening balance
-  const openingBalance = previousMonthBalance?.closingBalance || 0;
-  tableData.push([
-    format(monthStart, 'dd/MM/yyyy'),
-    'Opening Balance',
-    '-',
-    '-',
-    `Rs. ${openingBalance.toFixed(2)}`,
-    openingBalance.toFixed(2)
-  ]);
+  // Table data with Sr No
+  const tableData: any[] = [];
+  let srNo = 1;
+  let totalSales = 0;
+  let totalPaid = 0;
 
   // Sort bills by date
   bills.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  // Running balance starting from opening balance
-  let runningBalance = openingBalance;
-
-  // Add current month's bills
+  // Process bills and payments
   bills.forEach(bill => {
-    bill.items.forEach(item => {
-      runningBalance += item.rate * item.quantity;
-      tableData.push([
-        format(new Date(bill.date), 'dd/MM/yyyy'),
-        item.itemName,
-        item.quantity.toString(),
-        item.rate.toFixed(2),
-        (item.rate * item.quantity).toFixed(2),
-        runningBalance.toFixed(2)
-      ]);
-    });
+    const payment = customerPayments.find(p => 
+      format(new Date(p.date), 'dd/MM/yyyy') === format(new Date(bill.date), 'dd/MM/yyyy')
+    );
+
+    tableData.push([
+      srNo++,
+      format(new Date(bill.date), 'dd/MM/yyyy'),
+      bill.items.map(i => i.itemName).join(', '),
+      `Rs. ${bill.grandTotal.toFixed(2)}`,
+      payment ? format(new Date(payment.date), 'dd/MM/yyyy') : '-',
+      payment ? `Rs. ${payment.amount.toFixed(2)}` : '-'
+    ]);
+
+    totalSales += bill.grandTotal;
+    if (payment) totalPaid += payment.amount;
   });
 
   // Generate table
   autoTable(doc, {
-    head: [['Date', 'Particulars', 'Qty', 'Rate', 'Amount', 'Balance']],
+    head: [['Sr No', 'Date1', 'Item Name', 'Total', 'Date2', 'Jama']],
     body: tableData,
     startY: 50,
     theme: 'grid',
@@ -98,20 +95,40 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
     headStyles: { fillColor: [52, 73, 190], textColor: 255, fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [245, 247, 250] },
     columnStyles: {
-      0: { cellWidth: 25 }, // Date
-      1: { cellWidth: 50 }, // Particulars
-      2: { cellWidth: 20, halign: 'right' }, // Qty
-      3: { cellWidth: 25, halign: 'right' }, // Rate
-      4: { cellWidth: 30, halign: 'right' }, // Amount
-      5: { cellWidth: 30, halign: 'right' }, // Balance
+      0: { cellWidth: 15, halign: 'center' }, // Sr No
+      1: { cellWidth: 25, halign: 'center' }, // Date1
+      2: { cellWidth: 45 }, // Item Name
+      3: { cellWidth: 25, halign: 'right' }, // Total
+      4: { cellWidth: 25, halign: 'center' }, // Date2
+      5: { cellWidth: 25, halign: 'right' }, // Jama
     },
   });
 
-  // Footer
+  // Summary section
   const finalY = (doc as any).lastAutoTable.finalY + 10;
-  doc.setFontSize(10);
+  doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
-  doc.text(`Current Balance: Rs. ${runningBalance.toFixed(2)}`, 20, finalY);
+  
+  // Add Summary heading
+  doc.text('Summary', 20, finalY);
+  
+  // Add summary details
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Total Sales: Rs. ${totalSales.toFixed(2)}`, 20, finalY + 10);
+  doc.text(`Total Paid: Rs. ${totalPaid.toFixed(2)}`, 20, finalY + 20);
+  
+  // Add pending amount in red
+  const pendingAmount = totalSales - totalPaid;
+  doc.setTextColor(255, 0, 0);
+  doc.text(`Pending Amount: Rs. ${pendingAmount.toFixed(2)}`, 20, finalY + 30);
+  
+  // Reset text color
+  doc.setTextColor(0, 0, 0);
+  
+  // Add thank you note
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.text('Thank you for your business!', 20, finalY + 45);
 
   try {
     // Generate PDF data
@@ -132,24 +149,21 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
     } else {
       // For mobile platforms
       try {
-        // First, ensure the directory exists
-        const dirResult = await Filesystem.mkdir({
-          path: 'bill_buddy_pdfs',
+        // Use timestamp to make filename unique
+        const timestamp = new Date().getTime();
+        const uniqueFileName = `last_balance_${timestamp}_${fileName}`;
+        
+        // Save directly to Documents directory without creating subdirectory
+        const savedFile = await Filesystem.writeFile({
+          path: uniqueFileName,
+          data: base64Data,
           directory: Directory.Documents,
           recursive: true
         });
 
-        // Save the file to the device
-        const fullPath = `bill_buddy_pdfs/${fileName}`;
-        const savedFile = await Filesystem.writeFile({
-          path: fullPath,
-          data: base64Data,
-          directory: Directory.Documents
-        });
-
         // Get the complete file URI for sharing
         const fileInfo = await Filesystem.getUri({
-          path: fullPath,
+          path: uniqueFileName,
           directory: Directory.Documents
         });
 
