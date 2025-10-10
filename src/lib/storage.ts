@@ -1,11 +1,17 @@
 import { Customer, Bill, Payment, CustomerBalance, ItemMaster, ItemRateHistory, ItemUsage, BillItem } from '@/types';
 
+// Add version tracking for data structures
+const DATA_VERSION = '1.0.0';
+
 const STORAGE_KEYS = {
+  DATA_VERSION: 'prakash_data_version',
   CUSTOMERS: 'prakash_customers',
   BILLS: 'prakash_bills',
   PAYMENTS: 'prakash_payments',
   ITEMS: 'prakash_items',
   ITEM_RATE_HISTORY: 'prakash_item_rate_history',
+  SYNC_STATUS: 'prakash_sync_status',
+  ANALYSIS_CACHE: 'prakash_analysis_cache',
 };
 
 // Customer management

@@ -6,9 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, FileText, Download, CalendarIcon } from "lucide-react";
 import { getCustomers, getBills, getPayments } from "@/lib/storage";
 import { generateCustomerSummaryPDF } from "@/lib/pdf";
-import { Customer } from "@/types";
+import { generateLastBalancePDF } from "@/lib/last-balance-pdf";
+import { Customer, MonthlyBalance } from "@/types";
 import { useToast } from "@/hooks/use-toast";
-import { generateMonthlyBalances, getMonthLabel } from "@/lib/monthly-balance";
+import { generateMonthlyBalances } from "@/lib/monthly-balance";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
@@ -18,147 +19,178 @@ interface LastBalanceProps {
   onNavigate: (view: string) => void;
 }
 
-interface MonthlyBalance {
-  opening: number;
-  closing: number;
-  transactions: {
-    bills: number;
-    payments: number;
-  };
-}
-
-interface CustomerBalances {
-  [key: string]: {
-    [monthKey: string]: MonthlyBalance;
-  };
-}
-
-interface CustomerBalanceSummary {
+interface CustomerSummary {
   customerId: string;
   customerName: string;
-  totalSales: number;
-  totalPaid: number;
-  pending: number;
+  totalBills: number;
+  totalPayments: number;
+  currentBalance: number;
+  lastMonthBalance?: number;
 }
 
 export const LastBalance = ({ onNavigate }: LastBalanceProps) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
-  const [monthlyBalances, setMonthlyBalances] = useState<CustomerBalances>({});
-  const [startDate, setStartDate] = useState<Date | undefined>();
-  const [endDate, setEndDate] = useState<Date | undefined>();
-  const [customerBalance, setCustomerBalance] = useState<CustomerBalanceSummary | undefined>();
+  const [monthlyBalances, setMonthlyBalances] = useState<MonthlyBalance[]>([]);
+  const [customerSummary, setCustomerSummary] = useState<CustomerSummary | undefined>();
+  const [startDate, setStartDate] = useState<Date>();
+  const [endDate, setEndDate] = useState<Date>();
   const { toast } = useToast();
 
+  // Load customers once
   useEffect(() => {
-    const loadData = () => {
+    const loadCustomers = () => {
       const customerList = getCustomers();
-      const bills = getBills();
-      const payments = getPayments();
-      
       setCustomers(customerList);
-      
-      // Calculate running balances up to current date
-      const currentDate = new Date();
-      const currentMonth = currentDate.getMonth();
-      const currentYear = currentDate.getFullYear();
-      
-      const balances = customerList.reduce((acc: any, customer) => {
-        const customerBills = bills.filter(b => b.customerId === customer.id);
-        const customerPayments = payments.filter(p => p.customerId === customer.id);
-        
-        // Get last month's balance
-        const lastMonthKey = currentMonth === 0 
-          ? `${currentYear - 1}-12`
-          : `${currentYear}-${currentMonth}`;
-          
-        let openingBalance = 0;
-        
-        // Calculate all transactions for this customer
-        const monthlyTotals = customerBills.reduce((totals: any, bill) => {
-          const billDate = new Date(bill.date);
-          const key = `${billDate.getFullYear()}-${billDate.getMonth() + 1}`;
-          if (!totals[key]) totals[key] = { bills: 0, payments: 0 };
-          totals[key].bills += bill.grandTotal;
-          return totals;
-        }, {});
-
-        customerPayments.forEach(payment => {
-          const paymentDate = new Date(payment.date);
-          const key = `${paymentDate.getFullYear()}-${paymentDate.getMonth() + 1}`;
-          if (!monthlyTotals[key]) monthlyTotals[key] = { bills: 0, payments: 0 };
-          monthlyTotals[key].payments += payment.amount;
-        });
-
-        // Calculate running balance
-        Object.keys(monthlyTotals).forEach(month => {
-          const total = monthlyTotals[month];
-          openingBalance = openingBalance + total.bills - total.payments;
-          
-          acc[customer.id] = {
-            ...acc[customer.id],
-            [month]: {
-              opening: month === lastMonthKey ? openingBalance : 0,
-              transactions: total,
-              closing: openingBalance
-            }
-          };
-        });
-
-        return acc;
-      }, {});
-
-      setMonthlyBalances(balances);
     };
-
-    loadData();
-    
-    // Set up auto-refresh every day at midnight
-    const now = new Date();
-    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-    const timeToMidnight = tomorrow.getTime() - now.getTime();
-    
-    const timer = setTimeout(loadData, timeToMidnight);
-    return () => clearTimeout(timer);
+    loadCustomers();
   }, []);
 
-  // Update customer balance when customer is selected or date range changes
+  // Update customer balance when customer is selected
   useEffect(() => {
-    if (!selectedCustomer) {
-      setCustomerBalance(undefined);
+    const loadBalances = async () => {
+      if (!selectedCustomer) {
+        setCustomerSummary(undefined);
+        return;
+      }
+
+      try {
+        const balances = await generateMonthlyBalances(selectedCustomer);
+        setMonthlyBalances(balances);
+
+        const customer = customers.find(c => c.id === selectedCustomer);
+        const lastMonth = balances[balances.length - 2]; // Second to last entry is last month
+        const currentMonth = balances[balances.length - 1]; // Last entry is current month
+
+        if (customer && currentMonth) {
+          setCustomerSummary({
+            customerId: selectedCustomer,
+            customerName: customer.name,
+            totalBills: currentMonth.bills,
+            totalPayments: currentMonth.payments,
+            currentBalance: currentMonth.closingBalance,
+            lastMonthBalance: lastMonth?.closingBalance
+          });
+        }
+      } catch (error) {
+        console.error('Error loading balance details:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load balance details",
+          variant: "destructive",
+        });
+      }
+    };
+
+    loadBalances();
+  }, [selectedCustomer, customers, toast]);
+
+  const handleGenerateLastBalancePDF = async () => {
+    if (!selectedCustomer || !customerSummary) {
+      toast({
+        title: "Error",
+        description: "Please select a customer first",
+        variant: "destructive",
+      });
       return;
     }
 
-    const customer = customers.find(c => c.id === selectedCustomer);
-    if (!customer) return;
-
-    const bills = getBills();
-    const payments = getPayments();
-
-    const customerBills = bills.filter(b => b.customerId === selectedCustomer)
-      .filter(b => {
-        const billDate = new Date(b.date);
-        return (!startDate || billDate >= startDate) && (!endDate || billDate <= endDate);
+    try {
+      const result = await generateLastBalancePDF(selectedCustomer, customerSummary.customerName);
+      if (result.success) {
+        toast({ 
+          title: "Success", 
+          description: "Last balance PDF generated successfully" 
+        });
+      } else {
+        toast({ 
+          title: "Error", 
+          description: result.message, 
+          variant: "destructive" 
+        });
+      }
+    } catch (error) {
+      console.error('PDF generation failed:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate Last Balance PDF",
+        variant: "destructive",
       });
+    }
+  };
 
-    const customerPayments = payments.filter(p => p.customerId === selectedCustomer)
-      .filter(p => {
-        const paymentDate = new Date(p.date);
-        return (!startDate || paymentDate >= startDate) && (!endDate || paymentDate <= endDate);
-      });
+  return (
+    <div className="min-h-screen bg-background p-6">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" onClick={() => onNavigate('dashboard')}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold">Last Balance</h1>
+            <p className="text-muted-foreground">View and generate last balance statements</p>
+          </div>
+        </div>
 
-    const totalSales = customerBills.reduce((sum, bill) => sum + bill.grandTotal, 0);
-    const totalPaid = customerPayments.reduce((sum, payment) => sum + payment.amount, 0);
-    const pending = totalSales - totalPaid;
+        <Card>
+          <CardContent className="pt-6">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Select Customer</Label>
+                <Select value={selectedCustomer} onValueChange={setSelectedCustomer}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select customer to view balance" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {customers.map(customer => (
+                      <SelectItem key={customer.id} value={customer.id}>
+                        {customer.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-    setCustomerBalance({
-      customerId: selectedCustomer,
-      customerName: customer.name,
-      totalSales,
-      totalPaid,
-      pending
-    });
-  }, [selectedCustomer, customers, startDate, endDate]);
+        {customerSummary && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Balance Summary - {customerSummary.customerName}</span>
+                <Button 
+                  onClick={handleGenerateLastBalancePDF}
+                  size="sm"
+                  className="flex items-center gap-1"
+                >
+                  <Download className="w-4 h-4" />
+                  Generate PDF
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="p-3 bg-primary/5 rounded-lg">
+                  <div className="text-sm text-muted-foreground">Last Balance</div>
+                  <div className="font-bold text-primary">₹{(customerSummary.lastMonthBalance || 0).toFixed(2)}</div>
+                </div>
+                <div className="p-3 bg-accent/5 rounded-lg">
+                  <div className="text-sm text-muted-foreground">Current Bills</div>
+                  <div className="font-bold text-accent">₹{customerSummary.totalBills.toFixed(2)}</div>
+                </div>
+                <div className="p-3 bg-destructive/5 rounded-lg">
+                  <div className="text-sm text-muted-foreground">Current Balance</div>
+                  <div className="font-bold text-destructive">₹{customerSummary.currentBalance.toFixed(2)}</div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
 
   const handleGenerateSummaryPDF = async (customerId: string) => {
     try {
@@ -281,13 +313,13 @@ export const LastBalance = ({ onNavigate }: LastBalanceProps) => {
           </Card>
 
           {/* Customer Balance Summary */}
-          {customerBalance && (
+          {customerSummary && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
-                  <span>Balance Summary - {customerBalance.customerName}</span>
+                  <span>Balance Summary - {customerSummary.customerName}</span>
                   <Button 
-                    onClick={() => handleGenerateSummaryPDF(customerBalance.customerId)}
+                    onClick={handleGenerateLastBalancePDF}
                     size="sm"
                     className="flex items-center gap-1"
                   >
@@ -298,21 +330,16 @@ export const LastBalance = ({ onNavigate }: LastBalanceProps) => {
               <CardContent>
                 <div className="grid grid-cols-3 gap-4 text-center">
                   <div className="p-3 bg-primary/5 rounded-lg">
-                    <div className="text-sm text-muted-foreground">Total Sales</div>
-                    <div className="font-bold text-primary">₹{customerBalance.totalSales.toFixed(2)}</div>
+                    <div className="text-sm text-muted-foreground">Last Balance</div>
+                    <div className="font-bold text-primary">₹{(customerSummary.lastMonthBalance || 0).toFixed(2)}</div>
                   </div>
                   <div className="p-3 bg-accent/5 rounded-lg">
-                    <div className="text-sm text-muted-foreground">Total Paid</div>
-                    <div className="font-bold text-accent">₹{customerBalance.totalPaid.toFixed(2)}</div>
+                    <div className="text-sm text-muted-foreground">Current Bills</div>
+                    <div className="font-bold text-accent">₹{customerSummary.totalBills.toFixed(2)}</div>
                   </div>
-                  <div className={`p-3 rounded-lg ${customerBalance.pending > 0 ? 'bg-destructive/5' : customerBalance.pending < 0 ? 'bg-accent/5' : 'bg-accent/5'}`}>
-                    <div className="text-sm text-muted-foreground">
-                      {customerBalance.pending > 0 ? 'Pending' : customerBalance.pending < 0 ? 'Advance' : 'Status'}
-                    </div>
-                    <div className={`font-bold ${customerBalance.pending > 0 ? 'text-destructive' : 'text-accent'}`}>
-                      {customerBalance.pending > 0 ? `₹${customerBalance.pending.toFixed(2)}` : 
-                       customerBalance.pending < 0 ? `₹${Math.abs(customerBalance.pending).toFixed(2)}` : 'Cleared'}
-                    </div>
+                  <div className="p-3 bg-destructive/5 rounded-lg">
+                    <div className="text-sm text-muted-foreground">Current Balance</div>
+                    <div className="font-bold text-destructive">₹{customerSummary.currentBalance.toFixed(2)}</div>
                   </div>
                 </div>
               </CardContent>

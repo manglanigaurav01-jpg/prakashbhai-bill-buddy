@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Customer } from "@/types";
+import { Customer, MonthlyBalance } from "@/types";
 import { getCustomers, getBills, getPayments } from "@/lib/storage";
 import { generateMonthlyBalances, getMonthLabel } from "@/lib/monthly-balance";
 
@@ -16,27 +16,36 @@ export const BalanceHistory = ({ onNavigate }: BalanceHistoryProps) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
   const [selectedMonth, setSelectedMonth] = useState<string>("");
-  const [monthlyBalances, setMonthlyBalances] = useState<any>({});
+  const [monthlyBalances, setMonthlyBalances] = useState<MonthlyBalance[]>([]);
   const [availableMonths, setAvailableMonths] = useState<string[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
-    const loadData = () => {
-      const customerList = getCustomers();
-      const bills = getBills();
-      const payments = getPayments();
-      
-      setCustomers(customerList);
-      const balances = generateMonthlyBalances(bills, payments, customerList);
-      setMonthlyBalances(balances);
-      setAvailableMonths(Object.keys(balances).sort().reverse());
+    const loadData = async () => {
+      try {
+        const customerList = getCustomers();
+        setCustomers(customerList);
+        
+        if (selectedCustomer) {
+          const balances = await generateMonthlyBalances(selectedCustomer);
+          setMonthlyBalances(balances);
+          setAvailableMonths(balances.map(b => `${b.year}-${b.month}`));
+        }
+      } catch (error) {
+        console.error('Error loading balance history:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load balance history",
+          variant: "destructive",
+        });
+      }
     };
 
     loadData();
-  }, []);
+  }, [selectedCustomer, toast]);
 
-  const selectedBalance = selectedMonth && selectedCustomer ? 
-    monthlyBalances[selectedMonth]?.find(b => b.customerId === selectedCustomer) : null;
+  const selectedBalance = selectedMonth && monthlyBalances ? 
+    monthlyBalances.find(b => `${b.year}-${b.month}` === selectedMonth) : null;
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -107,11 +116,11 @@ export const BalanceHistory = ({ onNavigate }: BalanceHistoryProps) => {
                 </div>
                 <div className="p-4 rounded-lg bg-muted">
                   <div className="text-sm font-medium text-muted-foreground">Total Bills</div>
-                  <div className="text-2xl font-bold">₹{selectedBalance.totalBills.toFixed(2)}</div>
+                  <div className="text-2xl font-bold">₹{selectedBalance.bills.toFixed(2)}</div>
                 </div>
                 <div className="p-4 rounded-lg bg-muted">
                   <div className="text-sm font-medium text-muted-foreground">Total Payments</div>
-                  <div className="text-2xl font-bold">₹{selectedBalance.totalPayments.toFixed(2)}</div>
+                  <div className="text-2xl font-bold">₹{selectedBalance.payments.toFixed(2)}</div>
                 </div>
               </div>
             </CardContent>
