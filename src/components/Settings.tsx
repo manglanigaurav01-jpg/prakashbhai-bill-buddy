@@ -3,16 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertTriangle, ArrowLeft, Moon, Sun, Trash2, Cloud, CalendarClock, LogIn, LogOut, User } from "lucide-react";
-import { signInWithGoogle, signOutUser, getCurrentUser, onAuthStateChanged } from '@/lib/auth';
+import { AlertTriangle, ArrowLeft, Moon, Sun, Trash2, User } from "lucide-react";
+import { getCurrentUser } from '@/lib/auth';
 import { AutoSync } from "./AutoSync";
 import { RecycleBin } from "./RecycleBin";
 import { useToast } from "@/hooks/use-toast";
-import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Capacitor } from '@capacitor/core';
-import { getBackupConfig, saveBackupConfig, runBackupNow, initAutoBackup, restoreBackupFromBlob } from '@/lib/backup';
+import { Filesystem, Directory, Capacitor } from '@capacitor/core';
+import { BackupManager } from "./BackupManager";
 import { isPasswordSet, setPassword, verifyPassword, changePassword, removePassword } from '@/components/password';
-import { backupToGoogleDrive } from '@/lib/google-drive';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -24,19 +22,13 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const { toast } = useToast();
-  const [backupMode, setBackupMode] = useState<'automatic' | 'manual'>('automatic');
-  const [lastBackupAt, setLastBackupAt] = useState<string | undefined>(undefined);
-  const [googleUser, setGoogleUser] = useState(getCurrentUser());
-  const [autoBackupEnabled, setAutoBackupEnabled] = useState(true);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
-  const [user, setUser] = useState(getCurrentUser());
   const [passwordEnabled, setPasswordEnabled] = useState(isPasswordSet());
   const [passwordAction, setPasswordAction] = useState<'set' | 'change' | 'remove' | 'confirmClear'>('set');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
-  const [backupFrequency, setBackupFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily');
 
   // Check for existing dark mode preference
   useEffect(() => {
@@ -46,13 +38,6 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
     
     setIsDarkMode(shouldBeDark);
     document.documentElement.classList.toggle('dark', shouldBeDark);
-
-    // Load backup configuration
-    const cfg = getBackupConfig();
-    setBackupMode(cfg.mode);
-    setBackupFrequency(cfg.frequency);
-    setLastBackupAt(cfg.lastRunAt);
-    initAutoBackup();
   }, []);
 
   const toggleDarkMode = (enabled: boolean) => {
@@ -80,7 +65,7 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
         try {
           const files = await Filesystem.readdir({
             path: '',
-            directory: Directory.Documents
+            directory: 'DOCUMENTS' as Directory
           });
           
           // Delete all PDF files
@@ -88,7 +73,7 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
             if (file.name.toLowerCase().endsWith('.pdf')) {
               await Filesystem.deleteFile({
                 path: file.name,
-                directory: Directory.Documents
+                directory: 'DOCUMENTS' as Directory
               });
             }
           }
@@ -183,65 +168,7 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
     setPasswordInput('');
   };
 
-  const saveBackupSettings = () => {
-    const cfg = { mode: backupMode, frequency: backupFrequency, lastRunAt: lastBackupAt };
-    saveBackupConfig(cfg);
-    initAutoBackup();
-    toast({ title: 'Backup settings saved', description: `Mode: ${backupMode}, Frequency: ${backupFrequency}` });
-  };
 
-  const handleManualBackup = async () => {
-    const password = prompt('Optional: Set a password to encrypt the backup (leave blank for none)') || undefined;
-    const result = await runBackupNow(password);
-    setLastBackupAt(new Date().toISOString());
-    toast({ title: result.success ? 'Backup complete' : 'Backup failed', description: result.message, variant: result.success ? 'default' : 'destructive' });
-  };
-
-  const handleRestore = async () => {
-    try {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'application/json';
-      input.onchange = async () => {
-        const file = input.files?.[0];
-        if (!file) return;
-        const password = prompt('If backup is encrypted, enter password (leave blank if not encrypted)') || undefined;
-        const res = await restoreBackupFromBlob(file, password);
-        toast({ title: res.success ? 'Restore complete' : 'Restore failed', description: res.message, variant: res.success ? 'default' : 'destructive' });
-        if (res.success) setTimeout(() => window.location.reload(), 800);
-      };
-      input.click();
-    } catch (e) {
-      toast({ title: 'Restore failed', description: 'Could not restore backup', variant: 'destructive' });
-    }
-  };
-
-  const handleConnectOneDrive = async () => {
-    // OneDrive integration placeholder - not implemented
-    toast({ 
-      title: 'OneDrive Not Available', 
-      description: 'OneDrive integration is not currently implemented', 
-      variant: 'destructive' 
-    });
-  };
-
-  const handleDisconnectOneDrive = () => {
-    // OneDrive integration placeholder - not implemented
-    toast({ 
-      title: 'OneDrive Not Available', 
-      description: 'OneDrive integration is not currently implemented', 
-      variant: 'destructive' 
-    });
-  };
-
-  const handleOneDriveBackup = async () => {
-    // OneDrive integration placeholder - not implemented
-    toast({ 
-      title: 'OneDrive Not Available', 
-      description: 'OneDrive integration is not currently implemented', 
-      variant: 'destructive' 
-    });
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-soft to-accent-soft p-6">
@@ -344,69 +271,8 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
             </CardContent>
           </Card>
 
-          {/* Backup Settings */}
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Cloud className="w-5 h-5" />
-                Backup
-              </CardTitle>
-              <CardDescription>
-                Configure automatic backups and create manual backups. Backups can be saved to OneDrive via Share.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium">Local Backup Mode</label>
-                    <div className="mt-1 flex gap-2">
-                      <Button variant={backupMode === 'automatic' ? 'default' : 'outline'} onClick={() => setBackupMode('automatic')}>Automatic</Button>
-                      <Button variant={backupMode === 'manual' ? 'default' : 'outline'} onClick={() => setBackupMode('manual')}>Manual</Button>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium">Backup Frequency</label>
-                    <div className="mt-1 flex gap-2">
-                      <Button variant={backupFrequency === 'daily' ? 'default' : 'outline'} onClick={() => setBackupFrequency('daily')}>Daily</Button>
-                      <Button variant={backupFrequency === 'weekly' ? 'default' : 'outline'} onClick={() => setBackupFrequency('weekly')}>Weekly</Button>
-                      <Button variant={backupFrequency === 'monthly' ? 'default' : 'outline'} onClick={() => setBackupFrequency('monthly')}>Monthly</Button>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-sm font-medium">Backup Options</label>
-                  <div className="mt-1">
-                    <div className="flex flex-wrap gap-2">
-                      <Button onClick={handleManualBackup}>Local Backup</Button>
-                      <Button variant="outline" onClick={async () => {
-                        const password = prompt('Optional: Set a password to encrypt the backup (leave blank for none)') || undefined;
-                        const result = await backupToGoogleDrive(password);
-                        if (result.success) {
-                          setLastBackupAt(new Date().toISOString());
-                        }
-                        toast({
-                          title: result.success ? 'Google Drive Backup Complete' : 'Backup Failed',
-                          description: result.message,
-                          variant: result.success ? 'default' : 'destructive'
-                        });
-                      }}>
-                        Backup to Google Drive
-                      </Button>
-                      <Button variant="outline" onClick={handleRestore}>Restore Backup</Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CalendarClock className="w-4 h-4" />
-                  <span>Last Backup: {lastBackupAt ? new Date(lastBackupAt).toLocaleString() : 'Never'}</span>
-                </div>
-                <Button variant="outline" onClick={saveBackupSettings}>Save Backup Settings</Button>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Enhanced Backup System */}
+          <BackupManager />
 
           {/* Recycle Bin */}
           <RecycleBin />

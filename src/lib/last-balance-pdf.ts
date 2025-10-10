@@ -3,10 +3,10 @@ import autoTable from 'jspdf-autotable';
 import { Bill, CustomerBalance, MonthlyBalance } from '@/types';
 import { startOfMonth, endOfMonth, subMonths, format, isSameMonth } from 'date-fns';
 import { generateMonthlyBalances } from './monthly-balance';
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Filesystem, Directory } from '@capacitor/core';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
-import { getCustomerBalance, getBillsByCustomer } from './storage';
+import { getCustomerBalance, getBillsByCustomer, getPayments } from './storage';
 
 const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
   const bytes = new Uint8Array(buffer);
@@ -54,7 +54,7 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
   doc.text(`Date: ${format(new Date(), 'dd/MM/yyyy')}`, 20, 40);
 
   // Get payments for this customer
-  const payments = await getPayments();
+  const payments = getPayments();
   const customerPayments = payments.filter(p => p.customerId === customerId);
 
   // Table data with Sr No
@@ -157,14 +157,13 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
         const savedFile = await Filesystem.writeFile({
           path: uniqueFileName,
           data: base64Data,
-          directory: Directory.Documents,
-          recursive: true
+          directory: 'DOCUMENTS' as Directory
         });
 
         // Get the complete file URI for sharing
         const fileInfo = await Filesystem.getUri({
           path: uniqueFileName,
-          directory: Directory.Documents
+          directory: 'DOCUMENTS' as Directory
         });
 
         if (!fileInfo.uri) {

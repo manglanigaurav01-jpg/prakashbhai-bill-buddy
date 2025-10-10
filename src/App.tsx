@@ -15,7 +15,7 @@ import { ItemMaster } from "@/components/ItemMaster";
 import { Settings } from "@/components/Settings";
 import { EditBills } from "@/components/EditBills";
 import { EditPayments } from "@/components/EditPayments";
-import { Analytics } from "@/components/Analytics";
+import { EnhancedAnalytics } from "@/components/EnhancedAnalytics";
 import { BalanceHistory } from "@/components/BalanceHistory";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
@@ -61,7 +61,7 @@ const App = () => {
       case 'settings':
         return <Settings onNavigate={handleNavigate} />;
       case 'analytics':
-        return <Analytics onNavigate={handleNavigate} />;
+        return <EnhancedAnalytics onNavigate={handleNavigate} />;
       case 'balanceHistory':
         return <BalanceHistory onNavigate={handleNavigate} />;
       default:

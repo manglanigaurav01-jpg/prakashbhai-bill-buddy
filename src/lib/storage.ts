@@ -45,6 +45,12 @@ export const getCustomers = (): Customer[] => {
   return data ? JSON.parse(data) : [];
 };
 
+// Payment management
+export const getPayments = (): Payment[] => {
+  const data = localStorage.getItem(STORAGE_KEYS.PAYMENTS);
+  return data ? JSON.parse(data) : [];
+};
+
 export const saveCustomer = (customer: Omit<Customer, 'id' | 'createdAt'>): Customer => {
   const customers = getCustomers();
   const normalizedNewName = customer.name.trim().toLowerCase();
@@ -183,12 +189,6 @@ export const deleteBill = (billId: string): void => {
   const updatedBills = bills.filter(b => b.id !== billId);
   localStorage.setItem(STORAGE_KEYS.BILLS, JSON.stringify(updatedBills));
   window.dispatchEvent(new Event('storage'));
-};
-
-// Payment management
-export const getPayments = (): Payment[] => {
-  const data = localStorage.getItem(STORAGE_KEYS.PAYMENTS);
-  return data ? JSON.parse(data) : [];
 };
 
 export const savePayment = (payment: Omit<Payment, 'id' | 'createdAt'>): Payment => {

@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Download, TrendingUp, Users, Package, Calendar, IndianRupee } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getBills, getPayments, getItems, getAllCustomerBalances } from '@/lib/storage';
+import { getBills, getPayments, getItems, getAllCustomerBalances, getBusinessAnalytics, updateBusinessAnalytics } from '@/lib/storage';
+import { SyncStatus } from './SyncStatus';
+import * as XLSX from 'xlsx';
 
 interface AnalyticsData {
   revenues: { date: string; amount: number }[];
