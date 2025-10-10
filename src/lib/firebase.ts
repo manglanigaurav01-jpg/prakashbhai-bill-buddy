@@ -42,41 +42,56 @@ export const initFirebase = (): FirebaseServices | null => {
 };
 
 export const firebaseSignInWithGoogle = async (): Promise<User> => {
-  const svc = initFirebase();
-  if (!svc) throw new Error('FIREBASE_NOT_CONFIGURED');
+  const services = initFirebase();
+  if (!services) throw new Error('FIREBASE_NOT_CONFIGURED');
   
   try {
-    // Try popup first (works better on desktop)
-    const res = await signInWithPopup(svc.auth, svc.googleProvider);
-    return res.user;
-  } catch (err: any) {
-    console.error('Google sign-in error:', err);
-    
-    // Handle specific error cases
-    if (err.code === 'auth/popup-closed-by-user') {
-      throw new Error('Sign-in cancelled by user');
-    } else if (err.code === 'auth/popup-blocked') {
-      // Fallback to redirect for environments that block popups
-      try {
-        await signInWithRedirect(svc.auth, svc.googleProvider);
-        throw new Error('REDIRECTING_FOR_GOOGLE_SIGNIN');
-      } catch (redirectErr: any) {
-        throw new Error(`Sign-in failed: ${redirectErr.message || 'Unknown error'}`);
+    // Check for any pending redirect operations first
+    try {
+      const redirectResult = await getRedirectResult(services.auth);
+      if (redirectResult?.user) {
+        return redirectResult.user;
       }
-    } else if (err.code === 'auth/unauthorized-domain') {
-      throw new Error('Domain not authorized. Please check Firebase console settings.');
-    } else if (err.code === 'auth/operation-not-allowed') {
-      throw new Error('Google sign-in not enabled. Please enable it in Firebase console.');
-    } else {
-      throw new Error(`Sign-in failed: ${err.message || 'Unknown error'}`);
+    } catch (redirectError: any) {
+      console.error('Redirect result error:', redirectError);
+      // Clear auth state if there's an issue with redirect
+      await fbSignOut(services.auth);
     }
+
+    // Try popup signin first
+    try {
+      const result = await signInWithPopup(services.auth, services.googleProvider);
+      if (result?.user) {
+        return result.user;
+      }
+      throw new Error('No user returned from popup sign in');
+    } catch (popupError: any) {
+      // If popup is blocked or fails, fall back to redirect
+      if (
+        popupError.code === 'auth/popup-blocked' ||
+        popupError.code === 'auth/popup-closed-by-user' ||
+        popupError.code === 'auth/browser-not-supported'
+      ) {
+        // Clear any existing auth state before redirect
+        await fbSignOut(services.auth);
+        
+        // Attempt redirect sign-in
+        await signInWithRedirect(services.auth, services.googleProvider);
+        // This line won't be reached as redirect will reload the page
+        throw new Error('REDIRECT_PENDING');
+      }
+      throw popupError;
+    }
+  } catch (error: any) {
+    console.error('Firebase auth error:', error);
+    throw new Error(error.message || 'Authentication failed');
   }
 };
 
 export const firebaseSignOut = async () => {
-  const svc = initFirebase();
-  if (!svc) return;
-  await fbSignOut(svc.auth);
+  const services = initFirebase();
+  if (!services) return;
+  await fbSignOut(services.auth);
 };
 
 export const firebaseHandleRedirectResult = async (): Promise<User | null> => {
