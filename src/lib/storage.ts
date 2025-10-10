@@ -1,4 +1,26 @@
 import { Customer, Bill, Payment, CustomerBalance, ItemMaster, ItemRateHistory, ItemUsage, BillItem } from '@/types';
+import { subMonths, format, startOfMonth, endOfMonth } from 'date-fns';
+
+export interface BusinessAnalytics {
+  version: string;
+  lastUpdated: string;
+  salesTrends: {
+    monthly: { [key: string]: number };
+    seasonal: { [key: string]: number };
+  };
+  customerPatterns: {
+    paymentFrequency: { [customerId: string]: number };
+    averageBillAmount: { [customerId: string]: number };
+  };
+  popularItems: {
+    monthly: { [itemId: string]: number };
+    overall: { [itemId: string]: number };
+  };
+  cashFlow: {
+    predicted: { [key: string]: number };
+    actual: { [key: string]: number };
+  };
+}
 
 // Add version tracking for data structures
 const DATA_VERSION = '1.0.0';
@@ -12,6 +34,9 @@ const STORAGE_KEYS = {
   ITEM_RATE_HISTORY: 'prakash_item_rate_history',
   SYNC_STATUS: 'prakash_sync_status',
   ANALYSIS_CACHE: 'prakash_analysis_cache',
+  BUSINESS_ANALYTICS: 'prakash_business_analytics',
+  LAST_SYNC: 'prakash_last_sync',
+  SYNC_CONFLICTS: 'prakash_sync_conflicts'
 };
 
 // Customer management
@@ -41,6 +66,83 @@ export const saveCustomer = (customer: Omit<Customer, 'id' | 'createdAt'>): Cust
 export const getBills = (): Bill[] => {
   const data = localStorage.getItem(STORAGE_KEYS.BILLS);
   return data ? JSON.parse(data) : [];
+};
+
+// Business Intelligence Functions
+export const getBusinessAnalytics = (): BusinessAnalytics => {
+  const data = localStorage.getItem(STORAGE_KEYS.BUSINESS_ANALYTICS);
+  if (!data) {
+    const initialAnalytics: BusinessAnalytics = {
+      version: DATA_VERSION,
+      lastUpdated: new Date().toISOString(),
+      salesTrends: { monthly: {}, seasonal: {} },
+      customerPatterns: { paymentFrequency: {}, averageBillAmount: {} },
+      popularItems: { monthly: {}, overall: {} },
+      cashFlow: { predicted: {}, actual: {} }
+    };
+    localStorage.setItem(STORAGE_KEYS.BUSINESS_ANALYTICS, JSON.stringify(initialAnalytics));
+    return initialAnalytics;
+  }
+  return JSON.parse(data);
+};
+
+export const updateBusinessAnalytics = async () => {
+  const bills = getBills();
+  const payments = getPayments();
+  const customers = getCustomers();
+  const now = new Date();
+
+  // Calculate sales trends
+  const monthlyTrends: { [key: string]: number } = {};
+  const last6Months = Array.from({length: 6}, (_, i) => {
+    const month = subMonths(now, i);
+    return format(month, 'yyyy-MM');
+  });
+
+  bills.forEach(bill => {
+    const billMonth = format(new Date(bill.date), 'yyyy-MM');
+    monthlyTrends[billMonth] = (monthlyTrends[billMonth] || 0) + bill.grandTotal;
+  });
+
+  // Calculate customer patterns
+  const customerPatterns: { [key: string]: number } = {};
+  customers.forEach(customer => {
+    const customerBills = bills.filter(b => b.customerId === customer.id);
+    const totalAmount = customerBills.reduce((sum, bill) => sum + bill.grandTotal, 0);
+    customerPatterns[customer.id] = totalAmount / (customerBills.length || 1);
+  });
+
+  // Calculate popular items
+  const itemPopularity: { [key: string]: number } = {};
+  bills.forEach(bill => {
+    bill.items.forEach(item => {
+      itemPopularity[item.itemName] = (itemPopularity[item.itemName] || 0) + item.quantity;
+    });
+  });
+
+  const analytics: BusinessAnalytics = {
+    version: DATA_VERSION,
+    lastUpdated: now.toISOString(),
+    salesTrends: {
+      monthly: monthlyTrends,
+      seasonal: {} // To be implemented
+    },
+    customerPatterns: {
+      paymentFrequency: {},  // To be implemented
+      averageBillAmount: customerPatterns
+    },
+    popularItems: {
+      monthly: {},  // To be implemented
+      overall: itemPopularity
+    },
+    cashFlow: {
+      predicted: {},  // To be implemented
+      actual: monthlyTrends
+    }
+  };
+
+  localStorage.setItem(STORAGE_KEYS.BUSINESS_ANALYTICS, JSON.stringify(analytics));
+  return analytics;
 };
 
 export const saveBill = (bill: Omit<Bill, 'id' | 'createdAt'>): Bill => {

@@ -96,24 +96,30 @@ export const LastBalance = ({ onNavigate }: LastBalanceProps) => {
     }
 
     try {
+      toast({
+        title: "Processing",
+        description: "Generating PDF, please wait...",
+      });
+
       const result = await generateLastBalancePDF(selectedCustomer, customerSummary.customerName);
+      
       if (result.success) {
         toast({ 
           title: "Success", 
-          description: "Last balance PDF generated successfully" 
+          description: result.message || "PDF generated successfully" 
         });
       } else {
         toast({ 
           title: "Error", 
-          description: result.message, 
+          description: result.message || "Failed to generate PDF", 
           variant: "destructive" 
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('PDF generation failed:', error);
       toast({
         title: "Error",
-        description: "Failed to generate Last Balance PDF",
+        description: error.message || "Failed to generate Last Balance PDF",
         variant: "destructive",
       });
     }

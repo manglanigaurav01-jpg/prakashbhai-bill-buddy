@@ -46,45 +46,47 @@ export const firebaseSignInWithGoogle = async (): Promise<User> => {
   if (!services) throw new Error('FIREBASE_NOT_CONFIGURED');
   
   try {
-    // Check for any pending redirect operations first
-    try {
-      const redirectResult = await getRedirectResult(services.auth);
-      if (redirectResult?.user) {
-        return redirectResult.user;
-      }
-    } catch (redirectError: any) {
-      console.error('Redirect result error:', redirectError);
-      // Clear auth state if there's an issue with redirect
-      await fbSignOut(services.auth);
+    // Always use signInWithPopup for both web and mobile
+    services.googleProvider.setCustomParameters({
+      prompt: 'select_account',
+      // Force to use browser signin to avoid storage partition issues
+      mobile_browser: 'true',
+      // Prevent redirect flow which can cause session issues
+      redirect_uri: window.location.origin
+    });
+
+    // Clear any existing auth state
+    await fbSignOut(services.auth);
+    
+    // Use popup signin for all platforms
+    const result = await signInWithPopup(services.auth, services.googleProvider);
+    
+    if (!result?.user) {
+      throw new Error('No user data received from Google');
     }
 
-    // Try popup signin first
-    try {
-      const result = await signInWithPopup(services.auth, services.googleProvider);
-      if (result?.user) {
-        return result.user;
-      }
-      throw new Error('No user returned from popup sign in');
-    } catch (popupError: any) {
-      // If popup is blocked or fails, fall back to redirect
-      if (
-        popupError.code === 'auth/popup-blocked' ||
-        popupError.code === 'auth/popup-closed-by-user' ||
-        popupError.code === 'auth/browser-not-supported'
-      ) {
-        // Clear any existing auth state before redirect
-        await fbSignOut(services.auth);
-        
-        // Attempt redirect sign-in
-        await signInWithRedirect(services.auth, services.googleProvider);
-        // This line won't be reached as redirect will reload the page
-        throw new Error('REDIRECT_PENDING');
-      }
-      throw popupError;
-    }
+    // Store auth state in localStorage for persistence
+    localStorage.setItem('auth_user', JSON.stringify({
+      uid: result.user.uid,
+      email: result.user.email,
+      displayName: result.user.displayName,
+      timestamp: Date.now()
+    }));
+
+    return result.user;
+
   } catch (error: any) {
-    console.error('Firebase auth error:', error);
-    throw new Error(error.message || 'Authentication failed');
+    console.error('Google sign-in error:', error);
+    
+    // Clear any problematic auth state
+    localStorage.removeItem('auth_user');
+    await fbSignOut(services.auth);
+
+    if (error.code === 'auth/popup-closed-by-user') {
+      throw new Error('Sign-in cancelled');
+    }
+    
+    throw new Error(error.message || 'Sign-in failed. Please try again.');
   }
 };
 

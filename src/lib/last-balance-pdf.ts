@@ -113,12 +113,12 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
   doc.setFont('helvetica', 'bold');
   doc.text(`Current Balance: Rs. ${runningBalance.toFixed(2)}`, 20, finalY);
 
-  // Generate PDF data
-  const pdfOutput = doc.output('arraybuffer');
-  const base64Data = arrayBufferToBase64(pdfOutput);
-  const fileName = `${customerName.replace(/\s+/g, '_')}_last_balance_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
-
   try {
+    // Generate PDF data
+    const pdfOutput = doc.output('arraybuffer');
+    const base64Data = arrayBufferToBase64(pdfOutput);
+    const fileName = `${customerName.replace(/\s+/g, '_')}_last_balance_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+
     if (Capacitor.getPlatform() === 'web') {
       // For web, create a download link
       const blob = new Blob([pdfOutput], { type: 'application/pdf' });
@@ -130,29 +130,50 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
       window.URL.revokeObjectURL(url);
       return { success: true, message: 'PDF downloaded successfully' };
     } else {
-      // For mobile, save to device and share
-      const savedFile = await Filesystem.writeFile({
-        path: fileName,
-        data: base64Data,
-        directory: Directory.Documents
-      });
+      // For mobile platforms
+      try {
+        // First, ensure the directory exists
+        const dirResult = await Filesystem.mkdir({
+          path: 'bill_buddy_pdfs',
+          directory: Directory.Documents,
+          recursive: true
+        });
 
-      // Get the saved file URI for sharing
-      const fileUri = savedFile.uri || `${Directory.Documents}/${fileName}`;
-      
-      // Share the PDF using the device's share sheet
-      await Share.share({
-        title: 'Last Balance PDF',
-        text: `Last Balance Statement for ${customerName}`,
-        url: fileUri,
-        dialogTitle: 'Share Last Balance PDF'
-      });
+        // Save the file to the device
+        const fullPath = `bill_buddy_pdfs/${fileName}`;
+        const savedFile = await Filesystem.writeFile({
+          path: fullPath,
+          data: base64Data,
+          directory: Directory.Documents
+        });
 
-      return { 
-        success: true, 
-        message: 'PDF saved and shared successfully', 
-        filePath: fileUri 
-      };
+        // Get the complete file URI for sharing
+        const fileInfo = await Filesystem.getUri({
+          path: fullPath,
+          directory: Directory.Documents
+        });
+
+        if (!fileInfo.uri) {
+          throw new Error('Could not get file URI');
+        }
+
+        // Share the PDF
+        await Share.share({
+          title: 'Last Balance PDF',
+          text: `Last Balance Statement for ${customerName}`,
+          url: fileInfo.uri,
+          dialogTitle: 'Share Last Balance PDF'
+        });
+
+        return { 
+          success: true, 
+          message: 'PDF saved and shared successfully', 
+          filePath: fileInfo.uri 
+        };
+      } catch (err) {
+        console.error('Mobile PDF handling error:', err);
+        throw new Error(err instanceof Error ? err.message : 'Failed to save or share PDF');
+      }
     }
   } catch (error) {
     console.error('Error handling PDF:', error);
