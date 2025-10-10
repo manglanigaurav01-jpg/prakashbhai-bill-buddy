@@ -3,7 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertTriangle, ArrowLeft, Moon, Sun, Trash2, Cloud, CalendarClock, LogIn, LogOut } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Moon, Sun, Trash2, Cloud, CalendarClock, LogIn, LogOut, User } from "lucide-react";
+import { signInWithGoogle, signOutUser, getCurrentUser, onAuthStateChanged } from '@/lib/auth';
 import { AutoSync } from "./AutoSync";
 import { RecycleBin } from "./RecycleBin";
 import { useToast } from "@/hooks/use-toast";
@@ -24,10 +25,11 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const { toast } = useToast();
   const [backupMode, setBackupMode] = useState<'automatic' | 'manual'>('automatic');
-  const [backupFrequency, setBackupFrequency] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
+  const [backupFrequency, setBackupFrequency] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
   const [lastBackupAt, setLastBackupAt] = useState<string | undefined>(undefined);
   const [passwordEnabled, setPasswordEnabled] = useState(isPasswordSet());
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [user, setUser] = useState(getCurrentUser());
   const [passwordAction, setPasswordAction] = useState<'set' | 'change' | 'remove' | 'confirmClear'>('set');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -337,19 +339,6 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
               <p className="text-xs text-muted-foreground mt-2">
                 This password will be required to clear all data.
               </p>
-            </CardContent>
-          </Card>
-
-          {/* PDF Customization */}
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle>PDF Customization</CardTitle>
-              <CardDescription>Customize bill PDF templates</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={() => onNavigate('pdf-customization')} className="w-full">
-                Customize PDF Templates
-              </Button>
             </CardContent>
           </Card>
 

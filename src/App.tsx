@@ -16,12 +16,12 @@ import { Settings } from "@/components/Settings";
 import { EditBills } from "@/components/EditBills";
 import { EditPayments } from "@/components/EditPayments";
 import { Analytics } from "@/components/Analytics";
-import { PDFCustomization } from "@/components/PDFCustomization";
+import { BalanceHistory } from "@/components/BalanceHistory";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
-type View = 'dashboard' | 'create-bill' | 'customers' | 'balance' | 'amount-tracker' | 'last-balance' | 'total-business' | 'item-master' | 'edit-bills' | 'edit-payments' | 'settings' | 'analytics' | 'pdf-customization';
+type View = 'dashboard' | 'create-bill' | 'customers' | 'balance' | 'amount-tracker' | 'last-balance' | 'total-business' | 'item-master' | 'edit-bills' | 'edit-payments' | 'settings' | 'analytics' | 'balance-history';
 
 const App = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -62,8 +62,8 @@ const App = () => {
         return <Settings onNavigate={handleNavigate} />;
       case 'analytics':
         return <Analytics onNavigate={handleNavigate} />;
-      case 'pdf-customization':
-        return <PDFCustomization onNavigate={handleNavigate} />;
+      case 'balance-history':
+        return <BalanceHistory onNavigate={handleNavigate} />;
       default:
         return <Dashboard onNavigate={handleNavigate} />;
     }

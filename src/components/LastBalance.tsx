@@ -2,42 +2,36 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { Label } from "@/components/ui/label";
-import { ArrowLeft, FileText, Download, CalendarIcon } from "lucide-react";
-import { format } from "date-fns";
-import { cn } from "@/lib/utils";
-import { getCustomers, getCustomerBalance, getAllCustomerBalances } from "@/lib/storage";
+import { ArrowLeft, FileText } from "lucide-react";
+import { getCustomers, getBills, getPayments } from "@/lib/storage";
 import { generateCustomerSummaryPDF } from "@/lib/pdf";
-import { Customer, CustomerBalance } from "@/types";
+import { Customer } from "@/types";
 import { useToast } from "@/hooks/use-toast";
+import { generateMonthlyBalances, getMonthLabel } from "@/lib/monthly-balance";
 
 interface LastBalanceProps {
-  onNavigate: (view: 'create-bill' | 'customers' | 'balance' | 'amount-tracker' | 'dashboard' | 'total-business') => void;
+  onNavigate: (view: string) => void;
 }
 
 export const LastBalance = ({ onNavigate }: LastBalanceProps) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
-  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
-  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
-  const [customerBalance, setCustomerBalance] = useState<CustomerBalance | null>(null);
+  const [monthlyBalances, setMonthlyBalances] = useState<any>({});
   const { toast } = useToast();
 
   useEffect(() => {
-    const customerList = getCustomers();
-    setCustomers(customerList);
-  }, []);
+    const loadData = () => {
+      const customerList = getCustomers();
+      const bills = getBills();
+      const payments = getPayments();
+      
+      setCustomers(customerList);
+      const balances = generateMonthlyBalances(bills, payments, customerList);
+      setMonthlyBalances(balances);
+    };
 
-  useEffect(() => {
-    if (selectedCustomer && startDate && endDate) {
-      const balance = getCustomerBalance(selectedCustomer);
-      setCustomerBalance(balance);
-    } else {
-      setCustomerBalance(null);
-    }
-  }, [selectedCustomer, startDate, endDate]);
+    loadData();
+  }, []);
 
   const handleGenerateSummaryPDF = async (customerId: string) => {
     try {

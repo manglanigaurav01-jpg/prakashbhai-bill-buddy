@@ -26,7 +26,6 @@ interface CustomersProps {
 export const Customers = ({ onNavigate }: CustomersProps) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [newCustomerName, setNewCustomerName] = useState("");
-  const [newCustomerPhone, setNewCustomerPhone] = useState("");
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const { toast } = useToast();
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
@@ -48,12 +47,10 @@ export const Customers = ({ onNavigate }: CustomersProps) => {
 
     try {
       const customer = saveCustomer({ 
-        name: newCustomerName.trim(),
-        ...(newCustomerPhone.trim() && { phone: newCustomerPhone.trim() })
+        name: newCustomerName.trim()
       });
       setCustomers([...customers, customer]);
       setNewCustomerName("");
-      setNewCustomerPhone("");
       toast({
         title: "Customer Added",
         description: `${customer.name} has been added successfully`,
@@ -156,17 +153,7 @@ export const Customers = ({ onNavigate }: CustomersProps) => {
                     className="mt-1"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="customerPhone">Phone Number (Optional)</Label>
-                  <Input
-                    id="customerPhone"
-                    placeholder="Enter phone number"
-                    value={newCustomerPhone}
-                    onChange={(e) => setNewCustomerPhone(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    className="mt-1"
-                  />
-                </div>
+
                 <Button onClick={handleAddCustomer} disabled={!newCustomerName.trim()} className="w-full">
                   <Plus className="w-4 h-4 mr-2" />
                   Add Customer

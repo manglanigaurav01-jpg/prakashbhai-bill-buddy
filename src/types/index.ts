@@ -37,13 +37,11 @@ export interface CustomerBalance {
   totalSales: number;
   totalPaid: number;
   pending: number;
-  phone?: string;
 }
 
 export interface Customer {
   id: string;
   name: string;
-  phone?: string;
   createdAt: string;
 }
 
