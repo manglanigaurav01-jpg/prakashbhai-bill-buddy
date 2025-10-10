@@ -191,35 +191,4 @@ export const AutoSync = () => {
       </CardContent>
     </Card>
   );
-                  }
-                }}
-              >
-                Push to Cloud
-              </Button>
-              <Button
-                variant="outline"
-                onClick={async () => {
-                  const auth = getAuth();
-                  const user = auth.currentUser;
-                  if (user) {
-                    const result = await syncFromCloud(user.uid);
-                    toast({
-                      title: result.success ? 'Sync Complete' : 'Sync Failed',
-                      description: result.success ? 'Data pulled from cloud successfully' : result.error,
-                      variant: result.success ? 'default' : 'destructive'
-                    });
-                    if (result.success) {
-                      window.location.reload(); // Refresh to show updated data
-                    }
-                  }
-                }}
-              >
-                Pull from Cloud
-              </Button>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
 };
