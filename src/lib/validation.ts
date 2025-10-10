@@ -5,6 +5,11 @@ export interface ValidationResult {
   error?: string;
 }
 
+export interface DataValidationResult {
+  isConsistent: boolean;
+  errors: string[];
+}
+
 export const validateRequired = (value: string | number | null | undefined, fieldName: string): ValidationResult => {
   if (value === null || value === undefined || value === '') {
     return { isValid: false, error: `${fieldName} is required` };
@@ -54,6 +59,51 @@ export const validateNonNegativeNumber = (value: string | number, fieldName: str
     return { isValid: false, error: `${fieldName} cannot be negative` };
   }
   return { isValid: true };
+};
+
+export const checkDataConsistency = (data: any): DataValidationResult => {
+  const errors: string[] = [];
+  
+  try {
+    // Check if data has the expected structure
+    if (!data || typeof data !== 'object') {
+      errors.push('Invalid data format');
+      return { isConsistent: false, errors };
+    }
+
+    // Check for required top-level properties
+    const requiredProperties = ['customers', 'bills', 'payments'];
+    requiredProperties.forEach(prop => {
+      if (!data[prop] || !Array.isArray(data[prop])) {
+        errors.push(`Missing or invalid ${prop} data`);
+      }
+    });
+
+    // Check data relationships
+    if (Array.isArray(data.bills)) {
+      data.bills.forEach((bill: any, index: number) => {
+        if (!bill.customerId || !bill.id) {
+          errors.push(`Bill at index ${index} is missing required fields`);
+        }
+      });
+    }
+
+    if (Array.isArray(data.payments)) {
+      data.payments.forEach((payment: any, index: number) => {
+        if (!payment.customerId || !payment.id) {
+          errors.push(`Payment at index ${index} is missing required fields`);
+        }
+      });
+    }
+
+    return {
+      isConsistent: errors.length === 0,
+      errors
+    };
+  } catch (error) {
+    errors.push('Error validating data structure');
+    return { isConsistent: false, errors };
+  }
 };
 
 export const validateInteger = (value: string | number, fieldName: string): ValidationResult => {

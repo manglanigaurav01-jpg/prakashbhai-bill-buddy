@@ -1,13 +1,18 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, FileText } from "lucide-react";
+import { ArrowLeft, FileText, Download, CalendarIcon } from "lucide-react";
 import { getCustomers, getBills, getPayments } from "@/lib/storage";
 import { generateCustomerSummaryPDF } from "@/lib/pdf";
 import { Customer } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { generateMonthlyBalances, getMonthLabel } from "@/lib/monthly-balance";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 interface LastBalanceProps {
   onNavigate: (view: string) => void;
@@ -28,10 +33,21 @@ interface CustomerBalances {
   };
 }
 
+interface CustomerBalanceSummary {
+  customerId: string;
+  customerName: string;
+  totalSales: number;
+  totalPaid: number;
+  pending: number;
+}
+
 export const LastBalance = ({ onNavigate }: LastBalanceProps) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
   const [monthlyBalances, setMonthlyBalances] = useState<CustomerBalances>({});
+  const [startDate, setStartDate] = useState<Date | undefined>();
+  const [endDate, setEndDate] = useState<Date | undefined>();
+  const [customerBalance, setCustomerBalance] = useState<CustomerBalanceSummary | undefined>();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -105,6 +121,44 @@ export const LastBalance = ({ onNavigate }: LastBalanceProps) => {
     const timer = setTimeout(loadData, timeToMidnight);
     return () => clearTimeout(timer);
   }, []);
+
+  // Update customer balance when customer is selected or date range changes
+  useEffect(() => {
+    if (!selectedCustomer) {
+      setCustomerBalance(undefined);
+      return;
+    }
+
+    const customer = customers.find(c => c.id === selectedCustomer);
+    if (!customer) return;
+
+    const bills = getBills();
+    const payments = getPayments();
+
+    const customerBills = bills.filter(b => b.customerId === selectedCustomer)
+      .filter(b => {
+        const billDate = new Date(b.date);
+        return (!startDate || billDate >= startDate) && (!endDate || billDate <= endDate);
+      });
+
+    const customerPayments = payments.filter(p => p.customerId === selectedCustomer)
+      .filter(p => {
+        const paymentDate = new Date(p.date);
+        return (!startDate || paymentDate >= startDate) && (!endDate || paymentDate <= endDate);
+      });
+
+    const totalSales = customerBills.reduce((sum, bill) => sum + bill.grandTotal, 0);
+    const totalPaid = customerPayments.reduce((sum, payment) => sum + payment.amount, 0);
+    const pending = totalSales - totalPaid;
+
+    setCustomerBalance({
+      customerId: selectedCustomer,
+      customerName: customer.name,
+      totalSales,
+      totalPaid,
+      pending
+    });
+  }, [selectedCustomer, customers, startDate, endDate]);
 
   const handleGenerateSummaryPDF = async (customerId: string) => {
     try {

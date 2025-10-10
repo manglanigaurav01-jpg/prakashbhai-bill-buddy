@@ -1,5 +1,32 @@
 import { fetchCloudSnapshot, pushCloudSnapshot, CloudUser } from './cloud';
 import { delay } from './utils';
+import { getCustomers, getBills, getPayments, getItems, saveCustomer, saveBill, savePayment, saveItem } from './storage';
+
+interface LocalSnapshot {
+  customers: any[];
+  bills: any[];
+  payments: any[];
+  items: any[];
+  timestamp: string;
+}
+
+const buildLocalSnapshot = async (): Promise<LocalSnapshot> => {
+  return {
+    customers: getCustomers(),
+    bills: getBills(),
+    payments: getPayments(),
+    items: getItems(),
+    timestamp: new Date().toISOString()
+  };
+};
+
+const applySnapshotToLocal = async (snapshot: LocalSnapshot): Promise<void> => {
+  // Clear existing data by overwriting with new data
+  snapshot.customers.forEach(customer => saveCustomer(customer));
+  snapshot.bills.forEach(bill => saveBill(bill));
+  snapshot.payments.forEach(payment => savePayment(payment));
+  snapshot.items.forEach(item => saveItem(item));
+};
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1 second

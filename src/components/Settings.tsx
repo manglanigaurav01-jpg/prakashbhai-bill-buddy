@@ -30,11 +30,13 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
   const [autoBackupEnabled, setAutoBackupEnabled] = useState(true);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [user, setUser] = useState(getCurrentUser());
+  const [passwordEnabled, setPasswordEnabled] = useState(isPasswordSet());
   const [passwordAction, setPasswordAction] = useState<'set' | 'change' | 'remove' | 'confirmClear'>('set');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
+  const [backupFrequency, setBackupFrequency] = useState<'daily' | 'weekly' | 'monthly'>('daily');
 
   // Check for existing dark mode preference
   useEffect(() => {

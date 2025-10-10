@@ -112,6 +112,16 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 <CreditCard className="w-8 h-8" />
                 <span className="text-sm font-medium">Last Balance</span>
               </Button>
+
+              <Button
+                variant="outline"
+                size="lg"
+                className="h-24 flex-col gap-3 hover:bg-purple-500 hover:text-white transition-all duration-300 hover:scale-105"
+                onClick={() => onNavigate('balanceHistory')}
+              >
+                <BarChart className="w-8 h-8" />
+                <span className="text-sm font-medium">L/B History</span>
+              </Button>
               
               <Button
                 variant="outline"

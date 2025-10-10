@@ -1,7 +1,9 @@
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Bill, Customer, Payment, ItemMaster } from '@/types';
 import { getCustomers, getBills, getPayments, getItems } from './storage';
-import { checkDataConsistency } from './validation';
+import { checkDataConsistency, DataValidationResult } from './validation';
+import { format } from 'date-fns';
+import { v4 as uuidv4 } from 'uuid';
 
 // Constants
 const BACKUP_INTERVAL = 30 * 60 * 1000; // 30 minutes
@@ -100,7 +102,7 @@ const cleanupOldBackups = async () => {
 
     const backups = result.files
       .filter(f => f.name.startsWith('backup_') && f.name.endsWith('.json'))
-      .sort((a, b) => b.mtime!.localeCompare(a.mtime!));
+      .sort((a, b) => (new Date(b.mtime!).getTime() - new Date(a.mtime!).getTime()));
 
     // Keep only the most recent backups
     for (let i = MAX_LOCAL_BACKUPS; i < backups.length; i++) {
@@ -132,8 +134,8 @@ export const restoreFromBackup = async (backupFile: string) => {
       directory: Directory.Data
     });
 
-    const backup = JSON.parse(backupContent.data);
-    const metadata: BackupMetadata = JSON.parse(metadataContent.data);
+    const backup = JSON.parse(typeof backupContent.data === 'string' ? backupContent.data : await backupContent.data.text());
+    const metadata: BackupMetadata = JSON.parse(typeof metadataContent.data === 'string' ? metadataContent.data : await metadataContent.data.text());
 
     // Verify checksum
     const currentChecksum = calculateChecksum(JSON.stringify(backup));
@@ -142,9 +144,9 @@ export const restoreFromBackup = async (backupFile: string) => {
     }
 
     // Verify data consistency
-    const consistency = checkDataConsistency();
+    const consistency = checkDataConsistency(backup);
     if (!consistency.isConsistent) {
-      throw new Error(`Data consistency check failed: ${consistency.error}`);
+      throw new Error(`Data consistency check failed: ${consistency.errors.join(', ')}`);
     }
 
     // Store the data
@@ -181,7 +183,7 @@ export const listAvailableBackups = async () => {
     const backups = await Promise.all(
       result.files
         .filter(f => f.name.startsWith('backup_') && f.name.endsWith('.json'))
-        .sort((a, b) => b.mtime!.localeCompare(a.mtime!))
+        .sort((a, b) => (new Date(b.mtime!).getTime() - new Date(a.mtime!).getTime()))
         .map(async (file) => {
           const metadataContent = await Filesystem.readFile({
             path: `${file.name}.meta`,
@@ -189,7 +191,7 @@ export const listAvailableBackups = async () => {
           });
           return {
             fileName: file.name,
-            metadata: JSON.parse(metadataContent.data) as BackupMetadata
+            metadata: JSON.parse(typeof metadataContent.data === 'string' ? metadataContent.data : await metadataContent.data.text()) as BackupMetadata
           };
         })
     );
