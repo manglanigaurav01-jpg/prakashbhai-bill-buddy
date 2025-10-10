@@ -88,15 +88,19 @@ export const applySnapshotToLocal = async (snapshot: any) => {
 export const syncDown = async (): Promise<{ success: boolean; message: string }> => {
   const user = getCurrentUser();
   if (!user) return { success: false, message: 'Not logged in' };
-  const cloud = await fetchCloudSnapshot(user);
-  if (!cloud) return { success: true, message: 'No cloud data found' };
-  await applySnapshotToLocal(cloud);
-  return { success: true, message: 'Data synced from cloud' };
+  
+  // Try to sync with retry mechanism
+  const result = await import('./sync-retry').then(m => m.syncWithRetry(user, 'pull'));
+  return result;
 };
 
 export const syncUp = async (): Promise<{ success: boolean; message: string }> => {
   const user = getCurrentUser();
   if (!user) return { success: false, message: 'Not logged in' };
+  
+  // Try to sync with retry mechanism
+  const result = await import('./sync-retry').then(m => m.syncWithRetry(user, 'push'));
+  return result;
   const snapshot = await buildLocalSnapshot();
   await pushCloudSnapshot(user, snapshot);
   return { success: true, message: 'Data synced to cloud' };

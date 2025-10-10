@@ -26,6 +26,18 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     document.documentElement.classList.toggle('dark', newTheme);
   };
 
+  const menuItems = [
+    { icon: FileText, label: "Create Bill", view: "createBill" },
+    { icon: Users, label: "Customers", view: "customers" },
+    { icon: Calculator, label: "Last Balance", view: "lastBalance" },
+    { icon: BarChart, label: "L/B History", view: "balanceHistory" },
+    { icon: CreditCard, label: "Payments", view: "editPayments" },
+    { icon: Package, label: "Items", view: "itemMaster" },
+    { icon: Edit3, label: "Edit Bills", view: "editBills" },
+    { icon: TrendingUp, label: "Analytics", view: "analytics" },
+    { icon: SettingsIcon, label: "Settings", view: "settings" },
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-soft to-accent-soft p-8">
       <div className="max-w-lg mx-auto">
@@ -75,7 +87,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 variant="outline"
                 size="lg"
                 className="h-24 flex-col gap-3 hover:bg-primary hover:text-primary-foreground transition-all duration-300 hover:scale-105"
-                onClick={() => onNavigate('create-bill')}
+                onClick={() => onNavigate('createBill')}
               >
                 <FileText className="w-8 h-8" />
                 <span className="text-sm font-medium">Create a Bill</span>
@@ -85,7 +97,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 variant="outline"
                 size="lg"
                 className="h-24 flex-col gap-3 hover:bg-accent hover:text-accent-foreground transition-all duration-300 hover:scale-105"
-                onClick={() => onNavigate('amount-tracker')}
+                onClick={() => onNavigate('amountTracker')}
               >
                 <Calculator className="w-8 h-8" />
                 <span className="text-sm font-medium">Amount Paid/Not Paid</span>
@@ -95,7 +107,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 variant="outline"
                 size="lg"
                 className="h-24 flex-col gap-3 hover:bg-warning hover:text-warning-foreground transition-all duration-300 hover:scale-105"
-                onClick={() => onNavigate('last-balance')}
+                onClick={() => onNavigate('lastBalance')}
               >
                 <CreditCard className="w-8 h-8" />
                 <span className="text-sm font-medium">Last Balance</span>
@@ -105,7 +117,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 variant="outline"
                 size="lg"
                 className="h-24 flex-col gap-3 hover:bg-business-blue hover:text-primary-foreground transition-all duration-300 hover:scale-105"
-                onClick={() => onNavigate('total-business')}
+                onClick={() => onNavigate('totalBusiness')}
               >
                 <TrendingUp className="w-8 h-8" />
                 <span className="text-sm font-medium">Total Business</span>
@@ -115,7 +127,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 variant="outline"
                 size="lg"
                 className="h-24 flex-col gap-3 hover:bg-orange-500 hover:text-white transition-all duration-300 hover:scale-105"
-                onClick={() => onNavigate('item-master')}
+                onClick={() => onNavigate('itemMaster')}
               >
                 <Package className="w-8 h-8" />
                 <span className="text-sm font-medium">Item Master</span>
@@ -145,7 +157,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 variant="outline"
                 size="lg"
                 className="h-24 flex-col gap-3 hover:bg-purple-500 hover:text-white transition-all duration-300 hover:scale-105"
-                onClick={() => onNavigate('edit-bills')}
+                onClick={() => onNavigate('editBills')}
               >
                 <Edit3 className="w-8 h-8" />
                 <span className="text-sm font-medium">Edit Bills</span>
@@ -155,7 +167,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
                 variant="outline"
                 size="lg"
                 className="h-24 flex-col gap-3 hover:bg-emerald-500 hover:text-white transition-all duration-300 hover:scale-105"
-                onClick={() => onNavigate('edit-payments')}
+                onClick={() => onNavigate('editPayments')}
               >
                 <CreditCard className="w-8 h-8" />
                 <span className="text-sm font-medium">Edit Amt Paid</span>

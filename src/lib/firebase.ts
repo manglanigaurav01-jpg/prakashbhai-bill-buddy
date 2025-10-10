@@ -15,14 +15,14 @@ let services: FirebaseServices | null = null;
 export const initFirebase = (): FirebaseServices | null => {
   if (services) return services;
   
-  // Always use fallback config for consistency across platforms
+  // Use the main Firebase config
   const config = {
-    apiKey: "AIzaSyCv415KjC8orC9LJgwO921Bxi80ziYBIBY",
-    authDomain: "prakashbhai-bill-buddy-2b72e.firebaseapp.com",
-    projectId: "prakashbhai-bill-buddy-2b72e",
-    storageBucket: "prakashbhai-bill-buddy-2b72e.firebasestorage.app",
-    messagingSenderId: "970292294646",
-    appId: "1:970292294646:web:d135ab542783bc773c0dd7"
+    apiKey: "AIzaSyCD-kUBQCrz7kuNYHewynw1-8blwZsQb4w",
+    authDomain: "prakashbhai-bill-buddy-85123.firebaseapp.com",
+    projectId: "prakashbhai-bill-buddy-85123",
+    storageBucket: "prakashbhai-bill-buddy-85123.firebasestorage.app",
+    messagingSenderId: "491579424292",
+    appId: "1:491579424292:android:93a7e573e3498a6cdee2b1"
   };
 
   const app = getApps().length ? getApps()[0] : initializeApp(config);

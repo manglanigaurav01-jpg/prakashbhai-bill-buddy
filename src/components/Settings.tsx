@@ -25,9 +25,9 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const { toast } = useToast();
   const [backupMode, setBackupMode] = useState<'automatic' | 'manual'>('automatic');
-  const [backupFrequency, setBackupFrequency] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
   const [lastBackupAt, setLastBackupAt] = useState<string | undefined>(undefined);
-  const [passwordEnabled, setPasswordEnabled] = useState(isPasswordSet());
+  const [googleUser, setGoogleUser] = useState(getCurrentUser());
+  const [autoBackupEnabled, setAutoBackupEnabled] = useState(true);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [user, setUser] = useState(getCurrentUser());
   const [passwordAction, setPasswordAction] = useState<'set' | 'change' | 'remove' | 'confirmClear'>('set');

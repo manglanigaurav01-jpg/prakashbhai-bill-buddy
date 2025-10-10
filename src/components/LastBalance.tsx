@@ -13,10 +13,25 @@ interface LastBalanceProps {
   onNavigate: (view: string) => void;
 }
 
+interface MonthlyBalance {
+  opening: number;
+  closing: number;
+  transactions: {
+    bills: number;
+    payments: number;
+  };
+}
+
+interface CustomerBalances {
+  [key: string]: {
+    [monthKey: string]: MonthlyBalance;
+  };
+}
+
 export const LastBalance = ({ onNavigate }: LastBalanceProps) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
-  const [monthlyBalances, setMonthlyBalances] = useState<any>({});
+  const [monthlyBalances, setMonthlyBalances] = useState<CustomerBalances>({});
   const { toast } = useToast();
 
   useEffect(() => {
@@ -26,11 +41,69 @@ export const LastBalance = ({ onNavigate }: LastBalanceProps) => {
       const payments = getPayments();
       
       setCustomers(customerList);
-      const balances = generateMonthlyBalances(bills, payments, customerList);
+      
+      // Calculate running balances up to current date
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth();
+      const currentYear = currentDate.getFullYear();
+      
+      const balances = customerList.reduce((acc: any, customer) => {
+        const customerBills = bills.filter(b => b.customerId === customer.id);
+        const customerPayments = payments.filter(p => p.customerId === customer.id);
+        
+        // Get last month's balance
+        const lastMonthKey = currentMonth === 0 
+          ? `${currentYear - 1}-12`
+          : `${currentYear}-${currentMonth}`;
+          
+        let openingBalance = 0;
+        
+        // Calculate all transactions for this customer
+        const monthlyTotals = customerBills.reduce((totals: any, bill) => {
+          const billDate = new Date(bill.date);
+          const key = `${billDate.getFullYear()}-${billDate.getMonth() + 1}`;
+          if (!totals[key]) totals[key] = { bills: 0, payments: 0 };
+          totals[key].bills += bill.grandTotal;
+          return totals;
+        }, {});
+
+        customerPayments.forEach(payment => {
+          const paymentDate = new Date(payment.date);
+          const key = `${paymentDate.getFullYear()}-${paymentDate.getMonth() + 1}`;
+          if (!monthlyTotals[key]) monthlyTotals[key] = { bills: 0, payments: 0 };
+          monthlyTotals[key].payments += payment.amount;
+        });
+
+        // Calculate running balance
+        Object.keys(monthlyTotals).forEach(month => {
+          const total = monthlyTotals[month];
+          openingBalance = openingBalance + total.bills - total.payments;
+          
+          acc[customer.id] = {
+            ...acc[customer.id],
+            [month]: {
+              opening: month === lastMonthKey ? openingBalance : 0,
+              transactions: total,
+              closing: openingBalance
+            }
+          };
+        });
+
+        return acc;
+      }, {});
+
       setMonthlyBalances(balances);
     };
 
     loadData();
+    
+    // Set up auto-refresh every day at midnight
+    const now = new Date();
+    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+    const timeToMidnight = tomorrow.getTime() - now.getTime();
+    
+    const timer = setTimeout(loadData, timeToMidnight);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleGenerateSummaryPDF = async (customerId: string) => {

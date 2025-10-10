@@ -21,7 +21,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
-type View = 'dashboard' | 'create-bill' | 'customers' | 'balance' | 'amount-tracker' | 'last-balance' | 'total-business' | 'item-master' | 'edit-bills' | 'edit-payments' | 'settings' | 'analytics' | 'balance-history';
+type View = 'dashboard' | 'createBill' | 'customers' | 'balance' | 'amountTracker' | 'lastBalance' | 'balanceHistory' | 'totalBusiness' | 'itemMaster' | 'editBills' | 'editPayments' | 'settings' | 'analytics';
 
 const App = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -40,29 +40,29 @@ const App = () => {
 
   const renderView = () => {
     switch (currentView) {
-      case 'create-bill':
+      case 'createBill':
         return <EnhancedCreateBill onNavigate={handleNavigate} />;
       case 'customers':
         return <Customers onNavigate={handleNavigate} />;
       case 'balance':
         return <BalanceTracker onNavigate={handleNavigate} />;
-      case 'amount-tracker':
+      case 'amountTracker':
         return <AmountTracker onNavigate={handleNavigate} />;
-      case 'last-balance':
+      case 'lastBalance':
         return <LastBalance onNavigate={handleNavigate} />;
-      case 'total-business':
+      case 'totalBusiness':
         return <TotalBusiness onNavigate={handleNavigate} />;
-      case 'item-master':
+      case 'itemMaster':
         return <ItemMaster onNavigate={handleNavigate} />;
-      case 'edit-bills':
+      case 'editBills':
         return <EditBills onNavigate={handleNavigate} />;
-      case 'edit-payments':
+      case 'editPayments':
         return <EditPayments onNavigate={handleNavigate} />;
       case 'settings':
         return <Settings onNavigate={handleNavigate} />;
       case 'analytics':
         return <Analytics onNavigate={handleNavigate} />;
-      case 'balance-history':
+      case 'balanceHistory':
         return <BalanceHistory onNavigate={handleNavigate} />;
       default:
         return <Dashboard onNavigate={handleNavigate} />;

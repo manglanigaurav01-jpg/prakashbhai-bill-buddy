@@ -1,72 +1,112 @@
-import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { signUp, signIn, signOutUser, initializeAuth, syncToCloud, syncFromCloud } from '@/lib/firebase-realtime';
-import { getAuth } from 'firebase/auth';
-import { toast } from '@/hooks/use-toast';
+import React, { useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
+import { Button } from './ui/button';
+import { Alert, AlertTitle, AlertDescription } from './ui/alert';
+import { Loader2Icon, CloudIcon, CloudOffIcon, RefreshCwIcon } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { useSyncStore } from '@/lib/sync-store';
+import { getCurrentUser, signInWithGoogle, signOut, syncUp, syncDown } from '@/lib/cloud';
 
 export const AutoSync = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [lastSync, setLastSync] = useState<string | null>(null);
+  const [user, setUser] = useState(getCurrentUser());
 
   useEffect(() => {
-    // Initialize auth state
-    initializeAuth();
-    
-    // Check if user is already logged in
-    const savedEmail = localStorage.getItem('userEmail');
-    if (savedEmail) {
-      setIsLoggedIn(true);
-      setEmail(savedEmail);
+    if (user) {
+      handleSync();
     }
-  }, []);
 
-  const handleSignUp = async () => {
-    const result = await signUp(email, password);
-    if (result.success) {
-      setIsLoggedIn(true);
-      localStorage.setItem('userEmail', email);
+    // Check network status
+    const handleOnline = () => setSyncError(null);
+    const handleOffline = () => setSyncError('No internet connection');
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [user]);
+
+  const handleSync = async () => {
+    if (!user || isLoading) return;
+    if (!navigator.onLine) {
+      setSyncError('No internet connection');
+      return;
+    }
+
+    setIsLoading(true);
+    setSyncError(null);
+
+    try {
+      // First push local changes
+      const pushResult = await syncUp();
+      if (!pushResult.success) {
+        throw new Error(pushResult.message);
+      }
+
+      // Then pull remote changes
+      const pullResult = await syncDown();
+      if (!pullResult.success) {
+        throw new Error(pullResult.message);
+      }
+
+      setLastSync(new Date().toISOString());
       toast({
-        title: 'Account created',
-        description: 'Auto-sync is now enabled across your devices'
+        title: 'Sync Complete',
+        description: 'Your data is now up to date across all devices.',
       });
-    } else {
+    } catch (error: any) {
+      console.error('Sync error:', error);
+      setSyncError(error.message);
       toast({
-        title: 'Error',
-        description: result.error,
-        variant: 'destructive'
+        variant: 'destructive',
+        title: 'Sync Failed',
+        description: error.message || 'Please check your connection and try again.',
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleSignIn = async () => {
-    const result = await signIn(email, password);
-    if (result.success) {
-      setIsLoggedIn(true);
-      localStorage.setItem('userEmail', email);
+    try {
+      setIsLoading(true);
+      const newUser = await signInWithGoogle();
+      setUser(newUser);
       toast({
-        title: 'Signed in',
-        description: 'Your data will automatically sync across devices'
+        title: 'Signed In',
+        description: 'You can now sync your data across devices.',
       });
-    } else {
+    } catch (error: any) {
+      console.error('Sign in error:', error);
       toast({
-        title: 'Error',
-        description: result.error,
-        variant: 'destructive'
+        variant: 'destructive',
+        title: 'Sign In Failed',
+        description: error.message || 'Please try again.',
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleSignOut = async () => {
-    const result = await signOutUser();
-    if (result.success) {
-      setIsLoggedIn(false);
-      localStorage.removeItem('userEmail');
+    try {
+      await signOut();
+      setUser(null);
       toast({
-        title: 'Signed out',
-        description: 'Auto-sync disabled'
+        title: 'Signed Out',
+        description: 'Your data will no longer sync across devices.',
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Sign Out Failed',
+        description: error.message || 'Please try again.',
       });
     }
   };
@@ -74,58 +114,83 @@ export const AutoSync = () => {
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>Auto-Sync</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          {navigator.onLine ? 
+            <CloudIcon className="h-5 w-5" /> : 
+            <CloudOffIcon className="h-5 w-5" />
+          }
+          Auto-Sync
+        </CardTitle>
         <CardDescription>
-          {isLoggedIn 
-            ? 'Your data automatically syncs across all your devices' 
-            : 'Sign in to enable automatic syncing across devices'}
+          {user
+            ? 'Your data automatically syncs across all your devices'
+            : 'Sign in to enable automatic data sync'}
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {!isLoggedIn ? (
-          <div className="space-y-4">
-            <Input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-            <Input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <div className="flex gap-2">
-              <Button onClick={handleSignIn}>Sign In</Button>
-              <Button variant="outline" onClick={handleSignUp}>Sign Up</Button>
-            </div>
+        {syncError && (
+          <div className="mb-4">
+            <Alert variant="destructive">
+              <AlertTitle>Sync Failed</AlertTitle>
+              <AlertDescription>{syncError}</AlertDescription>
+            </Alert>
           </div>
-        ) : (
+        )}
+
+        {user ? (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-sm font-medium">Signed in as</div>
-                <div className="text-sm text-muted-foreground">{email}</div>
+                <p className="text-sm font-medium">Signed in as</p>
+                <p className="text-sm text-muted-foreground">{user.email}</p>
               </div>
-              <Button variant="destructive" onClick={handleSignOut}>Sign Out</Button>
+              <Button 
+                variant="outline" 
+                onClick={handleSignOut} 
+                disabled={isLoading}
+              >
+                Sign Out
+              </Button>
             </div>
-            <div className="text-sm text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 p-3 rounded-lg">
-              ✓ Auto-sync is active. Any changes you make will automatically appear on all your devices.
-            </div>
-            <div className="flex gap-2 mt-4">
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Last synced</p>
+                <p className="text-sm text-muted-foreground">
+                  {lastSync ? new Date(lastSync).toLocaleString() : 'Never'}
+                </p>
+              </div>
               <Button
-                variant="outline"
-                onClick={async () => {
-                  const auth = getAuth();
-                  const user = auth.currentUser;
-                  if (user) {
-                    const result = await syncToCloud(user.uid);
-                    toast({
-                      title: result.success ? 'Sync Complete' : 'Sync Failed',
-                      description: result.success ? 'Data pushed to cloud successfully' : result.error,
-                      variant: result.success ? 'default' : 'destructive'
-                    });
+                variant="secondary"
+                onClick={handleSync}
+                disabled={isLoading || !navigator.onLine}
+              >
+                {isLoading ? (
+                  <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <CloudIcon className="mr-2 h-4 w-4" />
+                )}
+                Sync Now
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button
+            className="w-full"
+            onClick={handleSignIn}
+            disabled={isLoading || !navigator.onLine}
+          >
+            {isLoading ? (
+              <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <CloudIcon className="mr-2 h-4 w-4" />
+            )}
+            Sign in with Google
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
                   }
                 }}
               >

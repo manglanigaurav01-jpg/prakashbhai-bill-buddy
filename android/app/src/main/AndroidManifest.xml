@@ -40,4 +40,13 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.GET_ACCOUNTS" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    
+    <!-- Google Drive Integration -->
+    <queries>
+        <intent>
+            <action android:name="com.google.android.gms.auth.api.signin.GoogleSignIn" />
+        </intent>
+    </queries>
 </manifest>

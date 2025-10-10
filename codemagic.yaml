@@ -6,9 +6,19 @@ workflows:
     environment:
       vars:
         PACKAGE_NAME: "com.manglanigaurav01.prakashbhaibillbuddy"
+        GOOGLE_SERVICES_JSON: Encrypted(...) # Add your encrypted Google Services JSON
       node: 20
       npm: 9
       java: 17
+      xcode: latest
+    triggering:
+      events:
+        - push
+        - tag
+        - pull_request
+      branch_patterns:
+        - pattern: main
+          include: true
     cache:
       cache_paths:
         - node_modules

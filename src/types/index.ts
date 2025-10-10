@@ -31,12 +31,23 @@ export interface Payment {
   createdAt: string;
 }
 
+export interface MonthlyBalance {
+  month: string;
+  year: number;
+  openingBalance: number;
+  bills: number;
+  payments: number;
+  closingBalance: number;
+}
+
 export interface CustomerBalance {
   customerId: string;
   customerName: string;
   totalSales: number;
   totalPaid: number;
   pending: number;
+  monthlyBalances?: MonthlyBalance[];
+  lastMonthBalance?: number;
 }
 
 export interface Customer {
