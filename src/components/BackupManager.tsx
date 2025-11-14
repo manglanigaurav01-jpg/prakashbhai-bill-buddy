@@ -230,7 +230,18 @@ export const BackupManager = () => {
                     : "No backups available"}
                 </p>
                 {backupLocation && (
-                  <p className="text-xs text-muted-foreground mt-1">Saved at: <span className="font-mono">{backupLocation}</span></p>
+                  <div className="mt-2 p-2 bg-muted rounded-lg">
+                    <p className="text-xs font-medium mb-1">Backup Location:</p>
+                    <p className="text-xs text-muted-foreground break-all font-mono">{backupLocation}</p>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="mt-2"
+                      onClick={handleCopyBackupLocation}
+                    >
+                      Copy Location
+                    </Button>
+                  </div>
                 )}
               </div>
               <Button 

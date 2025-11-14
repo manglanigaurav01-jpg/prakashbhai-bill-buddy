@@ -2,18 +2,28 @@ import { getAuth } from 'firebase/auth';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { backupToGoogleDrive } from './google-drive';
 
-// Schedule monthly backups
+// Schedule monthly backups at month end
 export const scheduleMonthlyBackup = () => {
   const now = new Date();
-  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-  const timeUntilNextMonth = nextMonth.getTime() - now.getTime();
+  // Get last day of current month
+  const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  lastDayOfMonth.setHours(23, 59, 59, 999); // Set to end of day
+  
+  let timeUntilMonthEnd = lastDayOfMonth.getTime() - now.getTime();
+  
+  // If we've passed the month end, schedule for next month end
+  if (timeUntilMonthEnd < 0) {
+    const nextMonthEnd = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+    nextMonthEnd.setHours(23, 59, 59, 999);
+    timeUntilMonthEnd = nextMonthEnd.getTime() - now.getTime();
+  }
 
-  // Schedule backup for the beginning of next month
+  // Schedule backup for the end of current/next month
   setTimeout(async () => {
     await performMonthlyBackup();
     // Schedule next month's backup
     scheduleMonthlyBackup();
-  }, timeUntilNextMonth);
+  }, timeUntilMonthEnd);
 };
 
 // Perform the actual backup

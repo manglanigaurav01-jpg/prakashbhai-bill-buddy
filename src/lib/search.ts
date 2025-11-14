@@ -66,8 +66,7 @@ export const searchCustomers = (customers: Customer[], query: string): Customer[
   if (!query) return customers;
   const q = query.toLowerCase();
   return customers.filter(customer => 
-    customer.name.toLowerCase().includes(q) ||
-    (customer.phone && customer.phone.includes(q))
+    customer.name.toLowerCase().includes(q)
   );
 };
 
@@ -90,8 +89,7 @@ export const globalSearch = (
       p.customerName.toLowerCase().includes(q)
     ),
     customers: customers.filter(c => 
-      c.name.toLowerCase().includes(q) ||
-      (c.phone && c.phone.includes(q))
+      c.name.toLowerCase().includes(q)
     ),
     items: items.filter(i => 
       i.name.toLowerCase().includes(q)

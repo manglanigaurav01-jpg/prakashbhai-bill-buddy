@@ -30,13 +30,22 @@ export const GlobalSearch = ({ open, onOpenChange, onNavigate }: GlobalSearchPro
         return;
       }
 
+      // Limit results for performance with large datasets (300+ customers, 50+ bills)
       const bills = getBills();
       const payments = getPayments();
       const customers = getCustomers();
       const items = getItems();
 
       const searchResults = globalSearch(query, bills, payments, customers, items);
-      setResults(searchResults);
+      
+      // Limit results to prevent UI freezing with large datasets
+      const MAX_RESULTS_PER_CATEGORY = 20;
+      setResults({
+        bills: searchResults.bills.slice(0, MAX_RESULTS_PER_CATEGORY),
+        payments: searchResults.payments.slice(0, MAX_RESULTS_PER_CATEGORY),
+        customers: searchResults.customers.slice(0, MAX_RESULTS_PER_CATEGORY),
+        items: searchResults.items.slice(0, MAX_RESULTS_PER_CATEGORY),
+      });
     }, 250);
 
     return () => clearTimeout(timer);
@@ -98,7 +107,7 @@ export const GlobalSearch = ({ open, onOpenChange, onNavigate }: GlobalSearchPro
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-3 text-sm font-semibold">
                 <FileText className="h-4 w-4" />
-                Bills ({results.bills.length})
+                Bills ({results.bills.length}{results.bills.length === 20 ? '+' : ''})
               </div>
               <div className="space-y-2">
                 {results.bills.map(bill => (
@@ -127,7 +136,7 @@ export const GlobalSearch = ({ open, onOpenChange, onNavigate }: GlobalSearchPro
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-3 text-sm font-semibold">
                 <IndianRupee className="h-4 w-4" />
-                Payments ({results.payments.length})
+                Payments ({results.payments.length}{results.payments.length === 20 ? '+' : ''})
               </div>
               <div className="space-y-2">
                 {results.payments.map(payment => (
@@ -154,7 +163,7 @@ export const GlobalSearch = ({ open, onOpenChange, onNavigate }: GlobalSearchPro
             <div className="mb-6">
               <div className="flex items-center gap-2 mb-3 text-sm font-semibold">
                 <User className="h-4 w-4" />
-                Customers ({results.customers.length})
+                Customers ({results.customers.length}{results.customers.length === 20 ? '+' : ''})
               </div>
               <div className="space-y-2">
                 {results.customers.map(customer => (

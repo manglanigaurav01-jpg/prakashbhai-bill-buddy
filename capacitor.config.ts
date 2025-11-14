@@ -1,8 +1,8 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.fefdfaed58db469497b3784882c36196',
-  appName: 'prakashbhai-bill-buddy',
+  appId: 'com.prakashbhai.billbuddy',
+  appName: 'Prakashbhai Bill Manager',
   webDir: 'dist',
   android: {
     path: undefined,

@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { getBills, getPayments, getItems, getAllCustomerBalances, getBusinessAnalytics, updateBusinessAnalytics } from '@/lib/storage';
 import { SyncStatus } from './SyncStatus';
 import * as XLSX from 'xlsx';
+import { useToast } from '@/hooks/use-toast';
 
 interface AnalyticsData {
   revenues: { date: string; amount: number }[];
@@ -23,6 +24,7 @@ export const EnhancedAnalytics: React.FC<EnhancedAnalyticsProps> = ({ onNavigate
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | '1y'>('30d');
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
   useEffect(() => {
     calculateAnalytics();
@@ -30,6 +32,16 @@ export const EnhancedAnalytics: React.FC<EnhancedAnalyticsProps> = ({ onNavigate
 
   const calculateAnalytics = async () => {
     setLoading(true);
+    
+    // Use requestIdleCallback or setTimeout to prevent blocking UI with large datasets
+    await new Promise(resolve => {
+      if ('requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(resolve, { timeout: 100 });
+      } else {
+        setTimeout(resolve, 0);
+      }
+    });
+    
     const bills = getBills();
     const payments = getPayments();
     const items = getItems();
@@ -45,12 +57,14 @@ export const EnhancedAnalytics: React.FC<EnhancedAnalyticsProps> = ({ onNavigate
       case '1y': startDate.setFullYear(endDate.getFullYear() - 1); break;
     }
 
-    // Revenue trends
-    const revenues = bills
-      .filter(bill => {
-        const billDate = new Date(bill.date);
-        return billDate >= startDate && billDate <= endDate;
-      })
+    // Filter bills first for better performance with large datasets
+    const filteredBills = bills.filter(bill => {
+      const billDate = new Date(bill.date);
+      return billDate >= startDate && billDate <= endDate;
+    });
+
+    // Revenue trends - use filtered bills
+    const revenues = filteredBills
       .reduce((acc: { date: string; amount: number }[], bill) => {
         const dateStr = bill.date.split('T')[0];
         const existing = acc.find(x => x.date === dateStr);
@@ -63,18 +77,15 @@ export const EnhancedAnalytics: React.FC<EnhancedAnalyticsProps> = ({ onNavigate
       }, [])
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    // Popular items analysis
+    // Popular items analysis - use filtered bills
     const itemStats = new Map<string, { quantity: number; revenue: number }>();
-    bills.forEach(bill => {
-      const billDate = new Date(bill.date);
-      if (billDate >= startDate && billDate <= endDate) {
-        bill.items.forEach(item => {
-          const stats = itemStats.get(item.itemName) || { quantity: 0, revenue: 0 };
-          stats.quantity += item.quantity;
-          stats.revenue += item.total;
-          itemStats.set(item.itemName, stats);
-        });
-      }
+    filteredBills.forEach(bill => {
+      bill.items.forEach(item => {
+        const stats = itemStats.get(item.itemName) || { quantity: 0, revenue: 0 };
+        stats.quantity += item.quantity;
+        stats.revenue += item.total;
+        itemStats.set(item.itemName, stats);
+      });
     });
 
     const topItems = Array.from(itemStats.entries())
@@ -82,7 +93,7 @@ export const EnhancedAnalytics: React.FC<EnhancedAnalyticsProps> = ({ onNavigate
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 10);
 
-    // Customer payment patterns
+    // Customer payment patterns - use filtered bills
     const customerStats = new Map<string, {
       totalAmount: number;
       billCount: number;
@@ -90,20 +101,24 @@ export const EnhancedAnalytics: React.FC<EnhancedAnalyticsProps> = ({ onNavigate
       lastPaymentDate?: Date;
     }>();
 
-    bills.forEach(bill => {
-      if (new Date(bill.date) >= startDate && new Date(bill.date) <= endDate) {
-        const stats = customerStats.get(bill.customerName) || {
-          totalAmount: 0,
-          billCount: 0,
-          payments: []
-        };
-        stats.totalAmount += bill.grandTotal;
-        stats.billCount += 1;
-        customerStats.set(bill.customerName, stats);
-      }
+    filteredBills.forEach(bill => {
+      const stats = customerStats.get(bill.customerName) || {
+        totalAmount: 0,
+        billCount: 0,
+        payments: []
+      };
+      stats.totalAmount += bill.grandTotal;
+      stats.billCount += 1;
+      customerStats.set(bill.customerName, stats);
+    });
+    
+    // Filter payments by date range for better performance
+    const filteredPayments = payments.filter(payment => {
+      const paymentDate = new Date(payment.date);
+      return paymentDate >= startDate && paymentDate <= endDate;
     });
 
-    payments.forEach(payment => {
+    filteredPayments.forEach(payment => {
       const stats = customerStats.get(payment.customerName);
       if (stats) {
         stats.payments.push(payment.amount);
@@ -145,28 +160,62 @@ export const EnhancedAnalytics: React.FC<EnhancedAnalyticsProps> = ({ onNavigate
     setLoading(false);
   };
 
-  const exportToExcel = () => {
-    if (!analyticsData) return;
+  const exportToExcel = async () => {
+    if (!analyticsData) {
+      toast({
+        title: "No data",
+        description: "No analytics data available to export",
+        variant: "destructive",
+      });
+      return;
+    }
     
-    const workbook = XLSX.utils.book_new();
-    
-    // Revenue sheet
-    const revenueData = analyticsData.revenues.map(r => ({
-      Date: new Date(r.date).toLocaleDateString(),
-      Revenue: r.amount
-    }));
-    const revenueSheet = XLSX.utils.json_to_sheet(revenueData);
-    XLSX.utils.book_append_sheet(workbook, revenueSheet, "Revenue Trends");
-    
-    // Top Items sheet
-    const itemsSheet = XLSX.utils.json_to_sheet(analyticsData.topItems);
-    XLSX.utils.book_append_sheet(workbook, itemsSheet, "Top Items");
-    
-    // Customer Patterns sheet
-    const customerSheet = XLSX.utils.json_to_sheet(analyticsData.customerPatterns);
-    XLSX.utils.book_append_sheet(workbook, customerSheet, "Customer Patterns");
-    
-    XLSX.writeFile(workbook, `bill-buddy-analytics-${timeRange}.xlsx`);
+    try {
+      const workbook = XLSX.utils.book_new();
+      
+      // Revenue sheet
+      const revenueData = analyticsData.revenues.map(r => ({
+        Date: new Date(r.date).toLocaleDateString(),
+        Revenue: r.amount
+      }));
+      if (revenueData.length > 0) {
+        const revenueSheet = XLSX.utils.json_to_sheet(revenueData);
+        XLSX.utils.book_append_sheet(workbook, revenueSheet, "Revenue Trends");
+      }
+      
+      // Top Items sheet
+      if (analyticsData.topItems.length > 0) {
+        const itemsSheet = XLSX.utils.json_to_sheet(analyticsData.topItems);
+        XLSX.utils.book_append_sheet(workbook, itemsSheet, "Top Items");
+      }
+      
+      // Customer Patterns sheet
+      if (analyticsData.customerPatterns.length > 0) {
+        const customerSheet = XLSX.utils.json_to_sheet(analyticsData.customerPatterns);
+        XLSX.utils.book_append_sheet(workbook, customerSheet, "Customer Patterns");
+      }
+      
+      // Outstanding Payments sheet
+      if (analyticsData.outstandingPayments.length > 0) {
+        const outstandingSheet = XLSX.utils.json_to_sheet(analyticsData.outstandingPayments);
+        XLSX.utils.book_append_sheet(workbook, outstandingSheet, "Outstanding Payments");
+      }
+      
+      const fileName = `bill-buddy-analytics-${timeRange}-${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+      
+      toast({
+        title: "Export successful",
+        description: `Analytics data exported to ${fileName}`,
+      });
+    } catch (error: any) {
+      console.error('Excel export error:', error);
+      toast({
+        title: "Export failed",
+        description: error.message || "Failed to export to Excel",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

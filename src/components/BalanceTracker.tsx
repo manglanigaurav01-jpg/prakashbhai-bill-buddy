@@ -24,9 +24,13 @@ export const BalanceTracker = ({ onNavigate }: BalanceTrackerProps) => {
   const { toast } = useToast();
 
   useEffect(() => {
+    // Optimized for 300+ customers - getAllCustomerBalances uses single-pass algorithm
     const customerList = getCustomers();
     setCustomers(customerList);
-    setAllBalances(getAllCustomerBalances());
+    // Use setTimeout to prevent blocking UI with large datasets
+    setTimeout(() => {
+      setAllBalances(getAllCustomerBalances());
+    }, 0);
   }, []);
 
   useEffect(() => {
@@ -122,13 +126,8 @@ export const BalanceTracker = ({ onNavigate }: BalanceTrackerProps) => {
                       {customerBalance.pending > 0 && (
                         <Button 
                           onClick={async () => {
-                            const customer = customers.find(c => c.id === customerBalance.customerId);
-                            if (customer?.phone) {
-                              const message = createPaymentReminderMessage(customerBalance.customerName, customerBalance.pending);
-                              await shareViaWhatsApp(customer.phone, message);
-                            } else {
-                              toast({ title: 'No phone number', description: 'This customer has no phone number', variant: 'destructive' });
-                            }
+                            const message = createPaymentReminderMessage(customerBalance.customerName, customerBalance.pending);
+                            await shareViaWhatsApp('', message);
                           }}
                           variant="outline"
                           className="flex items-center gap-2"

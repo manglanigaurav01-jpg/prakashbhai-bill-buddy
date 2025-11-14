@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertTriangle, ArrowLeft, Moon, Sun, Trash2, User } from "lucide-react";
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, signInWithGoogle, signOutUser, onAuthStateChanged } from '@/lib/auth';
 import { AutoSync } from "./AutoSync";
 import { RecycleBin } from "./RecycleBin";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +14,8 @@ import { BackupManager } from "./BackupManager";
 import { isPasswordSet, setPassword, verifyPassword, changePassword, removePassword } from '@/components/password';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { initializeAutoBackup } from '@/lib/auto-backup';
+import type { User } from 'firebase/auth';
 
 interface SettingsProps {
   onNavigate: (view: string) => void;
@@ -30,6 +32,8 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
   // Check for existing dark mode preference
   useEffect(() => {
@@ -40,6 +44,70 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
     setIsDarkMode(shouldBeDark);
     document.documentElement.classList.toggle('dark', shouldBeDark);
   }, []);
+
+  // Monitor auth state
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged((user) => {
+      setCurrentUser(user);
+      if (user) {
+        // Initialize auto backup when user signs in
+        initializeAutoBackup();
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleGoogleSignIn = async () => {
+    setIsSigningIn(true);
+    try {
+      const result = await signInWithGoogle();
+      if (result.success) {
+        toast({
+          title: "Signed in successfully",
+          description: "Your account is now connected. Monthly backups will be automatic.",
+        });
+        initializeAutoBackup();
+      } else {
+        toast({
+          title: "Sign in failed",
+          description: result.error || "Failed to sign in with Google",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to sign in",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSigningIn(false);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      const result = await signOutUser();
+      if (result.success) {
+        toast({
+          title: "Signed out",
+          description: "You have been signed out successfully.",
+        });
+      } else {
+        toast({
+          title: "Sign out failed",
+          description: result.error || "Failed to sign out",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to sign out",
+        variant: "destructive",
+      });
+    }
+  };
 
   const toggleDarkMode = (enabled: boolean) => {
     setIsDarkMode(enabled);
@@ -269,6 +337,51 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
               <p className="text-xs text-muted-foreground mt-2">
                 This password will be required to clear all data.
               </p>
+            </CardContent>
+          </Card>
+
+          {/* Google Sign-in & Auto Backup */}
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="w-5 h-5" />
+                Google Account & Auto Backup
+              </CardTitle>
+              <CardDescription>
+                Sign in with Google to enable automatic monthly backups at month end
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {currentUser ? (
+                <div className="space-y-3">
+                  <div className="p-3 bg-primary/5 rounded-lg">
+                    <p className="text-sm font-medium">Signed in as:</p>
+                    <p className="text-sm text-muted-foreground">{currentUser.email}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    ✓ Automatic backups will be created at the end of each month
+                  </p>
+                  <Button variant="outline" onClick={handleSignOut} className="w-full">
+                    Sign Out
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Sign in with Google to enable automatic monthly backups. Backups will be created automatically at the end of each month.
+                  </p>
+                  <Button 
+                    onClick={handleGoogleSignIn} 
+                    disabled={isSigningIn}
+                    className="w-full"
+                  >
+                    {isSigningIn ? "Signing in..." : "Sign in with Google"}
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Note: You can use the app without signing in. You can sign in later from here.
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 

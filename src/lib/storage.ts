@@ -262,9 +262,48 @@ export const getBillsByCustomer = (customerId: string): Bill[] => {
   return getBills().filter(bill => bill.customerId === customerId);
 };
 
+// Optimized version for 300+ customers - single pass through bills/payments
 export const getAllCustomerBalances = (): CustomerBalance[] => {
   const customers = getCustomers();
-  return customers.map(customer => getCustomerBalance(customer.id));
+  const bills = getBills();
+  const payments = getPayments();
+  
+  // Create a map for O(1) lookups instead of O(n) for each customer
+  const customerMap = new Map<string, { name: string; totalSales: number; totalPaid: number }>();
+  
+  // Initialize all customers
+  customers.forEach(customer => {
+    customerMap.set(customer.id, {
+      name: customer.name,
+      totalSales: 0,
+      totalPaid: 0,
+    });
+  });
+  
+  // Single pass through all bills
+  bills.forEach(bill => {
+    const customer = customerMap.get(bill.customerId);
+    if (customer) {
+      customer.totalSales += bill.grandTotal;
+    }
+  });
+  
+  // Single pass through all payments
+  payments.forEach(payment => {
+    const customer = customerMap.get(payment.customerId);
+    if (customer) {
+      customer.totalPaid += payment.amount;
+    }
+  });
+  
+  // Convert map to array
+  return Array.from(customerMap.entries()).map(([customerId, data]) => ({
+    customerId,
+    customerName: data.name,
+    totalSales: data.totalSales,
+    totalPaid: data.totalPaid,
+    pending: data.totalSales - data.totalPaid,
+  }));
 };
 
 // Item Master management

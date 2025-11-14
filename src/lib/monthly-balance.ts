@@ -8,18 +8,23 @@ export const generateMonthlyBalances = async (customerId: string): Promise<Month
   const monthlyBalances: MonthlyBalance[] = [];
   
   // Start from 12 months ago
+  const today = new Date();
+  today.setHours(23, 59, 59, 999); // Include today
+  
   for (let i = 12; i >= 0; i--) {
     const monthStart = startOfMonth(subMonths(new Date(), i));
     const monthEnd = endOfMonth(subMonths(new Date(), i));
+    // For current month, use today instead of month end
+    const effectiveEnd = i === 0 ? today : monthEnd;
     
     const monthBills = bills.filter(bill => {
       const billDate = new Date(bill.date);
-      return billDate >= monthStart && billDate <= monthEnd;
+      return billDate >= monthStart && billDate <= effectiveEnd;
     });
 
     const monthPayments = payments.filter(payment => {
       const paymentDate = new Date(payment.date);
-      return paymentDate >= monthStart && paymentDate <= monthEnd;
+      return paymentDate >= monthStart && paymentDate <= effectiveEnd;
     });
 
     const totalBills = monthBills.reduce((sum, bill) => sum + bill.grandTotal, 0);

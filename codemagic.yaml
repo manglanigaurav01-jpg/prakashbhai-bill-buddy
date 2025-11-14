@@ -5,7 +5,7 @@ workflows:
     instance_type:  mac_mini_m1
     environment:
       vars:
-        PACKAGE_NAME: "com.manglanigaurav01.prakashbhaibillbuddy"
+        PACKAGE_NAME: "com.prakashbhai.billbuddy"
         GOOGLE_SERVICES_JSON: Encrypted(...) # Add your encrypted Google Services JSON
       node: 20
       npm: 9
@@ -35,6 +35,8 @@ workflows:
       - name: Install dependencies
         script: |
           npm ci
+          # Remove lovable-tagger if present (no longer needed)
+          npm uninstall lovable-tagger 2>/dev/null || true
           # Ensure peer tools are present for cloud/auth (placeholders used)
           npm ls @capacitor/core jspdf || true
       - name: Build React app
@@ -48,6 +50,10 @@ workflows:
           # Only add android platform if it doesn't exist
           if [ ! -d "android" ]; then
             npx cap add android
+          fi
+          # Ensure package name is correct in build.gradle
+          if [ -f "android/app/build.gradle" ]; then
+            sed -i '' 's/applicationId "app\.lovable\..*"/applicationId "com.prakashbhai.billbuddy"/g' android/app/build.gradle
           fi
           # Fix capacitor.config.ts to use Java 17
           if [ -f "capacitor.config.ts" ]; then
@@ -77,6 +83,26 @@ workflows:
       - name: Force Java 17 in build files
         script: |
           cd android
+          # Ensure MainActivity is in correct package location
+          if [ -d "app/src/main/java/app/lovable" ]; then
+            mkdir -p app/src/main/java/com/prakashbhai/billbuddy
+            if [ -f "app/src/main/java/app/lovable/fefdfaed58db469497b3784882c36196/MainActivity.java" ]; then
+              mv app/src/main/java/app/lovable/fefdfaed58db469497b3784882c36196/MainActivity.java app/src/main/java/com/prakashbhai/billbuddy/MainActivity.java
+              # Update package name in MainActivity.java
+              sed -i '' 's/package app\.lovable\.fefdfaed58db469497b3784882c36196;/package com.prakashbhai.billbuddy;/g' app/src/main/java/com/prakashbhai/billbuddy/MainActivity.java
+              # Clean up old directory
+              rm -rf app/src/main/java/app
+            fi
+          fi
+          # Update AndroidManifest.xml if it has old package reference
+          if [ -f "app/src/main/AndroidManifest.xml" ]; then
+            sed -i '' 's/android:name="app\.lovable\..*\.MainActivity"/android:name="com.prakashbhai.billbuddy.MainActivity"/g' app/src/main/AndroidManifest.xml
+          fi
+          # Update capacitor.config.json in assets if it has old appId
+          if [ -f "app/src/main/assets/capacitor.config.json" ]; then
+            sed -i '' 's/"appId": "app\.lovable\..*"/"appId": "com.prakashbhai.billbuddy"/g' app/src/main/assets/capacitor.config.json
+            sed -i '' 's/"appName": "prakashbhai-bill-buddy"/"appName": "Prakashbhai Bill Manager"/g' app/src/main/assets/capacitor.config.json
+          fi
           # Replace all Java 21 references with Java 17
           find . -name "*.gradle" -exec sed -i '' 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g' {} \;
           find . -name "*.gradle" -exec sed -i '' 's/VERSION_21/VERSION_17/g' {} \;
@@ -95,6 +121,135 @@ workflows:
           ./gradlew assembleDebug --info
     artifacts:
       - android/app/build/outputs/**/*.apk
+    publishing:
+      email:
+        recipients:
+          - manglanigaurav001@gmail.com
+        notify:
+          success: true
+          failure: true
+
+  react-capacitor-release:
+    name: React Capacitor Release APK
+    max_build_duration: 90
+    instance_type: mac_mini_m1
+    environment:
+      vars:
+        PACKAGE_NAME: "com.prakashbhai.billbuddy"
+        GOOGLE_SERVICES_JSON: Encrypted(...) # Add your encrypted Google Services JSON
+      node: 20
+      npm: 9
+      java: 17
+      xcode: latest
+    triggering:
+      events:
+        - tag
+      branch_patterns:
+        - pattern: main
+          include: true
+    cache:
+      cache_paths:
+        - node_modules
+        - ~/.npm
+        - ~/.cache/npm
+        - $CM_BUILD_DIR/dist
+        - $CM_BUILD_DIR/build
+        - $CM_BUILD_DIR/node_modules/.vite
+        - $CM_BUILD_DIR/node_modules/.cache
+        - $CM_BUILD_DIR/android/.gradle
+        - $CM_BUILD_DIR/android/app/build
+        - ~/.gradle/caches
+    scripts:
+      - name: Install dependencies
+        script: |
+          npm ci
+          # Remove lovable-tagger if present (no longer needed)
+          npm uninstall lovable-tagger 2>/dev/null || true
+          # Ensure peer tools are present for cloud/auth (placeholders used)
+          npm ls @capacitor/core jspdf || true
+      - name: Build React app
+        script: |
+          # Configure environment variables if needed for auth providers
+          # export VITE_GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID
+          # export VITE_MSAL_CLIENT_ID=$MSAL_CLIENT_ID
+          npm run build
+      - name: Setup Capacitor with Java 17 fix
+        script: |
+          # Only add android platform if it doesn't exist
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+          # Ensure package name is correct in build.gradle
+          if [ -f "android/app/build.gradle" ]; then
+            sed -i '' 's/applicationId "app\.lovable\..*"/applicationId "com.prakashbhai.billbuddy"/g' android/app/build.gradle
+          fi
+          # Fix capacitor.config.ts to use Java 17
+          if [ -f "capacitor.config.ts" ]; then
+            sed -i '' 's/"compileSdkVersion": 34/"compileSdkVersion": 33/g' capacitor.config.ts
+          fi
+          # Create a temporary variables.gradle with Java 17 and higher SDK
+          cat > android/variables.gradle << 'EOF'
+          ext {
+              minSdkVersion = 23
+              compileSdkVersion = 35
+              targetSdkVersion = 34
+              androidxActivityVersion = '1.7.0'
+              androidxAppCompatVersion = '1.6.1'
+              androidxCoordinatorLayoutVersion = '1.2.0'
+              androidxCoreVersion = '1.10.0'
+              androidxFragmentVersion = '1.5.6'
+              coreSplashScreenVersion = '1.0.0'
+              androidxWebkitVersion = '1.6.1'
+              junitVersion = '4.13.2'
+              androidxJunitVersion = '1.1.5'
+              androidxEspressoCoreVersion = '3.5.1'
+              cordovaAndroidVersion = '10.1.1'
+              javaVersion = JavaVersion.VERSION_17
+          }
+          EOF
+          npx cap sync android
+      - name: Force Java 17 in build files
+        script: |
+          cd android
+          # Ensure MainActivity is in correct package location
+          if [ -d "app/src/main/java/app/lovable" ]; then
+            mkdir -p app/src/main/java/com/prakashbhai/billbuddy
+            if [ -f "app/src/main/java/app/lovable/fefdfaed58db469497b3784882c36196/MainActivity.java" ]; then
+              mv app/src/main/java/app/lovable/fefdfaed58db469497b3784882c36196/MainActivity.java app/src/main/java/com/prakashbhai/billbuddy/MainActivity.java
+              # Update package name in MainActivity.java
+              sed -i '' 's/package app\.lovable\.fefdfaed58db469497b3784882c36196;/package com.prakashbhai.billbuddy;/g' app/src/main/java/com/prakashbhai/billbuddy/MainActivity.java
+              # Clean up old directory
+              rm -rf app/src/main/java/app
+            fi
+          fi
+          # Update AndroidManifest.xml if it has old package reference
+          if [ -f "app/src/main/AndroidManifest.xml" ]; then
+            sed -i '' 's/android:name="app\.lovable\..*\.MainActivity"/android:name="com.prakashbhai.billbuddy.MainActivity"/g' app/src/main/AndroidManifest.xml
+          fi
+          # Update capacitor.config.json in assets if it has old appId
+          if [ -f "app/src/main/assets/capacitor.config.json" ]; then
+            sed -i '' 's/"appId": "app\.lovable\..*"/"appId": "com.prakashbhai.billbuddy"/g' app/src/main/assets/capacitor.config.json
+            sed -i '' 's/"appName": "prakashbhai-bill-buddy"/"appName": "Prakashbhai Bill Manager"/g' app/src/main/assets/capacitor.config.json
+          fi
+          # Replace all Java 21 references with Java 17
+          find . -name "*.gradle" -exec sed -i '' 's/JavaVersion.VERSION_21/JavaVersion.VERSION_17/g' {} \;
+          find . -name "*.gradle" -exec sed -i '' 's/VERSION_21/VERSION_17/g' {} \;
+          find . -name "*.gradle" -exec sed -i '' 's/jvmTarget = "21"/jvmTarget = "17"/g' {} \;
+          find . -name "*.gradle" -exec sed -i '' 's/jvmTarget = '\''21'\''/jvmTarget = '\''17'\''/g' {} \;
+          # Set Java 17 in gradle.properties
+          echo "org.gradle.java.home=/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home" >> gradle.properties
+          echo "kotlin.jvm.target.validation.mode=warning" >> gradle.properties
+          chmod +x gradlew
+      - name: Build Android Release APK
+        script: |
+          export JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-17.jdk/Contents/Home
+          export PATH=$JAVA_HOME/bin:$PATH
+          cd android
+          ./gradlew clean
+          ./gradlew assembleRelease --info
+    artifacts:
+      - android/app/build/outputs/**/*.apk
+      - android/app/build/outputs/**/*.aab
     publishing:
       email:
         recipients:

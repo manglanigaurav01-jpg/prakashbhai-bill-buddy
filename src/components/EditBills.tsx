@@ -374,13 +374,8 @@ export const EditBills: React.FC<EditBillsProps> = ({ onNavigate }) => {
                               </div>
                               <div className="flex gap-2">
                                 <Button size="sm" variant="outline" onClick={async () => {
-                                  const customer = customers.find(c => c.id === bill.customerId);
-                                  if (customer?.phone) {
-                                    const message = createBillMessage(bill);
-                                    await shareViaWhatsApp(customer.phone, message);
-                                  } else {
-                                    toast({ title: 'No phone number', description: 'This customer has no phone number', variant: 'destructive' });
-                                  }
+                                  const message = createBillMessage(bill);
+                                  await shareViaWhatsApp('', message);
                                 }}>
                                   <Share2 className="w-4 h-4" />
                                 </Button>

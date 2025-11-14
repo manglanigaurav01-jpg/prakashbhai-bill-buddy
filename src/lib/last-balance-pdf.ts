@@ -38,10 +38,12 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
       balance.year === previousMonthEnd.getFullYear()
   );
   
-  // Get all bills for the current month only
+  // Get all bills for the current month up to today (not just month end)
+  const today = new Date();
+  today.setHours(23, 59, 59, 999); // Include today
   const bills = (await getBillsByCustomer(customerId)).filter(bill => {
     const billDate = new Date(bill.date);
-    return billDate >= monthStart && billDate <= monthEnd;
+    return billDate >= monthStart && billDate <= today;
   });
 
   const doc = new jsPDF();
@@ -61,11 +63,15 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
     doc.text(customerName, 20, 20);
   }
 
+  // Adjust Y position based on whether opening balance was shown
+  const reportY = previousMonthBalance ? 40 : 30;
+  const dateY = previousMonthBalance ? 50 : 40;
+  
   doc.setFontSize(14);
-  doc.text('Customer Summary Report', 20, 30);
+  doc.text('Customer Summary Report', 20, reportY);
 
   doc.setFontSize(12);
-  doc.text(`Date: ${format(new Date(), 'dd/MM/yyyy')}`, 20, 40);
+  doc.text(`Date: ${format(new Date(), 'dd/MM/yyyy')}`, 20, dateY);
 
   // Get payments for this customer
   const payments = getPayments();
@@ -99,11 +105,12 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
     if (payment) totalPaid += payment.amount;
   });
 
-  // Generate table
+  // Generate table - adjust startY based on whether opening balance was shown
+  const tableStartY = previousMonthBalance ? 60 : 50;
   autoTable(doc, {
     head: [['Sr No', 'Date1', 'Item Name', 'Total', 'Date2', 'Jama']],
     body: tableData,
-    startY: 50,
+    startY: tableStartY,
     theme: 'grid',
     styles: { fontSize: 10, cellPadding: 2 },
     headStyles: { fillColor: [52, 73, 190], textColor: 255, fontStyle: 'bold' },
@@ -177,9 +184,11 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
                 doc.text(customerName, 20, 20);
               }
 
+              const reportY = previousMonthBalance !== undefined && previousMonthBalance !== null ? 40 : 30;
+              const dateY = previousMonthBalance !== undefined && previousMonthBalance !== null ? 50 : 40;
               doc.setFontSize(12);
-              doc.text('Customer Summary Report', 20, 30);
-              doc.text('Date: ' + (new Date()).toLocaleDateString('en-GB'), 20, 40);
+              doc.text('Customer Summary Report', 20, reportY);
+              doc.text('Date: ' + (new Date()).toLocaleDateString('en-GB'), 20, dateY);
 
               // Build table rows and summary
               const tableData = [];
@@ -207,10 +216,11 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
                 if (payment) totalPaid += Number(payment.amount) || 0;
               });
 
+              const tableStartY = previousMonthBalance !== undefined && previousMonthBalance !== null ? 60 : 50;
               (doc as any).autoTable({
                 head: [['Sr No', 'Date', 'Item Name', 'Total', 'Payment Date', 'Paid']],
                 body: tableData,
-                startY: 50,
+                startY: tableStartY,
                 theme: 'grid',
                 styles: { fontSize: 10, cellPadding: 2 }
               });

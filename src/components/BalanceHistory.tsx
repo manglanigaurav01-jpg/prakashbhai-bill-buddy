@@ -28,9 +28,10 @@ export const BalanceHistory = ({ onNavigate }: BalanceHistoryProps) => {
         
         if (selectedCustomer) {
           const balances = await generateMonthlyBalances(selectedCustomer);
-          // generateMonthlyBalances returns oldest -> newest; show newest first in the UI
+          // generateMonthlyBalances returns oldest -> newest; reverse to show newest first
           const sortedBalances = [...balances].reverse();
           setMonthlyBalances(sortedBalances);
+          // Reverse month order to show newest first
           setAvailableMonths(sortedBalances.map(b => `${b.year}-${b.month}`));
         }
       } catch (error) {
