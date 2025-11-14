@@ -68,6 +68,7 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
   };
 
   const searchAvailableItems = (query: string) => {
+    // debounce/sync wrapper handled by callers; keep function thin
     return searchItems(query);
   };
 
@@ -243,8 +244,7 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
         particulars,
         items: billItems,
         ...(discountValue > 0 && { discount: discountValue, discountType }),
-        grandTotal: calculateGrandTotal(),
-        status: 'unpaid' as const,
+  grandTotal: calculateGrandTotal(),
       };
 
       saveBill(billData);
@@ -285,8 +285,7 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
         particulars,
         items: billItems,
         ...(discountValue > 0 && { discount: discountValue, discountType }),
-        grandTotal: calculateGrandTotal(),
-        status: 'unpaid' as const,
+  grandTotal: calculateGrandTotal(),
       };
 
       const savedBill = saveBill(billData);

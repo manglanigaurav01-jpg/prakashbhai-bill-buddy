@@ -7,6 +7,7 @@ import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
 import { getCustomerBalance, getBillsByCustomer, getPayments } from './storage';
+// Note: Worker is used for heavy PDF generation on web
 
 const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
   const bytes = new Uint8Array(buffer);
@@ -27,6 +28,9 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
   const monthEnd = endOfMonth(currentDate);
   const previousMonthEnd = subMonths(monthEnd, 1);
   
+  // Get customer's current balance
+  const customerBalance = await getCustomerBalance(customerId);
+  
   // Find previous month's balance for opening balance
   const previousMonthBalance = monthlyBalances.find(
     balance => 
@@ -45,7 +49,17 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
   // Header
   doc.setFontSize(18);
   doc.setFont('helvetica', 'bold');
-  doc.text(customerName, 20, 20);
+  // Show previous month's balance (opening balance) prominently as first line if available
+  if (previousMonthBalance && typeof previousMonthBalance.closingBalance === 'number') {
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Opening Balance (Last Month): Rs. ${previousMonthBalance.closingBalance.toFixed(2)}`, 20, 20);
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text(customerName, 20, 30);
+  } else {
+    doc.text(customerName, 20, 20);
+  }
 
   doc.setFontSize(14);
   doc.text('Customer Summary Report', 20, 30);
@@ -134,24 +148,148 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
     // Generate PDF data
     const pdfOutput = doc.output('arraybuffer');
     const base64Data = arrayBufferToBase64(pdfOutput);
-    const fileName = `${customerName.replace(/\s+/g, '_')}_last_balance_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
-
+  const fileName = `${customerName.replace(/\s+/g, '_')}_last_balance_${format(new Date(), 'yyyy-MM-dd')}.pdf`;
     if (Capacitor.getPlatform() === 'web') {
-      // For web, create a download link
-      const blob = new Blob([pdfOutput], { type: 'application/pdf' });
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      link.click();
-      window.URL.revokeObjectURL(url);
-      return { success: true, message: 'PDF downloaded successfully' };
+      // Try a runtime Blob-worker fallback: create a worker from a JS string that
+      // imports jspdf and autotable from CDN via importScripts. This avoids
+      // bundler issues and keeps PDF work off the main thread.
+      try {
+        const workerCode = `
+          self.importScripts('https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js');
+          self.importScripts('https://unpkg.com/jspdf-autotable@3.5.28/dist/jspdf.plugin.autotable.js');
+
+          self.onmessage = function(e) {
+            try {
+              const { bills, payments, customerName, previousMonthBalance } = e.data;
+              const doc = (self as any).jspdf.jsPDF();
+
+              // Header and opening balance
+              if (previousMonthBalance !== undefined && previousMonthBalance !== null) {
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'normal');
+                doc.text('Opening Balance (Last Month): Rs. ' + Number(previousMonthBalance).toFixed(2), 20, 20);
+                doc.setFontSize(18);
+                doc.setFont('helvetica', 'bold');
+                doc.text(customerName, 20, 30);
+              } else {
+                doc.setFontSize(18);
+                doc.setFont('helvetica', 'bold');
+                doc.text(customerName, 20, 20);
+              }
+
+              doc.setFontSize(12);
+              doc.text('Customer Summary Report', 20, 30);
+              doc.text('Date: ' + (new Date()).toLocaleDateString('en-GB'), 20, 40);
+
+              // Build table rows and summary
+              const tableData = [];
+              let srNo = 1;
+              let totalSales = 0;
+              let totalPaid = 0;
+
+              bills.sort(function(a,b){ return new Date(a.date).getTime() - new Date(b.date).getTime(); });
+
+              bills.forEach(function(bill){
+                const payment = (payments || []).find(function(p){
+                  return new Date(p.date).toDateString() === new Date(bill.date).toDateString();
+                });
+
+                tableData.push([
+                  srNo++,
+                  (new Date(bill.date)).toLocaleDateString('en-GB'),
+                  (bill.items || []).map(function(i){ return i.itemName; }).join(', '),
+                  'Rs. ' + Number(bill.grandTotal).toFixed(2),
+                  payment ? (new Date(payment.date)).toLocaleDateString('en-GB') : '-',
+                  payment ? 'Rs. ' + Number(payment.amount).toFixed(2) : '-'
+                ]);
+
+                totalSales += Number(bill.grandTotal) || 0;
+                if (payment) totalPaid += Number(payment.amount) || 0;
+              });
+
+              (doc as any).autoTable({
+                head: [['Sr No', 'Date', 'Item Name', 'Total', 'Payment Date', 'Paid']],
+                body: tableData,
+                startY: 50,
+                theme: 'grid',
+                styles: { fontSize: 10, cellPadding: 2 }
+              });
+
+              const finalY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 10 : 100;
+              doc.setFontSize(12);
+              doc.setFont('helvetica', 'bold');
+              doc.text('Summary', 20, finalY);
+              doc.setFont('helvetica', 'normal');
+              doc.text('Total Sales: Rs. ' + totalSales.toFixed(2), 20, finalY + 10);
+              doc.text('Total Paid: Rs. ' + totalPaid.toFixed(2), 20, finalY + 20);
+              const pendingAmount = totalSales - totalPaid;
+              doc.setTextColor(255,0,0);
+              doc.text('Pending Amount: Rs. ' + pendingAmount.toFixed(2), 20, finalY + 30);
+              doc.setTextColor(0,0,0);
+              doc.setFontSize(10);
+              doc.text('Thank you for your business!', 20, finalY + 45);
+
+              const arr = doc.output('arraybuffer');
+              // Transfer the buffer
+              self.postMessage({ type: 'generate-last-balance-pdf-result', buffer: arr }, [arr]);
+            } catch (err) {
+              self.postMessage({ type: 'error', message: (err && err.message) ? err.message : String(err) });
+            }
+          };
+        `;
+
+        const blob = new Blob([workerCode], { type: 'application/javascript' });
+        const workerUrl = URL.createObjectURL(blob);
+        const worker = new Worker(workerUrl);
+
+        return await new Promise<any>((resolve, reject) => {
+          worker.onmessage = (ev) => {
+            const msg = (ev.data as any);
+            if (msg.type === 'generate-last-balance-pdf-result') {
+              const buffer = msg.buffer as ArrayBuffer;
+              const blob = new Blob([buffer], { type: 'application/pdf' });
+              const url = window.URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = fileName;
+              link.click();
+              URL.revokeObjectURL(url);
+              worker.terminate();
+              URL.revokeObjectURL(workerUrl);
+              resolve({ success: true, message: 'PDF downloaded successfully' });
+            } else if (msg.type === 'error') {
+              worker.terminate();
+              URL.revokeObjectURL(workerUrl);
+              reject(new Error(msg.message || 'Worker failed'));
+            }
+          };
+
+          worker.onerror = (err) => {
+            try { worker.terminate(); URL.revokeObjectURL(workerUrl); } catch (e) {}
+            reject(err instanceof Error ? err : new Error('Worker runtime error'));
+          };
+
+          // Send minimal data needed to worker; payments list filtered for this customer
+          worker.postMessage({ bills, payments: customerPayments, customerName, previousMonthBalance: monthlyBalances[monthlyBalances.length - 2]?.closingBalance });
+        });
+      } catch (workerErr) {
+        // If blob-worker creation or runtime fails, fallback to main-thread behavior
+        console.warn('Blob-worker PDF generation failed, falling back to main thread', workerErr);
+        const blob = new Blob([pdfOutput], { type: 'application/pdf' });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        link.click();
+        window.URL.revokeObjectURL(url);
+        return { success: true, message: 'PDF downloaded successfully' };
+      }
     } else {
       // For mobile platforms
-      try {
+  try {
         // Use timestamp to make filename unique
         const timestamp = new Date().getTime();
-        const uniqueFileName = `last_balance_${timestamp}_${fileName}`;
+  const uniqueFileName = `last_balance_${timestamp}_${fileName}`;
         
         // Save directly to Documents directory without creating subdirectory
         const savedFile = await Filesystem.writeFile({
@@ -181,7 +319,8 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
         return { 
           success: true, 
           message: 'PDF saved and shared successfully', 
-          filePath: fileInfo.uri 
+          filePath: fileInfo.uri,
+          fileName: uniqueFileName
         };
       } catch (err) {
         console.error('Mobile PDF handling error:', err);

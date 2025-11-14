@@ -6,6 +6,7 @@ import { Loader2Icon, CloudIcon, CloudOffIcon, RefreshCwIcon } from 'lucide-reac
 import { useToast } from '@/hooks/use-toast';
 import { useSyncStore } from '@/lib/sync-store';
 import { getCurrentUser, signInWithGoogle, signOut, syncUp, syncDown } from '@/lib/cloud';
+import { initMonthlyBackup } from '@/lib/monthly-backup';
 
 export const AutoSync = () => {
   const { toast } = useToast();
@@ -78,6 +79,12 @@ export const AutoSync = () => {
       setIsLoading(true);
       const newUser = await signInWithGoogle();
       setUser(newUser);
+      // Initialize monthly backup schedule for this signed-in user
+      try {
+        initMonthlyBackup();
+      } catch (e) {
+        console.warn('Failed to initialize monthly backup scheduler', e);
+      }
       toast({
         title: 'Signed In',
         description: 'You can now sync your data across devices.',

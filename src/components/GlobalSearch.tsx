@@ -24,18 +24,22 @@ export const GlobalSearch = ({ open, onOpenChange, onNavigate }: GlobalSearchPro
   }>({ bills: [], payments: [], customers: [], items: [] });
 
   useEffect(() => {
-    if (!query.trim()) {
-      setResults({ bills: [], payments: [], customers: [], items: [] });
-      return;
-    }
+    const timer = setTimeout(() => {
+      if (!query.trim()) {
+        setResults({ bills: [], payments: [], customers: [], items: [] });
+        return;
+      }
 
-    const bills = getBills();
-    const payments = getPayments();
-    const customers = getCustomers();
-    const items = getItems();
+      const bills = getBills();
+      const payments = getPayments();
+      const customers = getCustomers();
+      const items = getItems();
 
-    const searchResults = globalSearch(query, bills, payments, customers, items);
-    setResults(searchResults);
+      const searchResults = globalSearch(query, bills, payments, customers, items);
+      setResults(searchResults);
+    }, 250);
+
+    return () => clearTimeout(timer);
   }, [query]);
 
   const handleClear = () => {
@@ -163,9 +167,7 @@ export const GlobalSearch = ({ open, onOpenChange, onNavigate }: GlobalSearchPro
                     }}
                   >
                     <div className="font-medium">{customer.name}</div>
-                    {customer.phone && (
-                      <div className="text-sm text-muted-foreground">{customer.phone}</div>
-                    )}
+                    {/* phone removed from customer display per settings */}
                   </div>
                 ))}
               </div>

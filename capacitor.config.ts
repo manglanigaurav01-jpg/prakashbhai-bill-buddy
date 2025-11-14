@@ -5,12 +5,8 @@ const config: CapacitorConfig = {
   appName: 'prakashbhai-bill-buddy',
   webDir: 'dist',
   android: {
-    minSdkVersion: 23,
-    compileSdkVersion: 35,
-    targetSdkVersion: 34,
-    buildOptions: {
-      javaVersion: '17'
-    }
+    path: undefined,
+    backgroundColor: '#ffffff'
   },
   plugins: {
     SplashScreen: {
@@ -22,6 +18,11 @@ const config: CapacitorConfig = {
     Filesystem: {
       iosStorageLocation: 'Documents',
       androidStorageLocation: 'Documents'
+    },
+    GoogleAuth: {
+      scopes: ['profile', 'email'],
+      serverClientId: '491579424292-96mf2l65h34g6ld29qngoc3sf2qe2v73.apps.googleusercontent.com', // Web client ID from Firebase
+      forceCodeForRefreshToken: true
     }
   }
 };

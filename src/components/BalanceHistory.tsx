@@ -28,8 +28,10 @@ export const BalanceHistory = ({ onNavigate }: BalanceHistoryProps) => {
         
         if (selectedCustomer) {
           const balances = await generateMonthlyBalances(selectedCustomer);
-          setMonthlyBalances(balances);
-          setAvailableMonths(balances.map(b => `${b.year}-${b.month}`));
+          // generateMonthlyBalances returns oldest -> newest; show newest first in the UI
+          const sortedBalances = [...balances].reverse();
+          setMonthlyBalances(sortedBalances);
+          setAvailableMonths(sortedBalances.map(b => `${b.year}-${b.month}`));
         }
       } catch (error) {
         console.error('Error loading balance history:', error);

@@ -28,7 +28,6 @@ export const EditBills: React.FC<EditBillsProps> = ({ onNavigate }) => {
   const [query, setQuery] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [sortAsc, setSortAsc] = useState<boolean>(false);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'partial' | 'unpaid'>('all');
   const [dateFrom, setDateFrom] = useState<Date | null>(null);
   const [dateTo, setDateTo] = useState<Date | null>(null);
   const [editing, setEditing] = useState<Bill | null>(null);
@@ -38,37 +37,50 @@ export const EditBills: React.FC<EditBillsProps> = ({ onNavigate }) => {
   const [showDeleteId, setShowDeleteId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // virtualization state (no external deps)
+  const listContainerRef = useRef<HTMLDivElement | null>(null);
+  const [containerHeight, setContainerHeight] = useState<number>(600);
+  const [startIndex, setStartIndex] = useState<number>(0);
+  const searchDebounceRef = useRef<any>(null);
+
+  // Async loader: try IndexedDB (async-storage) first, fallback to storage.ts
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      // try async-storage
+      try {
+        const mod = await import('@/lib/async-storage');
+        const billsFromIdb = await mod.asyncGetItem<Bill[]>('prakash_bills');
+        const customersFromIdb = await mod.asyncGetItem<Customer[]>('prakash_customers');
+        if (billsFromIdb && customersFromIdb) {
+          setBills(billsFromIdb);
+          setCustomers(customersFromIdb);
+          return;
+        }
+      } catch (e) {
+        // ignore - fallback below
+        console.warn('async-storage not available or failed, falling back to synchronous storage', e);
+      }
+
+      // fallback to existing synchronous storage
+      const allBills = getBills();
+      const allCustomers = getCustomers();
+      setBills(allBills);
+      setCustomers(allCustomers);
+    } catch (err) {
+      console.error('Error loading data:', err);
+      setError('Failed to load bills and customers');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const allBills = getBills();
-        const allCustomers = getCustomers();
-        
-        console.log('Loaded bills:', allBills); // Debug log
-        console.log('Loaded customers:', allCustomers); // Debug log
-        
-        setBills(allBills);
-        setCustomers(allCustomers);
-      } catch (err) {
-        console.error('Error loading data:', err);
-        setError('Failed to load bills and customers');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     loadData();
-    
     // Add event listener for storage changes
     window.addEventListener('storage', loadData);
-    
-    return () => {
-      window.removeEventListener('storage', loadData);
-    };
+    return () => window.removeEventListener('storage', loadData);
   }, []);
 
   const filteredSortedBills = useMemo(() => {
@@ -77,9 +89,6 @@ export const EditBills: React.FC<EditBillsProps> = ({ onNavigate }) => {
       // Text search
       const matchesText = !q || b.customerName.toLowerCase().includes(q) || b.items.some(i => i.itemName.toLowerCase().includes(q));
       if (!matchesText) return false;
-      
-      // Status filter
-      if (statusFilter !== 'all' && b.status !== statusFilter) return false;
       
       // Date range filter
       const billDate = new Date(b.date);
@@ -100,7 +109,14 @@ export const EditBills: React.FC<EditBillsProps> = ({ onNavigate }) => {
       }
     });
     return sorted;
-  }, [bills, query, sortKey, sortAsc, statusFilter, dateFrom, dateTo]);
+  }, [bills, query, sortKey, sortAsc, dateFrom, dateTo]);
+
+  // Expose a small helper to refresh lists after mutations
+  const refreshAfterChange = async () => {
+    await loadData();
+    // reset virtual window to start
+    setStartIndex(0);
+  };
 
   const formatDate = (date: Date) => {
     const day = date.getDate().toString().padStart(2, '0');
@@ -139,7 +155,7 @@ export const EditBills: React.FC<EditBillsProps> = ({ onNavigate }) => {
     setEditingItems(prev => prev.filter(i => i.id !== id));
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editing) return;
     if (!editingCustomer) {
       toast({ title: 'Error', description: 'Please select a customer', variant: 'destructive' });
@@ -158,7 +174,7 @@ export const EditBills: React.FC<EditBillsProps> = ({ onNavigate }) => {
       grandTotal: editingItems.reduce((s, it) => s + it.total, 0),
     });
     if (updated) {
-      setBills(getBills());
+      await refreshAfterChange();
       toast({ title: 'Bill updated', description: `Bill for ${updated.customerName} updated successfully` });
       setEditing(null);
     } else {
@@ -184,7 +200,8 @@ export const EditBills: React.FC<EditBillsProps> = ({ onNavigate }) => {
   const confirmDelete = () => {
     if (!showDeleteId) return;
     deleteBill(showDeleteId);
-    setBills(getBills());
+    // reload async-aware
+    refreshAfterChange();
     setShowDeleteId(null);
     toast({ title: 'Bill deleted', description: 'The bill has been removed' });
   };
@@ -279,21 +296,7 @@ export const EditBills: React.FC<EditBillsProps> = ({ onNavigate }) => {
                 </Button>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div>
-                <Label className="text-sm mb-1 block">Status</Label>
-                <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="paid">Paid</SelectItem>
-                    <SelectItem value="partial">Partial</SelectItem>
-                    <SelectItem value="unpaid">Unpaid</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <Label className="text-sm mb-1 block">From Date</Label>
                 <DatePicker date={dateFrom || undefined} onDateChange={(d) => setDateFrom(d || null)} placeholder="Start date" />
@@ -317,53 +320,84 @@ export const EditBills: React.FC<EditBillsProps> = ({ onNavigate }) => {
           </Card>
         )}
 
-        {/* Bills List */}
-        <div className="space-y-3">
-          {filteredSortedBills.map((bill) => (
-            <Card key={bill.id}
-              onMouseDown={() => handlePressStart(bill.id)}
-              onMouseUp={() => handlePressEnd(bill.id)}
-              onTouchStart={() => handlePressStart(bill.id)}
-              onTouchEnd={() => handlePressEnd(bill.id)}
-              className="hover:shadow-md transition-all duration-200 active:scale-95">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <div className="text-sm text-muted-foreground">{formatDate(new Date(bill.date))}</div>
-                      {bill.status && (
-                        <Badge variant={bill.status === 'paid' ? 'default' : bill.status === 'partial' ? 'secondary' : 'destructive'}>
-                          {bill.status}
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="text-lg font-semibold">{bill.customerName}</div>
-                    <div className="text-sm text-muted-foreground">Items: {bill.items.length} • Total: ₹{bill.grandTotal.toFixed(2)}</div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="outline" onClick={async () => {
-                      const customer = customers.find(c => c.id === bill.customerId);
-                      if (customer?.phone) {
-                        const message = createBillMessage(bill);
-                        await shareViaWhatsApp(customer.phone, message);
-                      } else {
-                        toast({ title: 'No phone number', description: 'This customer has no phone number', variant: 'destructive' });
-                      }
-                    }}>
-                      <Share2 className="w-4 h-4" />
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => startEdit(bill)}>
-                      <Edit3 className="w-4 h-4 mr-1" /> Edit
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-          {filteredSortedBills.length === 0 && (
+        {/* Bills List - virtualized */}
+        <div>
+          {filteredSortedBills.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center text-muted-foreground">No bills found</CardContent>
             </Card>
+          ) : (
+            <div
+              ref={listContainerRef}
+              className="overflow-auto"
+              style={{ maxHeight: `${containerHeight}px` }}
+              onScroll={(e) => {
+                const el = e.currentTarget as HTMLDivElement;
+                const scrollTop = el.scrollTop;
+                const ITEM_HEIGHT = 96; // estimated per-card height in px
+                const newStart = Math.floor(scrollTop / ITEM_HEIGHT);
+                if (newStart !== startIndex) setStartIndex(newStart);
+              }}
+            >
+              {/** virtual rendering calculations **/}
+              {(() => {
+                const ITEM_HEIGHT = 96;
+                const overscan = 6;
+                const totalItems = filteredSortedBills.length;
+                const containerH = listContainerRef.current ? listContainerRef.current.getBoundingClientRect().height : containerHeight;
+                const visibleCountCalc = Math.ceil(containerH / ITEM_HEIGHT) + overscan * 2;
+                const renderStart = Math.max(0, startIndex - overscan);
+                const renderEnd = Math.min(totalItems, renderStart + visibleCountCalc);
+                const topSpacer = renderStart * ITEM_HEIGHT;
+                const bottomSpacer = Math.max(0, (totalItems - renderEnd) * ITEM_HEIGHT);
+                const slice = filteredSortedBills.slice(renderStart, renderEnd);
+                return (
+                  <div>
+                    <div style={{ height: topSpacer }} />
+                    <div className="space-y-3">
+                      {slice.map((bill) => (
+                        <Card key={bill.id}
+                          onMouseDown={() => handlePressStart(bill.id)}
+                          onMouseUp={() => handlePressEnd(bill.id)}
+                          onTouchStart={() => handlePressStart(bill.id)}
+                          onTouchEnd={() => handlePressEnd(bill.id)}
+                          className="hover:shadow-md transition-all duration-200 active:scale-95"
+                          style={{ height: ITEM_HEIGHT }}>
+                          <CardContent className="p-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <div className="text-sm text-muted-foreground">{formatDate(new Date(bill.date))}</div>
+                                </div>
+                                <div className="text-lg font-semibold">{bill.customerName}</div>
+                                <div className="text-sm text-muted-foreground">Items: {bill.items.length} • Total: ₹{bill.grandTotal.toFixed(2)}</div>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button size="sm" variant="outline" onClick={async () => {
+                                  const customer = customers.find(c => c.id === bill.customerId);
+                                  if (customer?.phone) {
+                                    const message = createBillMessage(bill);
+                                    await shareViaWhatsApp(customer.phone, message);
+                                  } else {
+                                    toast({ title: 'No phone number', description: 'This customer has no phone number', variant: 'destructive' });
+                                  }
+                                }}>
+                                  <Share2 className="w-4 h-4" />
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={() => startEdit(bill)}>
+                                  <Edit3 className="w-4 h-4 mr-1" /> Edit
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                    <div style={{ height: bottomSpacer }} />
+                  </div>
+                );
+              })()}
+            </div>
           )}
         </div>
 
@@ -376,7 +410,7 @@ export const EditBills: React.FC<EditBillsProps> = ({ onNavigate }) => {
             </DialogHeader>
             {editing && (
               <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label>Date</Label>
                     <DatePicker date={editingDate} onDateChange={(d) => d && setEditingDate(d)} />

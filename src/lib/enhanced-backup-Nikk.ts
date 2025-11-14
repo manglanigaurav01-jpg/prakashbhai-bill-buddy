@@ -173,28 +173,10 @@ export const createEnhancedBackup = async () => {
     // Clean up old backups
     await cleanupOldBackups();
 
-    // Try to get a platform-specific URI for convenience
-    let uri: string | undefined;
-    try {
-      const info = await Filesystem.getUri({ path: fileName, directory: DATA_DIR });
-      uri = (info && (info as any).uri) || (info as any).path || undefined;
-    } catch (e) {
-      // On web or when getUri isn't available, create a blob URL for download
-      try {
-        // Create a blob URL so web UI can provide a download/open link
-        const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
-        uri = URL.createObjectURL(blob);
-      } catch (err) {
-        // ignore
-      }
-    }
-
     return {
       success: true,
       message: 'Enhanced backup created successfully',
-      metadata: backup.metadata,
-      fileName,
-      uri
+      metadata: backup.metadata
     };
   } catch (error) {
     console.error('Enhanced backup creation failed:', error);
@@ -291,25 +273,10 @@ export const listAvailableBackups = async () => {
               directory: DATA_DIR
             });
             const backup: EnhancedBackupData = JSON.parse(data.toString());
-            // Attempt to resolve a uri for this specific file; fall back to a blob URL
-            let uri: string | undefined;
-            try {
-              const info = await Filesystem.getUri({ path: file.name, directory: DATA_DIR });
-              uri = (info && (info as any).uri) || (info as any).path || undefined;
-            } catch (e) {
-              try {
-                const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
-                uri = URL.createObjectURL(blob);
-              } catch {
-                uri = undefined;
-              }
-            }
-
             return {
               fileName: file.name,
               timestamp: backup.timestamp,
-              metadata: backup.metadata,
-              uri
+              metadata: backup.metadata
             };
           } catch {
             return null;

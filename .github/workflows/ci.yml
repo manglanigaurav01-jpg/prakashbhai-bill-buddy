@@ -21,7 +21,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --prefer-offline --no-audit --no-fund
 
       - name: Typecheck
         run: npx tsc -p tsconfig.json --noEmit
@@ -30,6 +30,8 @@ jobs:
         run: npm run lint
 
       - name: Build
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
         run: npm run build
 
       - name: Upload dist artifact

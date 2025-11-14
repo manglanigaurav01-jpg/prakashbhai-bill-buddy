@@ -4,7 +4,7 @@ export interface SearchFilters {
   query?: string;
   dateFrom?: Date;
   dateTo?: Date;
-  status?: 'paid' | 'partial' | 'unpaid' | 'all';
+
   minAmount?: number;
   maxAmount?: number;
   paymentMethod?: string;
@@ -27,10 +27,6 @@ export const searchBills = (bills: Bill[], filters: SearchFilters): Bill[] => {
     if (filters.dateFrom && billDate < filters.dateFrom) return false;
     if (filters.dateTo && billDate > filters.dateTo) return false;
 
-    // Status
-    if (filters.status && filters.status !== 'all' && bill.status !== filters.status) {
-      return false;
-    }
 
     // Amount range
     if (filters.minAmount && bill.grandTotal < filters.minAmount) return false;

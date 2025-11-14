@@ -24,7 +24,6 @@ export interface Bill {
   discount?: number;
   discountType?: 'percentage' | 'flat';
   grandTotal: number;
-  status?: 'paid' | 'partial' | 'unpaid';
   createdAt: string;
 }
 

@@ -1,6 +1,7 @@
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { uploadToOneDrive, checkOneDriveConnection } from './onedrive';
+import { takeSnapshot, restoreSnapshot } from './async-storage';
 
 type BackupFrequency = 'daily' | 'weekly' | 'monthly';
 type BackupMode = 'automatic' | 'manual';
@@ -58,20 +59,46 @@ const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
   return btoa(binary);
 };
 
+const DATA_KEYS = [
+  'prakash_customers',
+  'prakash_bills',
+  'prakash_payments',
+  'prakash_items',
+  'prakash_item_rate_history',
+  'prakash_business_analytics',
+];
+
 const getAllDataSnapshot = async () => {
-  const { getCustomers, getBills, getPayments, getItems, getRateHistory } = await import('@/lib/storage');
-  const snapshot = {
-    version: '1.0',
-    createdAt: new Date().toISOString(),
-    data: {
-      customers: getCustomers(),
-      bills: getBills(),
-      payments: getPayments(),
-      items: getItems(),
-      itemRateHistory: getRateHistory(),
-    },
-  };
-  return snapshot;
+  // Use async IndexedDB snapshot where available, falling back to existing storage modules
+  try {
+    const data = await takeSnapshot(DATA_KEYS);
+    return {
+      version: '1.0',
+      createdAt: new Date().toISOString(),
+      data: {
+        customers: data['prakash_customers'] ?? [],
+        bills: data['prakash_bills'] ?? [],
+        payments: data['prakash_payments'] ?? [],
+        items: data['prakash_items'] ?? [],
+        itemRateHistory: data['prakash_item_rate_history'] ?? [],
+        businessAnalytics: data['prakash_business_analytics'] ?? null,
+      },
+    };
+  } catch (e) {
+    // fallback to synchronous storage module (existing behavior)
+    const { getCustomers, getBills, getPayments, getItems, getRateHistory } = await import('@/lib/storage');
+    return {
+      version: '1.0',
+      createdAt: new Date().toISOString(),
+      data: {
+        customers: getCustomers(),
+        bills: getBills(),
+        payments: getPayments(),
+        items: getItems(),
+        itemRateHistory: getRateHistory(),
+      },
+    };
+  }
 };
 
 export const createBackupBlob = async (): Promise<Blob> => {
@@ -84,15 +111,19 @@ export const createBackupBlob = async (): Promise<Blob> => {
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 
-const sha256 = async (data: ArrayBuffer): Promise<string> => {
-  const hash = await crypto.subtle.digest('SHA-256', data);
+const sha256 = async (data: Uint8Array): Promise<string> => {
+  const buffer = new ArrayBuffer(data.length);
+  const view = new Uint8Array(buffer);
+  view.set(data);
+  const hash = await crypto.subtle.digest('SHA-256', buffer);
   return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
 };
 
 const deriveKey = async (password: string, salt: Uint8Array, iterations = 100000) => {
   const keyMaterial = await crypto.subtle.importKey('raw', textEncoder.encode(password), 'PBKDF2', false, ['deriveKey']);
+  const safeSalt = new Uint8Array(salt);
   const key = await crypto.subtle.deriveKey(
-    { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
+    { name: 'PBKDF2', salt: safeSalt.buffer, iterations, hash: 'SHA-256' },
     keyMaterial,
     { name: 'AES-GCM', length: 256 },
     false,
@@ -159,10 +190,10 @@ export const runBackupNow = async (password?: string, opts?: { providerLabel?: '
       await Filesystem.writeFile({
         path: fileName,
         data: base64Data,
-        directory: Directory.Cache,
+        directory: 'CACHE',
       });
 
-      const fileUri = await Filesystem.getUri({ directory: Directory.Cache, path: fileName });
+      const fileUri = await Filesystem.getUri({ directory: 'CACHE', path: fileName });
       // Avoid bundler resolution errors on web/dev where plugin isn't installed
       const { Share } = await import(/* @vite-ignore */ '@capacitor/share');
       await Share.share({
@@ -209,12 +240,12 @@ export const runBackupNow = async (password?: string, opts?: { providerLabel?: '
     cfg.lastRunAt = new Date().toISOString();
     saveBackupConfig(cfg);
 
-    return { 
-      success: true, 
-      message: opts?.providerLabel === 'OneDrive' 
-        ? 'Backup shared to OneDrive successfully' 
-        : 'Backup created successfully' 
-    };
+    // Return metadata for UI (web or native) so caller can show saved URI/path
+    return {
+      success: true,
+      message: opts?.providerLabel === 'OneDrive' ? 'Backup shared to OneDrive successfully' : 'Backup created successfully',
+      // Note: callers can inspect files via platform APIs if needed
+    } as any;
   } catch (error) {
     console.error('Backup failed:', error);
     return { success: false, message: 'Failed to create backup' };
@@ -273,15 +304,27 @@ export const restoreBackupFromBlob = async (blob: Blob, password?: string): Prom
       // Legacy unwrapped snapshot
       snapshot = payload;
     }
-
-    // Apply snapshot
-    localStorage.setItem('prakash_customers', JSON.stringify(snapshot.data?.customers ?? snapshot.customers ?? []));
-    localStorage.setItem('prakash_bills', JSON.stringify(snapshot.data?.bills ?? snapshot.bills ?? []));
-    localStorage.setItem('prakash_payments', JSON.stringify(snapshot.data?.payments ?? snapshot.payments ?? []));
-    localStorage.setItem('prakash_items', JSON.stringify(snapshot.data?.items ?? snapshot.items ?? []));
-    localStorage.setItem('prakash_item_rate_history', JSON.stringify(snapshot.data?.itemRateHistory ?? snapshot.itemRateHistory ?? []));
-
-    return { success: true, message: 'Backup restored successfully' };
+    // Apply snapshot via async restore where possible
+    try {
+      const dataToRestore = snapshot.data ?? snapshot;
+      const mapped: Record<string, any> = {
+        prakash_customers: dataToRestore.customers ?? dataToRestore.customers ?? [],
+        prakash_bills: dataToRestore.bills ?? dataToRestore.bills ?? [],
+        prakash_payments: dataToRestore.payments ?? dataToRestore.payments ?? [],
+        prakash_items: dataToRestore.items ?? dataToRestore.items ?? [],
+        prakash_item_rate_history: dataToRestore.itemRateHistory ?? dataToRestore.itemRateHistory ?? [],
+      };
+      await restoreSnapshot(mapped);
+      return { success: true, message: 'Backup restored successfully' };
+    } catch (e) {
+      // fallback to synchronous localStorage writes
+      localStorage.setItem('prakash_customers', JSON.stringify(snapshot.data?.customers ?? snapshot.customers ?? []));
+      localStorage.setItem('prakash_bills', JSON.stringify(snapshot.data?.bills ?? snapshot.bills ?? []));
+      localStorage.setItem('prakash_payments', JSON.stringify(snapshot.data?.payments ?? snapshot.payments ?? []));
+      localStorage.setItem('prakash_items', JSON.stringify(snapshot.data?.items ?? snapshot.items ?? []));
+      localStorage.setItem('prakash_item_rate_history', JSON.stringify(snapshot.data?.itemRateHistory ?? snapshot.itemRateHistory ?? []));
+      return { success: true, message: 'Backup restored successfully (fallback)' };
+    }
   } catch (e) {
     console.error('Restore failed:', e);
     return { success: false, message: 'Failed to restore backup' };

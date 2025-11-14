@@ -5,6 +5,11 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { createEnhancedBackup, listAvailableBackups, restoreFromEnhancedBackup } from '@/lib/enhanced-backup';
 import { useToast } from '@/components/ui/use-toast';
 import { Download, Upload, Trash2, RefreshCw } from 'lucide-react';
+import { Filesystem } from '@capacitor/filesystem';
+// Use web APIs for clipboard/open to avoid requiring extra Capacitor plugins
+
+// Filesystem directory constants
+const DATA_DIR = 'DATA';
 
 interface BackupInfo {
   fileName: string;
@@ -28,12 +33,17 @@ interface BackupInfo {
       lastPayment: string;
     };
   };
+  uri?: string | undefined;
 }
 
 export const BackupManager = () => {
   const [backups, setBackups] = useState<BackupInfo[]>([]);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewItem, setPreviewItem] = useState<BackupInfo | null>(null);
+  const [snapshotBeforeRestore, setSnapshotBeforeRestore] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [lastBackup, setLastBackup] = useState<string | null>(null);
+  const [backupLocation, setBackupLocation] = useState<string | null>(null);
   const { toast } = useToast();
 
   const loadBackups = async () => {
@@ -41,6 +51,73 @@ export const BackupManager = () => {
     setBackups(availableBackups);
     if (availableBackups.length > 0) {
       setLastBackup(availableBackups[0].timestamp);
+      // Get the backup location from Filesystem
+      try {
+        const { uri } = await Filesystem.getUri({
+          path: availableBackups[0].fileName,
+          directory: "DATA"
+        });
+        setBackupLocation(uri);
+      } catch (error) {
+        console.error('Error getting backup location:', error);
+      }
+    }
+  };
+
+  const handleUploadBackup = async () => {
+    try {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.json';
+      
+      input.onchange = async (e) => {
+        const file = (e.target as HTMLInputElement).files?.[0];
+        if (!file) return;
+
+        setIsLoading(true);
+        const reader = new FileReader();
+        
+        reader.onload = async (event) => {
+          try {
+            const content = event.target?.result as string;
+            // Save the uploaded file to app storage
+            const fileName = `restored_backup_${new Date().getTime()}.json`;
+            await Filesystem.writeFile({
+              path: fileName,
+              data: content,
+              directory: "DATA"
+        });            const result = await restoreFromEnhancedBackup(fileName);
+            if (result.success) {
+              toast({
+                title: 'Backup Restored',
+                description: 'Your backup has been successfully restored.',
+              });
+              loadBackups();
+            } else {
+              throw new Error(result.error);
+            }
+          } catch (error) {
+            toast({
+              title: 'Restore Failed',
+              description: error instanceof Error ? error.message : 'Failed to restore backup',
+              variant: 'destructive'
+            });
+          } finally {
+            setIsLoading(false);
+          }
+        };
+        
+        reader.readAsText(file);
+      };
+      
+      input.click();
+    } catch (error) {
+      toast({
+        title: 'Upload Failed',
+        description: 'Failed to upload backup file',
+        variant: 'destructive'
+      });
+      setIsLoading(false);
     }
   };
 
@@ -57,6 +134,18 @@ export const BackupManager = () => {
           title: "Backup Created",
           description: `Successfully created backup with ${result.metadata.counts.bills} bills and ${result.metadata.counts.payments} payments.`
         });
+        // If the backup returned a uri/path, surface it in the UI
+        if (result.uri) {
+          setBackupLocation(result.uri);
+          try {
+            if (navigator && (navigator as any).clipboard && (navigator as any).clipboard.writeText) {
+              await (navigator as any).clipboard.writeText(result.uri);
+              toast({ title: 'Backup path copied', description: 'Backup path copied to clipboard.' });
+            }
+          } catch (e) {
+            // ignore clipboard errors
+          }
+        }
         await loadBackups();
       } else {
         throw new Error(result.message);
@@ -69,6 +158,29 @@ export const BackupManager = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleOpenBackupLocation = async () => {
+    if (!backupLocation) return;
+    try {
+      // Prefer window.open in web builds. On native, Filesystem URIs may be handled by the OS.
+      window.open(backupLocation, '_blank');
+    } catch (e) {
+      console.error('Failed to open backup location:', e);
+      toast({ variant: 'destructive', title: 'Open Failed', description: 'Unable to open backup location' });
+    }
+  };
+
+  const handleCopyBackupLocation = async () => {
+    if (!backupLocation) return;
+    try {
+      if (navigator && (navigator as any).clipboard && (navigator as any).clipboard.writeText) {
+        await (navigator as any).clipboard.writeText(backupLocation);
+        toast({ title: 'Copied', description: 'Backup location copied to clipboard.' });
+      }
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Copy Failed', description: 'Unable to copy to clipboard' });
     }
   };
 
@@ -117,6 +229,9 @@ export const BackupManager = () => {
                     ? new Date(lastBackup).toLocaleString()
                     : "No backups available"}
                 </p>
+                {backupLocation && (
+                  <p className="text-xs text-muted-foreground mt-1">Saved at: <span className="font-mono">{backupLocation}</span></p>
+                )}
               </div>
               <Button 
                 onClick={handleCreateBackup} 
@@ -144,15 +259,83 @@ export const BackupManager = () => {
                           {backup.metadata.dateRange.firstBill} to {backup.metadata.dateRange.lastBill}
                         </p>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleRestore(backup.fileName)}
-                        disabled={isLoading}
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        Restore
-                      </Button>
+                      <div className="flex gap-2">
+                        {backup.uri && (
+                          <>
+                            <Button size="sm" variant="outline" onClick={() => { window.open(backup.uri, '_blank'); }}>
+                              Open
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => { navigator.clipboard?.writeText(backup.uri); toast({ title: 'Copied', description: 'Backup URI copied to clipboard.' }); }}>
+                              Copy
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={async () => {
+                              try {
+                                let content: string | undefined;
+                                if (backup.uri && backup.uri.startsWith('blob:')) {
+                                  // fetch blob
+                                  const resp = await fetch(backup.uri);
+                                  content = await resp.text();
+                                } else {
+                                  // read from filesystem by filename
+                                  try {
+                                    const { data } = await Filesystem.readFile({ path: backup.fileName, directory: DATA_DIR });
+                                    content = data.toString();
+                                  } catch (e) {
+                                    console.error('Failed to read file for download:', e);
+                                  }
+                                }
+                                if (content) {
+                                  const blob = new Blob([content], { type: 'application/json' });
+                                  const url = URL.createObjectURL(blob);
+                                  const a = document.createElement('a');
+                                  a.href = url;
+                                  a.download = backup.fileName;
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  a.remove();
+                                  URL.revokeObjectURL(url);
+                                }
+                              } catch (e) {
+                                toast({ variant: 'destructive', title: 'Download Failed', description: 'Unable to download backup' });
+                              }
+                            }}>
+                              Download
+                            </Button>
+                            {/* show download link for web blob URIs */}
+                            
+                          </>
+                        )}
+                        <Button size="sm" variant="ghost" onClick={async () => {
+                          // View raw JSON modal
+                          try {
+                            let content: string | undefined;
+                            if (backup.uri && backup.uri.startsWith('blob:')) {
+                              const resp = await fetch(backup.uri);
+                              content = await resp.text();
+                            } else {
+                              const { data } = await Filesystem.readFile({ path: backup.fileName, directory: DATA_DIR });
+                              content = data.toString();
+                            }
+                            setPreviewItem({ ...backup, metadata: backup.metadata, uri: backup.uri });
+                            // attach raw JSON to previewItem via (as any) for modal display
+                            (setPreviewItem as any)((prev: any) => ({ ...prev, rawJson: content }));
+                            setPreviewOpen(true);
+                          } catch (e) {
+                            toast({ variant: 'destructive', title: 'View Failed', description: 'Unable to read backup content' });
+                          }
+                        }}>
+                          View
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => { setPreviewItem(backup); setPreviewOpen(true); }}
+                          disabled={isLoading}
+                        >
+                          <Upload className="h-4 w-4 mr-2" />
+                          Restore
+                        </Button>
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2">
                       <div>
@@ -175,6 +358,11 @@ export const BackupManager = () => {
                   </div>
                 ))}
               </div>
+              <div className="p-4">
+                <Button variant="outline" onClick={handleUploadBackup} disabled={isLoading}>
+                  <Upload className="h-4 w-4 mr-2" /> Upload Backup
+                </Button>
+              </div>
             </div>
 
             {backups.length === 0 && (
@@ -185,6 +373,71 @@ export const BackupManager = () => {
           </div>
         </CardContent>
       </Card>
+
+        {/* Preview / Confirm Restore Dialog */}
+        {previewOpen && previewItem && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div className="bg-white rounded shadow-lg max-w-2xl w-full p-6">
+              <h3 className="text-lg font-semibold mb-2">Preview Backup</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                File: <span className="font-mono">{previewItem.fileName}</span>
+              </p>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <p className="text-sm font-medium">Bills</p>
+                  <p className="text-sm">{previewItem.metadata.counts.bills}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Payments</p>
+                  <p className="text-sm">{previewItem.metadata.counts.payments}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Date Range</p>
+                  <p className="text-sm">{previewItem.metadata.dateRange.firstBill} to {previewItem.metadata.dateRange.lastBill}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Outstanding</p>
+                  <p className="text-sm">₹{previewItem.metadata.totalAmount.outstanding.toLocaleString()}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 mb-4">
+                <input id="snapshotBefore" type="checkbox" checked={snapshotBeforeRestore} onChange={(e) => setSnapshotBeforeRestore(e.target.checked)} />
+                <label htmlFor="snapshotBefore" className="text-sm">Create snapshot before restore</label>
+              </div>
+              {(previewItem as any)?.rawJson && (
+                <div className="mb-4">
+                  <h4 className="font-medium mb-2">Raw JSON</h4>
+                  <pre className="max-h-64 overflow-auto p-2 bg-gray-100 rounded text-xs">{JSON.stringify(JSON.parse((previewItem as any).rawJson), null, 2)}</pre>
+                </div>
+              )}
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => { setPreviewOpen(false); setPreviewItem(null); }}>Cancel</Button>
+                <Button onClick={async () => {
+                  setPreviewOpen(false);
+                  setIsLoading(true);
+                  try {
+                    if (snapshotBeforeRestore) {
+                      // create quick snapshot
+                      await createEnhancedBackup();
+                    }
+                    const result = await restoreFromEnhancedBackup(previewItem.fileName);
+                    if (result.success) {
+                      toast({ title: 'Restored', description: `Restored ${result.metadata.counts.bills} bills` });
+                      await loadBackups();
+                    } else {
+                      throw new Error(result.message);
+                    }
+                  } catch (err) {
+                    toast({ variant: 'destructive', title: 'Restore Failed', description: err instanceof Error ? err.message : String(err) });
+                  } finally {
+                    setIsLoading(false);
+                    setPreviewItem(null);
+                  }
+                }}>Confirm Restore</Button>
+              </div>
+            </div>
+          </div>
+        )}
 
       <Alert>
         <AlertDescription>

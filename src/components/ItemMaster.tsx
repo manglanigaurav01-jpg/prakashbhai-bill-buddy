@@ -26,6 +26,7 @@ interface ItemMasterProps {
 export const ItemMaster: React.FC<ItemMasterProps> = ({ onNavigate }) => {
   const [items, setItems] = useState<ItemMasterType[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingItem, setEditingItem] = useState<ItemMasterType | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -38,6 +39,8 @@ export const ItemMaster: React.FC<ItemMasterProps> = ({ onNavigate }) => {
 
   useEffect(() => {
     loadItems();
+    const t = setTimeout(() => setDebouncedQuery(searchQuery), 250);
+    return () => clearTimeout(t);
   }, []);
 
   const loadItems = () => {
@@ -53,7 +56,7 @@ export const ItemMaster: React.FC<ItemMasterProps> = ({ onNavigate }) => {
   };
 
   const filteredItems = items.filter(item =>
-    item.name.toLowerCase().includes(searchQuery.toLowerCase())
+    item.name.toLowerCase().includes(debouncedQuery.toLowerCase())
   );
 
   const handleAddItem = () => {

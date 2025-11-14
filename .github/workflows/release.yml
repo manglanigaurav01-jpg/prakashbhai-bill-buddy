@@ -17,10 +17,12 @@ jobs:
           node-version: '20'
           cache: 'npm'
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --prefer-offline --no-audit --no-fund
       - name: Lint
         run: npm run lint
       - name: Build web
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
         run: npm run build
       - name: Archive dist
         run: |

@@ -25,6 +25,8 @@ interface CustomersProps {
 
 export const Customers = ({ onNavigate }: CustomersProps) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const [startIdx, setStartIdx] = useState(0);
   const [newCustomerName, setNewCustomerName] = useState("");
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const { toast } = useToast();
@@ -178,42 +180,59 @@ export const Customers = ({ onNavigate }: CustomersProps) => {
                   <p className="text-sm">Add your first customer above</p>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {customers.map((customer, index) => (
-                    <div
-                      key={customer.id}
-                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors active:bg-muted cursor-pointer select-none"
-                      onTouchStart={() => handleLongPressStart(customer)}
-                      onTouchEnd={handleLongPressEnd}
-                      onTouchCancel={handleLongPressEnd}
-                      onMouseDown={() => handleLongPressStart(customer)}
-                      onMouseUp={handleLongPressEnd}
-                      onMouseLeave={handleLongPressEnd}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                          <span className="text-sm font-medium text-primary">
-                            {index + 1}
-                          </span>
+                <div
+                  ref={listRef}
+                  className="overflow-auto"
+                  style={{ maxHeight: '480px' }}
+                  onScroll={(e) => {
+                    const el = e.currentTarget as HTMLDivElement;
+                    const ITEM_H = 72;
+                    const newStart = Math.floor(el.scrollTop / ITEM_H);
+                    setStartIdx(newStart);
+                  }}
+                >
+                  {(() => {
+                    const ITEM_H = 72;
+                    const overscan = 4;
+                    const total = customers.length;
+                    const containerH = listRef.current ? listRef.current.getBoundingClientRect().height : 480;
+                    const visible = Math.ceil(containerH / ITEM_H) + overscan * 2;
+                    const rs = Math.max(0, startIdx - overscan);
+                    const re = Math.min(total, rs + visible);
+                    const top = rs * ITEM_H;
+                    const bottom = Math.max(0, (total - re) * ITEM_H);
+                    const slice = customers.slice(rs, re);
+                    return (
+                      <div>
+                        <div style={{ height: top }} />
+                        <div className="space-y-2">
+                          {slice.map((customer, idx) => (
+                            <div
+                              key={customer.id}
+                              className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors active:bg-muted cursor-pointer select-none"
+                              onTouchStart={() => handleLongPressStart(customer)}
+                              onTouchEnd={handleLongPressEnd}
+                              onTouchCancel={handleLongPressEnd}
+                              onMouseDown={() => handleLongPressStart(customer)}
+                              onMouseUp={handleLongPressEnd}
+                              onMouseLeave={handleLongPressEnd}
+                            >
+                              <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                  <span className="text-sm font-medium text-primary">{rs + idx + 1}</span>
+                                </div>
+                                <div>
+                                  <p className="font-medium">{customer.name}</p>
+                                  <p className="text-sm text-muted-foreground">Added on {new Date(customer.createdAt).toLocaleDateString()}</p>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                        <div>
-                          <p className="font-medium">{customer.name}</p>
-                          {customer.phone && (
-                            <p className="text-sm text-accent">📱 {customer.phone}</p>
-                          )}
-                          <p className="text-sm text-muted-foreground">
-                            Added on {(() => {
-                              const date = new Date(customer.createdAt);
-                              const day = date.getDate().toString().padStart(2, '0');
-                              const month = (date.getMonth() + 1).toString().padStart(2, '0');
-                              const year = date.getFullYear();
-                              return `${day}/${month}/${year}`;
-                            })()}
-                          </p>
-                        </div>
+                        <div style={{ height: bottom }} />
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })()}
                 </div>
               )}
             </CardContent>

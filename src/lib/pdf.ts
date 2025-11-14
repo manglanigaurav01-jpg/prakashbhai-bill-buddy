@@ -1,8 +1,26 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Bill, CustomerBalance } from '@/types';
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Filesystem } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
+
+// Constants for Filesystem
+const FILESYSTEM_DIR = 'CACHE' as const;
+
+// Helper function for filesystem operations
+const writeAndSharePDF = async (fileName: string, pdfData: ArrayBuffer) => {
+  const base64Data = arrayBufferToBase64(pdfData);
+  await Filesystem.writeFile({
+    path: fileName,
+    data: base64Data,
+    directory: FILESYSTEM_DIR,
+  });
+  const fileUri = await Filesystem.getUri({
+    directory: FILESYSTEM_DIR,
+    path: fileName
+  });
+  return fileUri;
+};
 
 const formatDate = (date: Date) => {
   const day = date.getDate().toString().padStart(2, '0');
@@ -46,6 +64,23 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
   doc.text(`Date: ${formatDate(new Date())}`, 20, 50);
 
   const tableData: any[] = [];
+  
+  // Add last month's balance if exists
+  const lastMonthDate = new Date();
+  lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
+  const lastMonthBalance = balance.lastMonthBalance || 0;
+  
+  if (lastMonthBalance !== 0) {
+    tableData.push([
+      '-',
+      formatDate(lastMonthDate),
+      'Last Month Balance',
+      `Rs. ${lastMonthBalance.toFixed(2)}`,
+      '-',
+      '-'
+    ]);
+  }
+
   const billsSorted = [...bills].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
@@ -132,23 +167,23 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
       await Filesystem.writeFile({
         path: fileName,
         data: base64Data,
-        directory: Directory.Cache,
+        directory: FILESYSTEM_DIR,
       });
 
       const fileUri = await Filesystem.getUri({
-        directory: Directory.Cache,
+        directory: FILESYSTEM_DIR,
         path: fileName
       });
 
       const { Share } = await import('@capacitor/share');
       await Share.share({
-        title: 'Customer Summary PDF',
-        text: `Summary for ${balance.customerName}`,
+        title: 'Bill PDF',
+        text: 'Bill generated successfully',
         url: fileUri.uri,
         dialogTitle: 'Save or Share PDF'
       });
 
-      return { success: true, message: 'PDF ready - choose where to save it!' };
+      return { success: true, message: 'Bill downloaded successfully' };
     } else {
       doc.save(fileName);
       return { success: true, message: 'Summary downloaded successfully' };
@@ -273,18 +308,18 @@ export const generateBillPDF = async (bill: Bill) => {
       await Filesystem.writeFile({
         path: fileName,
         data: base64Data,
-        directory: Directory.Cache,
+        directory: 'CACHE',
       });
 
       const fileUri = await Filesystem.getUri({
-        directory: Directory.Cache,
+        directory: 'CACHE',
         path: fileName
       });
 
       const { Share } = await import('@capacitor/share');
       await Share.share({
-        title: 'Bill PDF',
-        text: `Bill for ${bill.customerName}`,
+        title: 'Customer Summary PDF',
+        text: 'Customer summary generated successfully',
         url: fileUri.uri,
         dialogTitle: 'Save or Share PDF'
       });
@@ -341,11 +376,11 @@ export const generatePendingPDF = async (pendingCustomers: CustomerBalance[], to
       await Filesystem.writeFile({
         path: fileName,
         data: base64Data,
-        directory: Directory.Cache,
+        directory: FILESYSTEM_DIR,
       });
 
       const fileUri = await Filesystem.getUri({
-        directory: Directory.Cache,
+        directory: FILESYSTEM_DIR,
         path: fileName
       });
 
@@ -409,11 +444,11 @@ export const generateAdvancePDF = async (advanceCustomers: CustomerBalance[], to
       await Filesystem.writeFile({
         path: fileName,
         data: base64Data,
-        directory: Directory.Cache,
+        directory: FILESYSTEM_DIR,
       });
 
       const fileUri = await Filesystem.getUri({
-        directory: Directory.Cache,
+        directory: FILESYSTEM_DIR,
         path: fileName
       });
 
