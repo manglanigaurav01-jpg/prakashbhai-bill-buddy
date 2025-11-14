@@ -37,6 +37,8 @@ workflows:
           npm ci
           # Remove lovable-tagger if present (no longer needed)
           npm uninstall lovable-tagger 2>/dev/null || true
+          # Install optional Capacitor plugins for haptic feedback
+          npm install @capacitor/haptics@latest || true
           # Ensure peer tools are present for cloud/auth (placeholders used)
           npm ls @capacitor/core jspdf || true
       - name: Build React app
@@ -165,6 +167,8 @@ workflows:
           npm ci
           # Remove lovable-tagger if present (no longer needed)
           npm uninstall lovable-tagger 2>/dev/null || true
+          # Install optional Capacitor plugins for haptic feedback
+          npm install @capacitor/haptics@latest || true
           # Ensure peer tools are present for cloud/auth (placeholders used)
           npm ls @capacitor/core jspdf || true
       - name: Build React app

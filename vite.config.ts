@@ -23,6 +23,9 @@ export default defineConfig(({ mode }) => ({
         if (id.includes('@codetrix-studio/capacitor-google-auth')) {
           return true;
         }
+        if (id.includes('@capacitor/haptics')) {
+          return true;
+        }
         return false;
       },
     },
