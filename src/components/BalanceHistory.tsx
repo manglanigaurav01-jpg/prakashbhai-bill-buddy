@@ -2,11 +2,13 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Download } from "lucide-react";
+import { ArrowLeft, Download, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Customer, MonthlyBalance } from "@/types";
 import { getCustomers, getBills, getPayments } from "@/lib/storage";
 import { generateMonthlyBalances, getMonthLabel } from "@/lib/monthly-balance";
+import { generateMonthlyBalancePDF } from "@/lib/last-balance-pdf";
+import { hapticSuccess, hapticError } from "@/lib/haptics";
 
 interface BalanceHistoryProps {
   onNavigate: (view: string) => void;
@@ -49,6 +51,41 @@ export const BalanceHistory = ({ onNavigate }: BalanceHistoryProps) => {
 
   const selectedBalance = selectedMonth && monthlyBalances ? 
     monthlyBalances.find(b => `${b.year}-${b.month}` === selectedMonth) : null;
+
+  const handleGeneratePDF = async () => {
+    if (!selectedCustomer || !selectedBalance) {
+      toast({
+        title: "Error",
+        description: "Please select a customer and month",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const customer = customers.find(c => c.id === selectedCustomer);
+    if (!customer) return;
+
+    try {
+      await generateMonthlyBalancePDF(
+        selectedCustomer,
+        customer.name,
+        selectedBalance.month,
+        selectedBalance.year
+      );
+      hapticSuccess();
+      toast({
+        title: "PDF Generated",
+        description: `Balance PDF for ${getMonthLabel(selectedMonth)} has been generated successfully`,
+      });
+    } catch (error) {
+      hapticError();
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to generate PDF",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -105,7 +142,13 @@ export const BalanceHistory = ({ onNavigate }: BalanceHistoryProps) => {
         {selectedBalance && (
           <Card>
             <CardHeader>
-              <CardTitle>{customers.find(c => c.id === selectedCustomer)?.name} - {getMonthLabel(selectedMonth)}</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>{customers.find(c => c.id === selectedCustomer)?.name} - {getMonthLabel(selectedMonth)}</CardTitle>
+                <Button onClick={handleGeneratePDF} className="gap-2">
+                  <FileText className="w-4 h-4" />
+                  Generate PDF
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">

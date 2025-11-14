@@ -14,6 +14,8 @@ import { getBills, getCustomers, saveBill, updateBill, deleteBill } from '@/lib/
 import { Bill, BillItem, Customer } from '@/types';
 import { shareViaWhatsApp, createBillMessage } from '@/lib/whatsapp';
 import { generateBillPDF } from '@/lib/pdf';
+import { SwipeableItem } from '@/components/SwipeableItem';
+import { hapticMedium, hapticSuccess, hapticError } from '@/lib/haptics';
 
 
 interface EditBillsProps {
@@ -197,13 +199,25 @@ export const EditBills: React.FC<EditBillsProps> = ({ onNavigate }) => {
     }
   };
 
+  const handleDelete = (billId: string) => {
+    hapticMedium();
+    setShowDeleteId(billId);
+  };
+
   const confirmDelete = () => {
     if (!showDeleteId) return;
-    deleteBill(showDeleteId);
-    // reload async-aware
-    refreshAfterChange();
-    setShowDeleteId(null);
-    toast({ title: 'Bill deleted', description: 'The bill has been removed' });
+    try {
+      deleteBill(showDeleteId);
+      // reload async-aware
+      refreshAfterChange();
+      hapticSuccess();
+      toast({ title: 'Bill deleted', description: 'The bill has been removed' });
+    } catch (error) {
+      hapticError();
+      toast({ title: 'Error', description: 'Failed to delete bill', variant: 'destructive' });
+    } finally {
+      setShowDeleteId(null);
+    }
   };
 
   if (loading) {
@@ -356,36 +370,36 @@ export const EditBills: React.FC<EditBillsProps> = ({ onNavigate }) => {
                     <div style={{ height: topSpacer }} />
                     <div className="space-y-3">
                       {slice.map((bill) => (
-                        <Card key={bill.id}
-                          onMouseDown={() => handlePressStart(bill.id)}
-                          onMouseUp={() => handlePressEnd(bill.id)}
-                          onTouchStart={() => handlePressStart(bill.id)}
-                          onTouchEnd={() => handlePressEnd(bill.id)}
-                          className="hover:shadow-md transition-all duration-200 active:scale-95"
-                          style={{ height: ITEM_HEIGHT }}>
-                          <CardContent className="p-4">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <div className="text-sm text-muted-foreground">{formatDate(new Date(bill.date))}</div>
+                        <SwipeableItem
+                          key={bill.id}
+                          onEdit={() => startEdit(bill)}
+                          onDelete={() => handleDelete(bill.id)}
+                        >
+                          <Card className="hover:shadow-md transition-all duration-200" style={{ height: ITEM_HEIGHT }}>
+                            <CardContent className="p-4">
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <div className="text-sm text-muted-foreground">{formatDate(new Date(bill.date))}</div>
+                                  </div>
+                                  <div className="text-lg font-semibold">{bill.customerName}</div>
+                                  <div className="text-sm text-muted-foreground">Items: {bill.items.length} • Total: ₹{bill.grandTotal.toFixed(2)}</div>
                                 </div>
-                                <div className="text-lg font-semibold">{bill.customerName}</div>
-                                <div className="text-sm text-muted-foreground">Items: {bill.items.length} • Total: ₹{bill.grandTotal.toFixed(2)}</div>
+                                <div className="flex gap-2">
+                                  <Button size="sm" variant="outline" onClick={async () => {
+                                    const message = createBillMessage(bill);
+                                    await shareViaWhatsApp('', message);
+                                  }}>
+                                    <Share2 className="w-4 h-4" />
+                                  </Button>
+                                  <Button size="sm" variant="outline" onClick={() => startEdit(bill)}>
+                                    <Edit3 className="w-4 h-4 mr-1" /> Edit
+                                  </Button>
+                                </div>
                               </div>
-                              <div className="flex gap-2">
-                                <Button size="sm" variant="outline" onClick={async () => {
-                                  const message = createBillMessage(bill);
-                                  await shareViaWhatsApp('', message);
-                                }}>
-                                  <Share2 className="w-4 h-4" />
-                                </Button>
-                                <Button size="sm" variant="outline" onClick={() => startEdit(bill)}>
-                                  <Edit3 className="w-4 h-4 mr-1" /> Edit
-                                </Button>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
+                            </CardContent>
+                          </Card>
+                        </SwipeableItem>
                       ))}
                     </div>
                     <div style={{ height: bottomSpacer }} />

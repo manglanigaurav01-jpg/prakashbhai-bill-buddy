@@ -51,15 +51,35 @@ export const getPayments = (): Payment[] => {
   return data ? JSON.parse(data) : [];
 };
 
+// Normalize customer name: trim, remove extra spaces, normalize casing
+export const normalizeCustomerName = (name: string): string => {
+  return name
+    .trim()
+    .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+    .split(' ')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()) // Title case
+    .join(' ');
+};
+
 export const saveCustomer = (customer: Omit<Customer, 'id' | 'createdAt'>): Customer => {
   const customers = getCustomers();
-  const normalizedNewName = customer.name.trim().toLowerCase();
-  const isDuplicate = customers.some(c => c.name.trim().toLowerCase() === normalizedNewName);
+  // Normalize the input name
+  const normalizedInputName = normalizeCustomerName(customer.name);
+  
+  // Check for duplicates using normalized comparison (case-insensitive, space-insensitive)
+  const normalizedInputLower = normalizedInputName.toLowerCase().replace(/\s+/g, ' ');
+  const isDuplicate = customers.some(c => {
+    const normalizedExisting = normalizeCustomerName(c.name).toLowerCase().replace(/\s+/g, ' ');
+    return normalizedExisting === normalizedInputLower;
+  });
+  
   if (isDuplicate) {
     throw new Error('DUPLICATE_CUSTOMER_NAME');
   }
+  
   const newCustomer: Customer = {
     ...customer,
+    name: normalizedInputName, // Save with normalized name
     id: Date.now().toString(),
     createdAt: new Date().toISOString(),
   };

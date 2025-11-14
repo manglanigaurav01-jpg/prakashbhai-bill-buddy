@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { toast } from '@/hooks/use-toast';
 import { getPayments, getCustomers, updatePayment, deletePayment } from '@/lib/storage';
 import { Customer, Payment } from '@/types';
+import { SwipeableItem } from '@/components/SwipeableItem';
+import { hapticMedium, hapticError, hapticSuccess } from '@/lib/haptics';
 
 
 interface EditPaymentsProps {
@@ -98,7 +100,7 @@ export const EditPayments: React.FC<EditPaymentsProps> = ({ onNavigate }) => {
     setEditingAmount(payment.amount.toString());
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editing) return;
     if (!editingCustomer) {
       toast({ title: 'Error', description: 'Please select a customer', variant: 'destructive' });
@@ -110,6 +112,34 @@ export const EditPayments: React.FC<EditPaymentsProps> = ({ onNavigate }) => {
       return;
     }
 
+    // Validate date with future warning
+    const { validatePaymentDateWithFutureWarning, validateLargeAmount } = await import('@/lib/validation');
+    const { getPayments } = await import('@/lib/storage');
+    const { hapticWarning, hapticSuccess, hapticError } = await import('@/lib/haptics');
+    
+    const dateValidation = validatePaymentDateWithFutureWarning(editingDate);
+    if (dateValidation.warning) {
+      toast({
+        title: "Date Warning",
+        description: dateValidation.warning,
+        variant: "default",
+      });
+      hapticWarning();
+    }
+
+    // Validate amount with large amount warning
+    const allPayments = getPayments();
+    const paymentAmounts = allPayments.map(p => p.amount);
+    const amountValidation = validateLargeAmount(amt, 'payment', { payments: paymentAmounts });
+    if (amountValidation.warning) {
+      toast({
+        title: "Amount Warning",
+        description: amountValidation.warning,
+        variant: "default",
+      });
+      hapticWarning();
+    }
+
     const updated = updatePayment(editing.id, {
       customerId: editingCustomer.id,
       customerName: editingCustomer.name,
@@ -118,6 +148,7 @@ export const EditPayments: React.FC<EditPaymentsProps> = ({ onNavigate }) => {
     });
     if (updated) {
       setPayments(getPayments());
+      hapticSuccess();
       toast({ title: 'Payment updated', description: `Payment for ${updated.customerName} updated successfully` });
       setEditing(null);
     } else {
@@ -125,26 +156,24 @@ export const EditPayments: React.FC<EditPaymentsProps> = ({ onNavigate }) => {
     }
   };
 
-  // Long press delete
-  const timers = useRef<{ [key: string]: any }>({});
-  const LONG_PRESS_MS = 600;
-  const pressStart = (id: string) => {
-    if (timers.current[id]) clearTimeout(timers.current[id]);
-    timers.current[id] = setTimeout(() => setShowDeleteId(id), LONG_PRESS_MS);
-  };
-  const pressEnd = (id: string) => {
-    if (timers.current[id]) {
-      clearTimeout(timers.current[id]);
-      timers.current[id] = null;
-    }
+  const handleDelete = (paymentId: string) => {
+    hapticMedium();
+    setShowDeleteId(paymentId);
   };
 
   const confirmDelete = () => {
     if (!showDeleteId) return;
-    deletePayment(showDeleteId);
-    setPayments(getPayments());
-    setShowDeleteId(null);
-    toast({ title: 'Payment deleted', description: 'The payment has been removed' });
+    try {
+      deletePayment(showDeleteId);
+      setPayments(getPayments());
+      hapticSuccess();
+      toast({ title: 'Payment deleted', description: 'The payment has been removed' });
+    } catch (error) {
+      hapticError();
+      toast({ title: 'Error', description: 'Failed to delete payment', variant: 'destructive' });
+    } finally {
+      setShowDeleteId(null);
+    }
   };
 
   const formatDate = (date: Date) => {
@@ -261,25 +290,26 @@ export const EditPayments: React.FC<EditPaymentsProps> = ({ onNavigate }) => {
 
         <div className="space-y-3">
           {filteredSorted.map((p) => (
-            <Card key={p.id}
-              onMouseDown={() => pressStart(p.id)}
-              onMouseUp={() => pressEnd(p.id)}
-              onTouchStart={() => pressStart(p.id)}
-              onTouchEnd={() => pressEnd(p.id)}
-              className="hover:shadow-md transition-all duration-200 active:scale-95">
-              <CardContent className="p-4 flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="text-sm text-muted-foreground">{formatDate(new Date(p.date))}</div>
-                  <div className="text-lg font-semibold">{p.customerName}</div>
-                  <div className="text-sm text-muted-foreground">Amount: ₹{p.amount.toFixed(2)}</div>
-                </div>
-                <div>
-                  <Button size="sm" variant="outline" onClick={() => startEdit(p)}>
-                    <Edit3 className="w-4 h-4 mr-1" /> Edit
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <SwipeableItem
+              key={p.id}
+              onEdit={() => startEdit(p)}
+              onDelete={() => handleDelete(p.id)}
+            >
+              <Card className="hover:shadow-md transition-all duration-200">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="text-sm text-muted-foreground">{formatDate(new Date(p.date))}</div>
+                    <div className="text-lg font-semibold">{p.customerName}</div>
+                    <div className="text-sm text-muted-foreground">Amount: ₹{p.amount.toFixed(2)}</div>
+                  </div>
+                  <div>
+                    <Button size="sm" variant="outline" onClick={() => startEdit(p)}>
+                      <Edit3 className="w-4 h-4 mr-1" /> Edit
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </SwipeableItem>
           ))}
           {filteredSorted.length === 0 && (
             <Card>

@@ -8,6 +8,7 @@ import { getCustomers, saveCustomer } from "@/lib/storage";
 import { Customer } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { addToRecycleBin } from "@/lib/recycle-bin";
+import { hapticSuccess, hapticError, hapticMedium } from '@/lib/haptics';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,11 +54,13 @@ export const Customers = ({ onNavigate }: CustomersProps) => {
       });
       setCustomers([...customers, customer]);
       setNewCustomerName("");
+      hapticSuccess();
       toast({
         title: "Customer Added",
         description: `${customer.name} has been added successfully`,
       });
     } catch (error: any) {
+      hapticError();
       if (error && error.message === 'DUPLICATE_CUSTOMER_NAME') {
         toast({
           title: "A customer with this name already exists",
@@ -84,6 +87,7 @@ export const Customers = ({ onNavigate }: CustomersProps) => {
     longPressTriggered.current = false;
     longPressTimer.current = setTimeout(() => {
       longPressTriggered.current = true;
+      hapticMedium();
       setCustomerToDelete(customer);
     }, 500); // 500ms long press
   };
@@ -107,6 +111,7 @@ export const Customers = ({ onNavigate }: CustomersProps) => {
       setCustomers(updatedCustomers);
       localStorage.setItem('customers', JSON.stringify(updatedCustomers));
 
+      hapticSuccess();
       toast({
         title: "Customer Deleted",
         description: `${customerToDelete.name} has been moved to recycle bin`,
@@ -114,6 +119,7 @@ export const Customers = ({ onNavigate }: CustomersProps) => {
 
       setCustomerToDelete(null);
     } catch (error) {
+      hapticError();
       toast({
         title: "Error",
         description: "Failed to delete customer",

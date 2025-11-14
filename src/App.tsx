@@ -18,6 +18,7 @@ import { EditPayments } from "@/components/EditPayments";
 import { EnhancedAnalytics } from "@/components/EnhancedAnalytics";
 import { BalanceHistory } from "@/components/BalanceHistory";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
 
 const queryClient = new QueryClient();
 
@@ -75,6 +76,7 @@ const App = () => {
         <TooltipProvider>
           <Toaster />
           <Sonner />
+          <OfflineIndicator />
           {renderView()}
         </TooltipProvider>
       </QueryClientProvider>

@@ -234,6 +234,35 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
   const saveBillOnly = async () => {
     if (!validateBill()) return;
 
+    // Validate date with future warning
+    const { validateBillDateWithFutureWarning, validateLargeAmount } = await import('@/lib/validation');
+    const { getBills } = await import('@/lib/storage');
+    const { hapticWarning } = await import('@/lib/haptics');
+    
+    const dateValidation = validateBillDateWithFutureWarning(billDate);
+    if (dateValidation.warning) {
+      toast({
+        title: "Date Warning",
+        description: dateValidation.warning,
+        variant: "default",
+      });
+      hapticWarning();
+    }
+
+    // Validate amount with large amount warning
+    const allBills = getBills();
+    const billAmounts = allBills.map(b => b.grandTotal);
+    const grandTotal = calculateGrandTotal();
+    const amountValidation = validateLargeAmount(grandTotal, 'bill', { bills: billAmounts });
+    if (amountValidation.warning) {
+      toast({
+        title: "Amount Warning",
+        description: amountValidation.warning,
+        variant: "default",
+      });
+      hapticWarning();
+    }
+
     setIsLoading(true);
     try {
       const discountValue = parseFloat(discount) || 0;
@@ -248,6 +277,9 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
       };
 
       saveBill(billData);
+      
+      const { hapticSuccess } = await import('@/lib/haptics');
+      hapticSuccess();
       
       toast({
         title: "Success",
@@ -275,6 +307,35 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
   const saveBillAsPDF = async () => {
     if (!validateBill()) return;
 
+    // Validate date with future warning
+    const { validateBillDateWithFutureWarning, validateLargeAmount } = await import('@/lib/validation');
+    const { getBills } = await import('@/lib/storage');
+    const { hapticWarning } = await import('@/lib/haptics');
+    
+    const dateValidation = validateBillDateWithFutureWarning(billDate);
+    if (dateValidation.warning) {
+      toast({
+        title: "Date Warning",
+        description: dateValidation.warning,
+        variant: "default",
+      });
+      hapticWarning();
+    }
+
+    // Validate amount with large amount warning
+    const allBills = getBills();
+    const billAmounts = allBills.map(b => b.grandTotal);
+    const grandTotal = calculateGrandTotal();
+    const amountValidation = validateLargeAmount(grandTotal, 'bill', { bills: billAmounts });
+    if (amountValidation.warning) {
+      toast({
+        title: "Amount Warning",
+        description: amountValidation.warning,
+        variant: "default",
+      });
+      hapticWarning();
+    }
+
     setIsLoading(true);
     try {
       const discountValue = parseFloat(discount) || 0;
@@ -292,6 +353,8 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
       const result = await generateBillPDF(savedBill);
       
       if (result.success) {
+        const { hapticSuccess } = await import('@/lib/haptics');
+        hapticSuccess();
         toast({
           title: "Success",
           description: result.message

@@ -222,6 +222,91 @@ export const validatePaymentDate = (value: Date | string | null | undefined): Va
   return validateDate(value, 'Payment date');
 };
 
+// Validate bill date with future date warning (allows but warns)
+export interface ValidationResultWithWarning extends ValidationResult {
+  warning?: string;
+}
+
+export const validateBillDateWithFutureWarning = (value: Date | string | null | undefined): ValidationResultWithWarning => {
+  const dateResult = validateDate(value, 'Bill date');
+  if (!dateResult.isValid) return dateResult;
+  
+  const date = value instanceof Date ? value : new Date(value);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const billDate = new Date(date);
+  billDate.setHours(0, 0, 0, 0);
+  
+  if (billDate > today) {
+    const daysDiff = Math.ceil((billDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return {
+      isValid: true,
+      warning: `Bill date is ${daysDiff} day${daysDiff > 1 ? 's' : ''} in the future. Please verify this is correct.`
+    };
+  }
+  
+  return { isValid: true };
+};
+
+// Validate payment date with future date warning
+export const validatePaymentDateWithFutureWarning = (value: Date | string | null | undefined): ValidationResultWithWarning => {
+  const dateResult = validateDate(value, 'Payment date');
+  if (!dateResult.isValid) return dateResult;
+  
+  const date = value instanceof Date ? value : new Date(value);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const paymentDate = new Date(date);
+  paymentDate.setHours(0, 0, 0, 0);
+  
+  if (paymentDate > today) {
+    const daysDiff = Math.ceil((paymentDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return {
+      isValid: true,
+      warning: `Payment date is ${daysDiff} day${daysDiff > 1 ? 's' : ''} in the future. Please verify this is correct.`
+    };
+  }
+  
+  return { isValid: true };
+};
+
+// Validate unusually large amounts (warns if amount is significantly higher than average)
+export const validateLargeAmount = (
+  amount: number,
+  type: 'bill' | 'payment',
+  historicalData?: { bills?: number[]; payments?: number[] }
+): ValidationResultWithWarning => {
+  const positiveResult = validatePositiveNumber(amount, type === 'bill' ? 'Bill amount' : 'Payment amount');
+  if (!positiveResult.isValid) return positiveResult;
+  
+  if (!historicalData) {
+    return { isValid: true };
+  }
+  
+  const data = type === 'bill' ? historicalData.bills : historicalData.payments;
+  if (!data || data.length === 0) {
+    return { isValid: true };
+  }
+  
+  // Calculate average and standard deviation
+  const avg = data.reduce((sum, val) => sum + val, 0) / data.length;
+  const variance = data.reduce((sum, val) => sum + Math.pow(val - avg, 2), 0) / data.length;
+  const stdDev = Math.sqrt(variance);
+  
+  // Warn if amount is more than 3 standard deviations above average
+  const threshold = avg + (3 * stdDev);
+  
+  if (amount > threshold && amount > avg * 1.5) {
+    const percentage = ((amount / avg - 1) * 100).toFixed(0);
+    return {
+      isValid: true,
+      warning: `This ${type} amount (₹${amount.toLocaleString()}) is ${percentage}% higher than your average ${type === 'bill' ? 'bill' : 'payment'} (₹${avg.toLocaleString()}). Please verify this is correct.`
+    };
+  }
+  
+  return { isValid: true };
+};
+
 // Form validation helper
 export const validateForm = (validations: ValidationResult[]): { isValid: boolean; errors: string[] } => {
   const errors = validations
