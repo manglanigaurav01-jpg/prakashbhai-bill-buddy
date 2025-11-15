@@ -19,11 +19,15 @@ export const generateMonthlyBalances = async (customerId: string): Promise<Month
     
     const monthBills = bills.filter(bill => {
       const billDate = new Date(bill.date);
+      // Set time to start of day for accurate comparison
+      billDate.setHours(0, 0, 0, 0);
       return billDate >= monthStart && billDate <= effectiveEnd;
     });
 
     const monthPayments = payments.filter(payment => {
       const paymentDate = new Date(payment.date);
+      // Set time to start of day for accurate comparison
+      paymentDate.setHours(0, 0, 0, 0);
       return paymentDate >= monthStart && paymentDate <= effectiveEnd;
     });
 

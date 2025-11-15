@@ -7,6 +7,9 @@ import { getBills, getPayments, getItems, getAllCustomerBalances, getBusinessAna
 import { SyncStatus } from './SyncStatus';
 import * as XLSX from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 
 interface AnalyticsData {
   revenues: { date: string; amount: number }[];
@@ -202,12 +205,68 @@ export const EnhancedAnalytics: React.FC<EnhancedAnalyticsProps> = ({ onNavigate
       }
       
       const fileName = `bill-buddy-analytics-${timeRange}-${new Date().toISOString().split('T')[0]}.xlsx`;
-      XLSX.writeFile(workbook, fileName);
+      const isWeb = Capacitor.getPlatform() === 'web';
       
-      toast({
-        title: "Export successful",
-        description: `Analytics data exported to ${fileName}`,
-      });
+      if (isWeb) {
+        // For web, use XLSX.writeFile which triggers download
+        XLSX.writeFile(workbook, fileName);
+        toast({
+          title: "Export successful",
+          description: `File downloaded: ${fileName}. Check your Downloads folder.`,
+        });
+      } else {
+        // For mobile, save to Filesystem and share
+        try {
+          // Convert workbook to binary array
+          const excelBuffer = XLSX.write(workbook, { type: 'array', bookType: 'xlsx' });
+          
+          // Convert ArrayBuffer to base64
+          let binary = '';
+          const bytes = new Uint8Array(excelBuffer);
+          for (let i = 0; i < bytes.byteLength; i++) {
+            binary += String.fromCharCode(bytes[i]);
+          }
+          const base64Data = btoa(binary);
+          
+          // Save to Documents directory
+          const savedFile = await Filesystem.writeFile({
+            path: fileName,
+            data: base64Data,
+            directory: Directory.Documents
+          });
+          
+          // Get file URI
+          const fileInfo = await Filesystem.getUri({
+            path: fileName,
+            directory: Directory.Documents
+          });
+          
+          if (!fileInfo.uri) {
+            throw new Error('Could not get file URI');
+          }
+          
+          // Share the file so user can choose where to save it
+          await Share.share({
+            title: 'Analytics Export',
+            text: `Analytics data exported for ${timeRange}`,
+            url: fileInfo.uri,
+            dialogTitle: 'Save or Share Excel File'
+          });
+          
+          toast({
+            title: "Export successful",
+            description: `File saved. Choose where to save it from the share dialog.`,
+          });
+        } catch (mobileError: any) {
+          console.error('Mobile export error:', mobileError);
+          // Fallback: try to use XLSX.writeFile anyway
+          XLSX.writeFile(workbook, fileName);
+          toast({
+            title: "Export successful",
+            description: `File saved: ${fileName}`,
+          });
+        }
+      }
     } catch (error: any) {
       console.error('Excel export error:', error);
       toast({

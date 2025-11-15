@@ -1,4 +1,5 @@
 import { Filesystem } from '@capacitor/filesystem';
+import { Capacitor } from '@capacitor/core';
 import { Bill, Customer, Payment, ItemMaster, ItemRateHistory } from '@/types';
 import { 
   getCustomers, 
@@ -18,6 +19,9 @@ const EXTERNAL_STORAGE_DIR = 'EXTERNAL_STORAGE';
 import { checkDataConsistency, DataValidationResult } from './validation';
 import { format } from 'date-fns';
 import { v4 as uuidv4 } from 'uuid';
+
+// Web platform backup storage key prefix
+const WEB_BACKUP_PREFIX = 'prakash_web_backup_';
 
 // Constants
 const BACKUP_INTERVAL = 30 * 60 * 1000; // 30 minutes
@@ -162,30 +166,71 @@ export const createEnhancedBackup = async () => {
     const backupString = JSON.stringify(backup.data);
     backup.metadata.checksum = calculateChecksum(backupString);
 
-    // Save backup with metadata
     const fileName = `enhanced_backup_${format(new Date(), 'yyyy-MM-dd_HH-mm-ss')}.json`;
-    await Filesystem.writeFile({
-      path: fileName,
-      data: JSON.stringify(backup),
-      directory: DATA_DIR
-    });
-
-    // Clean up old backups
-    await cleanupOldBackups();
-
-    // Try to get a platform-specific URI for convenience
+    const backupJson = JSON.stringify(backup);
     let uri: string | undefined;
-    try {
-      const info = await Filesystem.getUri({ path: fileName, directory: DATA_DIR });
-      uri = (info && (info as any).uri) || (info as any).path || undefined;
-    } catch (e) {
-      // On web or when getUri isn't available, create a blob URL for download
+
+    // Handle web platform differently
+    const isWeb = Capacitor.getPlatform() === 'web';
+    
+    if (isWeb) {
+      // For web platform, store in localStorage and create download blob
       try {
-        // Create a blob URL so web UI can provide a download/open link
-        const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
+        const storageKey = `${WEB_BACKUP_PREFIX}${fileName}`;
+        localStorage.setItem(storageKey, backupJson);
+        
+        // Create blob URL for download
+        const blob = new Blob([backupJson], { type: 'application/json' });
         uri = URL.createObjectURL(blob);
-      } catch (err) {
-        // ignore
+        
+        // Trigger download
+        const link = document.createElement('a');
+        link.href = uri;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up old web backups
+        cleanupOldWebBackups();
+      } catch (webError) {
+        console.error('Web backup storage failed:', webError);
+        // Still try to provide download even if localStorage fails
+        try {
+          const blob = new Blob([backupJson], { type: 'application/json' });
+          uri = URL.createObjectURL(blob);
+          const link = document.createElement('a');
+          link.href = uri;
+          link.download = fileName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        } catch (downloadError) {
+          throw new Error(`Failed to create backup: ${webError instanceof Error ? webError.message : String(webError)}`);
+        }
+      }
+    } else {
+      // For mobile platforms, use Filesystem API
+      try {
+        await Filesystem.writeFile({
+          path: fileName,
+          data: backupJson,
+          directory: DATA_DIR
+        });
+
+        // Clean up old backups
+        await cleanupOldBackups();
+
+        // Try to get a platform-specific URI
+        try {
+          const info = await Filesystem.getUri({ path: fileName, directory: DATA_DIR });
+          uri = (info && (info as any).uri) || (info as any).path || undefined;
+        } catch (e) {
+          // URI not available, that's okay
+          console.warn('Could not get file URI:', e);
+        }
+      } catch (fsError) {
+        throw new Error(`Filesystem error: ${fsError instanceof Error ? fsError.message : String(fsError)}`);
       }
     }
 
@@ -209,12 +254,34 @@ export const createEnhancedBackup = async () => {
 // Enhanced restore function
 export const restoreFromEnhancedBackup = async (backupFilePath: string) => {
   try {
-    const { data: backupContent } = await Filesystem.readFile({
-      path: backupFilePath,
-      directory: DATA_DIR
-    });
+    const isWeb = Capacitor.getPlatform() === 'web';
+    let backupContent: string;
 
-    const backup: EnhancedBackupData = JSON.parse(backupContent.toString());
+    if (isWeb) {
+      // For web, check if it's a localStorage key or a file upload
+      if (backupFilePath.startsWith(WEB_BACKUP_PREFIX)) {
+        // It's a localStorage key
+        const stored = localStorage.getItem(backupFilePath);
+        if (!stored) {
+          throw new Error('Backup not found in storage');
+        }
+        backupContent = stored;
+      } else {
+        // It might be a file that was uploaded - try to read it
+        // If it's a blob URL or file object, we need to handle it differently
+        // For now, assume it's already JSON content
+        backupContent = backupFilePath;
+      }
+    } else {
+      // For mobile, use Filesystem API
+      const { data } = await Filesystem.readFile({
+        path: backupFilePath,
+        directory: DATA_DIR
+      });
+      backupContent = data.toString();
+    }
+
+    const backup: EnhancedBackupData = JSON.parse(backupContent);
 
     // Validate backup structure and checksum
     const calculatedChecksum = calculateChecksum(JSON.stringify(backup.data));
@@ -248,7 +315,32 @@ export const restoreFromEnhancedBackup = async (backupFilePath: string) => {
   }
 };
 
-// Function to clean up old backups
+// Function to clean up old web backups (localStorage)
+const cleanupOldWebBackups = () => {
+  try {
+    const backupKeys: string[] = [];
+    
+    // Find all backup keys in localStorage
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(WEB_BACKUP_PREFIX)) {
+        backupKeys.push(key);
+      }
+    }
+
+    // Sort by key name (which includes timestamp) - newest first
+    backupKeys.sort((a, b) => b.localeCompare(a));
+
+    // Remove excess backups
+    for (let i = MAX_LOCAL_BACKUPS; i < backupKeys.length; i++) {
+      localStorage.removeItem(backupKeys[i]);
+    }
+  } catch (error) {
+    console.error('Cleanup of old web backups failed:', error);
+  }
+};
+
+// Function to clean up old backups (mobile)
 const cleanupOldBackups = async () => {
   try {
     const result = await Filesystem.readdir({
@@ -276,49 +368,99 @@ const cleanupOldBackups = async () => {
 // Function to list available backups
 export const listAvailableBackups = async () => {
   try {
-    const result = await Filesystem.readdir({
-      path: '',
-      directory: DATA_DIR
-    });
+    const isWeb = Capacitor.getPlatform() === 'web';
+    
+    if (isWeb) {
+      // For web, read from localStorage
+      const backupKeys: string[] = [];
+      
+      // Find all backup keys
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith(WEB_BACKUP_PREFIX)) {
+          backupKeys.push(key);
+        }
+      }
 
-    const backups = await Promise.all(
-      result.files
-        .filter(file => file.name.startsWith('enhanced_backup_'))
-        .map(async (file) => {
+      const backups = backupKeys
+        .map((key) => {
           try {
-            const { data } = await Filesystem.readFile({
-              path: file.name,
-              directory: DATA_DIR
-            });
-            const backup: EnhancedBackupData = JSON.parse(data.toString());
-            // Attempt to resolve a uri for this specific file; fall back to a blob URL
+            const stored = localStorage.getItem(key);
+            if (!stored) return null;
+            
+            const backup: EnhancedBackupData = JSON.parse(stored);
+            const fileName = key.replace(WEB_BACKUP_PREFIX, '');
+            
+            // Create blob URL for download
             let uri: string | undefined;
             try {
-              const info = await Filesystem.getUri({ path: file.name, directory: DATA_DIR });
-              uri = (info && (info as any).uri) || (info as any).path || undefined;
-            } catch (e) {
-              try {
-                const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
-                uri = URL.createObjectURL(blob);
-              } catch {
-                uri = undefined;
-              }
+              const blob = new Blob([stored], { type: 'application/json' });
+              uri = URL.createObjectURL(blob);
+            } catch {
+              uri = undefined;
             }
 
             return {
-              fileName: file.name,
+              fileName,
               timestamp: backup.timestamp,
               metadata: backup.metadata,
-              uri
+              uri,
+              storageKey: key // Include storage key for restore
             };
           } catch {
             return null;
           }
         })
-    );
+        .filter((backup): backup is NonNullable<typeof backup> => backup !== null)
+        .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
 
-    return backups.filter((backup): backup is NonNullable<typeof backup> => backup !== null)
-      .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+      return backups;
+    } else {
+      // For mobile, use Filesystem API
+      const result = await Filesystem.readdir({
+        path: '',
+        directory: DATA_DIR
+      });
+
+      const backups = await Promise.all(
+        result.files
+          .filter(file => file.name.startsWith('enhanced_backup_'))
+          .map(async (file) => {
+            try {
+              const { data } = await Filesystem.readFile({
+                path: file.name,
+                directory: DATA_DIR
+              });
+              const backup: EnhancedBackupData = JSON.parse(data.toString());
+              // Attempt to resolve a uri for this specific file; fall back to a blob URL
+              let uri: string | undefined;
+              try {
+                const info = await Filesystem.getUri({ path: file.name, directory: DATA_DIR });
+                uri = (info && (info as any).uri) || (info as any).path || undefined;
+              } catch (e) {
+                try {
+                  const blob = new Blob([JSON.stringify(backup)], { type: 'application/json' });
+                  uri = URL.createObjectURL(blob);
+                } catch {
+                  uri = undefined;
+                }
+              }
+
+              return {
+                fileName: file.name,
+                timestamp: backup.timestamp,
+                metadata: backup.metadata,
+                uri
+              };
+            } catch {
+              return null;
+            }
+          })
+      );
+
+      return backups.filter((backup): backup is NonNullable<typeof backup> => backup !== null)
+        .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+    }
   } catch (error) {
     console.error('Failed to list backups:', error);
     return [];

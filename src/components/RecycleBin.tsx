@@ -2,11 +2,15 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Trash2, RotateCcw, Clock, Package, FileText, DollarSign } from 'lucide-react';
+import { Trash2, RotateCcw, Clock, Package, FileText, DollarSign, ArrowLeft } from 'lucide-react';
 import { getRecycleBin, restoreFromRecycleBin, permanentlyDelete, clearRecycleBin, getDaysRemaining, cleanupOldItems, RecycledItem } from '@/lib/recycle-bin';
 import { useToast } from '@/hooks/use-toast';
 
-export const RecycleBin = () => {
+interface RecycleBinProps {
+  onNavigate: (view: string) => void;
+}
+
+export const RecycleBin = ({ onNavigate }: RecycleBinProps) => {
   const [recycleBin, setRecycleBin] = useState<RecycledItem[]>([]);
   const [confirmClearAll, setConfirmClearAll] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
@@ -82,26 +86,39 @@ export const RecycleBin = () => {
   };
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <div className="flex justify-between items-center">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Trash2 className="h-5 w-5" />
-                Recycle Bin
-              </CardTitle>
-              <CardDescription>
-                Deleted items are kept for 30 days before permanent deletion
-              </CardDescription>
+    <div className="min-h-screen bg-gradient-to-br from-primary-soft to-accent-soft p-4 md:p-8">
+      <div className="max-w-4xl mx-auto space-y-4">
+        <div className="flex items-center gap-4 mb-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onNavigate('settings')}
+            className="gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Settings
+          </Button>
+        </div>
+
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Trash2 className="h-5 w-5" />
+                  Recycle Bin
+                </CardTitle>
+                <CardDescription>
+                  Deleted items are kept for 30 days before permanent deletion
+                </CardDescription>
+              </div>
+              {recycleBin.length > 0 && (
+                <Button variant="destructive" onClick={() => setConfirmClearAll(true)}>
+                  Clear All
+                </Button>
+              )}
             </div>
-            {recycleBin.length > 0 && (
-              <Button variant="destructive" onClick={() => setConfirmClearAll(true)}>
-                Clear All
-              </Button>
-            )}
-          </div>
-        </CardHeader>
+          </CardHeader>
         <CardContent>
           {recycleBin.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
@@ -196,6 +213,7 @@ export const RecycleBin = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
     </div>
   );
 };

@@ -58,8 +58,16 @@ export const firebaseSignInWithGoogle = async (): Promise<User> => {
     // Clear any existing auth state
     await fbSignOut(services.auth);
     
+    // Add timeout to prevent infinite loading
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Sign-in timeout. Please try again.')), 60000); // 60 second timeout
+    });
+    
     // Use popup signin for all platforms
-    const result = await signInWithPopup(services.auth, services.googleProvider);
+    const signInPromise = signInWithPopup(services.auth, services.googleProvider);
+    
+    // Race between sign-in and timeout
+    const result = await Promise.race([signInPromise, timeoutPromise]) as any;
     
     if (!result?.user) {
       throw new Error('No user data received from Google');
@@ -84,6 +92,14 @@ export const firebaseSignInWithGoogle = async (): Promise<User> => {
 
     if (error.code === 'auth/popup-closed-by-user') {
       throw new Error('Sign-in cancelled');
+    }
+    
+    if (error.code === 'auth/popup-blocked') {
+      throw new Error('Popup was blocked. Please allow popups and try again.');
+    }
+    
+    if (error.message?.includes('timeout')) {
+      throw new Error('Sign-in timed out. Please try again.');
     }
     
     throw new Error(error.message || 'Sign-in failed. Please try again.');

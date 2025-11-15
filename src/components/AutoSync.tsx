@@ -75,9 +75,22 @@ export const AutoSync = () => {
   };
 
   const handleSignIn = async () => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
+      // Add a safety timeout to ensure loading state is reset
+      const timeoutId = setTimeout(() => {
+        setIsLoading(false);
+        toast({
+          title: 'Sign-in timeout',
+          description: 'The sign-in process is taking too long. Please try again.',
+          variant: 'destructive',
+        });
+      }, 90000); // 90 second safety timeout
+
       const newUser = await signInWithGoogle();
+      
+      clearTimeout(timeoutId);
+      
       setUser(newUser);
       // Initialize monthly backup schedule for this signed-in user
       try {

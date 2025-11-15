@@ -17,12 +17,13 @@ import { EditBills } from "@/components/EditBills";
 import { EditPayments } from "@/components/EditPayments";
 import { EnhancedAnalytics } from "@/components/EnhancedAnalytics";
 import { BalanceHistory } from "@/components/BalanceHistory";
+import { RecycleBin } from "@/components/RecycleBin";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 
 const queryClient = new QueryClient();
 
-type View = 'dashboard' | 'createBill' | 'customers' | 'balance' | 'amountTracker' | 'lastBalance' | 'balanceHistory' | 'totalBusiness' | 'itemMaster' | 'editBills' | 'editPayments' | 'settings' | 'analytics';
+type View = 'dashboard' | 'createBill' | 'customers' | 'balance' | 'amountTracker' | 'lastBalance' | 'balanceHistory' | 'totalBusiness' | 'itemMaster' | 'editBills' | 'editPayments' | 'settings' | 'analytics' | 'recycleBin';
 
 const App = () => {
   const [currentView, setCurrentView] = useState<View>('dashboard');
@@ -65,6 +66,8 @@ const App = () => {
         return <EnhancedAnalytics onNavigate={handleNavigate} />;
       case 'balanceHistory':
         return <BalanceHistory onNavigate={handleNavigate} />;
+      case 'recycleBin':
+        return <RecycleBin onNavigate={handleNavigate} />;
       default:
         return <Dashboard onNavigate={handleNavigate} />;
     }

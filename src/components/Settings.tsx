@@ -6,7 +6,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertTriangle, ArrowLeft, Moon, Sun, Trash2, User } from "lucide-react";
 import { getCurrentUser, signInWithGoogle, signOutUser, onAuthStateChanged } from '@/lib/auth';
 import { AutoSync } from "./AutoSync";
-import { RecycleBin } from "./RecycleBin";
 import { useToast } from "@/hooks/use-toast";
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
@@ -60,7 +59,20 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
   const handleGoogleSignIn = async () => {
     setIsSigningIn(true);
     try {
+      // Add a safety timeout to ensure loading state is reset
+      const timeoutId = setTimeout(() => {
+        setIsSigningIn(false);
+        toast({
+          title: "Sign-in timeout",
+          description: "The sign-in process is taking too long. Please try again.",
+          variant: "destructive",
+        });
+      }, 90000); // 90 second safety timeout
+
       const result = await signInWithGoogle();
+      
+      clearTimeout(timeoutId);
+      
       if (result.success) {
         toast({
           title: "Signed in successfully",
@@ -75,6 +87,7 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
         });
       }
     } catch (error: any) {
+      console.error('Sign-in error:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to sign in",
@@ -388,8 +401,28 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
           {/* Enhanced Backup System */}
           <BackupManager />
 
-          {/* Recycle Bin */}
-          <RecycleBin />
+          {/* Recycle Bin Navigation */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Trash2 className="h-5 w-5" />
+                Recycle Bin
+              </CardTitle>
+              <CardDescription>
+                View and manage deleted items. Items are kept for 30 days before permanent deletion.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                variant="outline"
+                onClick={() => onNavigate('recycleBin')}
+                className="w-full"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Open Recycle Bin
+              </Button>
+            </CardContent>
+          </Card>
 
           {/* Auto Cloud Sync */}
           <AutoSync />

@@ -76,7 +76,7 @@ export const generateMonthlyBalancePDF = async (
   let totalPaid = 0;
 
   // Add "Last Month Closing Balance" as first row if previous month balance exists
-  // Also add it to totalSales so it's included in the calculations
+  // The closing balance already accounts for payments (openingBalance + bills - payments)
   if (previousMonthBalance && typeof previousMonthBalance.closingBalance === 'number') {
     const closingBalance = previousMonthBalance.closingBalance;
     tableData.push([
@@ -93,24 +93,51 @@ export const generateMonthlyBalancePDF = async (
 
   // Sort bills by date
   bills.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  
+  // Sort payments by date
+  customerPayments.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  // Process bills and payments
+  // Track which payments have been matched to bills
+  const usedPaymentIds = new Set<string>();
+
+  // Process bills and try to match payments
   bills.forEach(bill => {
-    const payment = customerPayments.find(p => 
-      format(new Date(p.date), 'dd/MM/yyyy') === format(new Date(bill.date), 'dd/MM/yyyy')
-    );
+    const billDate = new Date(bill.date);
+    const matchingPayment = customerPayments.find(p => {
+      if (usedPaymentIds.has(p.id)) return false;
+      const paymentDate = new Date(p.date);
+      return format(paymentDate, 'dd/MM/yyyy') === format(billDate, 'dd/MM/yyyy');
+    });
 
     tableData.push([
       srNo++,
-      format(new Date(bill.date), 'dd/MM/yyyy'),
+      format(billDate, 'dd/MM/yyyy'),
       bill.items.map(i => i.itemName).join(', '),
       `Rs. ${bill.grandTotal.toFixed(2)}`,
-      payment ? format(new Date(payment.date), 'dd/MM/yyyy') : '-',
-      payment ? `Rs. ${payment.amount.toFixed(2)}` : '-'
+      matchingPayment ? format(new Date(matchingPayment.date), 'dd/MM/yyyy') : '-',
+      matchingPayment ? `Rs. ${matchingPayment.amount.toFixed(2)}` : '-'
     ]);
 
     totalSales += bill.grandTotal;
-    if (payment) totalPaid += payment.amount;
+    if (matchingPayment) {
+      totalPaid += matchingPayment.amount;
+      usedPaymentIds.add(matchingPayment.id);
+    }
+  });
+
+  // Add any remaining payments that weren't matched to bills
+  customerPayments.forEach(payment => {
+    if (!usedPaymentIds.has(payment.id)) {
+      tableData.push([
+        srNo++,
+        '-',
+        'Payment',
+        '-',
+        format(new Date(payment.date), 'dd/MM/yyyy'),
+        `Rs. ${payment.amount.toFixed(2)}`
+      ]);
+      totalPaid += payment.amount;
+    }
   });
 
   // Generate table
@@ -259,9 +286,13 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
   doc.setFontSize(12);
   doc.text(`Date: ${format(new Date(), 'dd/MM/yyyy')}`, 20, 40);
 
-  // Get payments for this customer
+  // Get payments for this customer - filter for current month
   const payments = getPayments();
-  const customerPayments = payments.filter(p => p.customerId === customerId);
+  const allCustomerPayments = payments.filter(p => p.customerId === customerId);
+  const currentMonthPayments = allCustomerPayments.filter(p => {
+    const paymentDate = new Date(p.date);
+    return paymentDate >= monthStart && paymentDate <= today;
+  });
 
   // Table data with Sr No
   const tableData: any[] = [];
@@ -270,7 +301,7 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
   let totalPaid = 0;
 
   // Add "Last Month Closing Balance" as first row if previous month balance exists
-  // Also add it to totalSales so it's included in the calculations
+  // The closing balance already accounts for payments (openingBalance + bills - payments)
   if (previousMonthBalance && typeof previousMonthBalance.closingBalance === 'number') {
     const closingBalance = previousMonthBalance.closingBalance;
     tableData.push([
@@ -287,24 +318,52 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
 
   // Sort bills by date
   bills.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  
+  // Sort payments by date
+  currentMonthPayments.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  // Process bills and payments
+  // Track which payments have been matched to bills
+  const usedPaymentIds = new Set<string>();
+
+  // Process bills and try to match payments
   bills.forEach(bill => {
-    const payment = customerPayments.find(p => 
-      format(new Date(p.date), 'dd/MM/yyyy') === format(new Date(bill.date), 'dd/MM/yyyy')
-    );
+    // Try to find a payment on the same date or closest date
+    const billDate = new Date(bill.date);
+    const matchingPayment = currentMonthPayments.find(p => {
+      if (usedPaymentIds.has(p.id)) return false;
+      const paymentDate = new Date(p.date);
+      return format(paymentDate, 'dd/MM/yyyy') === format(billDate, 'dd/MM/yyyy');
+    });
 
     tableData.push([
       srNo++,
-      format(new Date(bill.date), 'dd/MM/yyyy'),
+      format(billDate, 'dd/MM/yyyy'),
       bill.items.map(i => i.itemName).join(', '),
       `Rs. ${bill.grandTotal.toFixed(2)}`,
-      payment ? format(new Date(payment.date), 'dd/MM/yyyy') : '-',
-      payment ? `Rs. ${payment.amount.toFixed(2)}` : '-'
+      matchingPayment ? format(new Date(matchingPayment.date), 'dd/MM/yyyy') : '-',
+      matchingPayment ? `Rs. ${matchingPayment.amount.toFixed(2)}` : '-'
     ]);
 
     totalSales += bill.grandTotal;
-    if (payment) totalPaid += payment.amount;
+    if (matchingPayment) {
+      totalPaid += matchingPayment.amount;
+      usedPaymentIds.add(matchingPayment.id);
+    }
+  });
+
+  // Add any remaining payments that weren't matched to bills
+  currentMonthPayments.forEach(payment => {
+    if (!usedPaymentIds.has(payment.id)) {
+      tableData.push([
+        srNo++,
+        '-',
+        'Payment',
+        '-',
+        format(new Date(payment.date), 'dd/MM/yyyy'),
+        `Rs. ${payment.amount.toFixed(2)}`
+      ]);
+      totalPaid += payment.amount;
+    }
   });
 
   // Generate table
@@ -387,9 +446,10 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
               let srNo = 1;
               let totalSales = 0;
               let totalPaid = 0;
+              const usedPaymentIds = {};
 
               // Add "Last Month Closing Balance" as first row if previous month balance exists
-              // Also add it to totalSales so it's included in the calculations
+              // The closing balance already accounts for payments (openingBalance + bills - payments)
               if (previousMonthBalance !== undefined && previousMonthBalance !== null) {
                 const closingBalance = Number(previousMonthBalance) || 0;
                 tableData.push([
@@ -405,23 +465,49 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
               }
 
               bills.sort(function(a,b){ return new Date(a.date).getTime() - new Date(b.date).getTime(); });
+              (payments || []).sort(function(a,b){ return new Date(a.date).getTime() - new Date(b.date).getTime(); });
 
+              // Process bills and try to match payments
               bills.forEach(function(bill){
-                const payment = (payments || []).find(function(p){
-                  return new Date(p.date).toDateString() === new Date(bill.date).toDateString();
+                const billDate = new Date(bill.date);
+                const billDateStr = billDate.toLocaleDateString('en-GB');
+                
+                // Try to find a payment on the same date
+                const matchingPayment = (payments || []).find(function(p){
+                  if (usedPaymentIds[p.id]) return false;
+                  const paymentDate = new Date(p.date);
+                  return paymentDate.toLocaleDateString('en-GB') === billDateStr;
                 });
 
                 tableData.push([
                   srNo++,
-                  (new Date(bill.date)).toLocaleDateString('en-GB'),
+                  billDateStr,
                   (bill.items || []).map(function(i){ return i.itemName; }).join(', '),
                   'Rs. ' + Number(bill.grandTotal).toFixed(2),
-                  payment ? (new Date(payment.date)).toLocaleDateString('en-GB') : '-',
-                  payment ? 'Rs. ' + Number(payment.amount).toFixed(2) : '-'
+                  matchingPayment ? (new Date(matchingPayment.date)).toLocaleDateString('en-GB') : '-',
+                  matchingPayment ? 'Rs. ' + Number(matchingPayment.amount).toFixed(2) : '-'
                 ]);
 
                 totalSales += Number(bill.grandTotal) || 0;
-                if (payment) totalPaid += Number(payment.amount) || 0;
+                if (matchingPayment) {
+                  totalPaid += Number(matchingPayment.amount) || 0;
+                  usedPaymentIds[matchingPayment.id] = true;
+                }
+              });
+
+              // Add any remaining payments that weren't matched to bills
+              (payments || []).forEach(function(payment){
+                if (!usedPaymentIds[payment.id]) {
+                  tableData.push([
+                    srNo++,
+                    '-',
+                    'Payment',
+                    '-',
+                    (new Date(payment.date)).toLocaleDateString('en-GB'),
+                    'Rs. ' + Number(payment.amount).toFixed(2)
+                  ]);
+                  totalPaid += Number(payment.amount) || 0;
+                }
               });
 
               const tableStartY = 50;
@@ -487,8 +573,13 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
             reject(err instanceof Error ? err : new Error('Worker runtime error'));
           };
 
-          // Send minimal data needed to worker; payments list filtered for this customer
-          worker.postMessage({ bills, payments: customerPayments, customerName, previousMonthBalance: monthlyBalances[monthlyBalances.length - 2]?.closingBalance });
+          // Send minimal data needed to worker; payments list filtered for current month
+          worker.postMessage({ 
+            bills, 
+            payments: currentMonthPayments, 
+            customerName, 
+            previousMonthBalance: previousMonthBalance?.closingBalance 
+          });
         });
       } catch (workerErr) {
         // If blob-worker creation or runtime fails, fallback to main-thread behavior

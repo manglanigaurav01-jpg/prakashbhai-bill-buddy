@@ -6,6 +6,7 @@ import { createEnhancedBackup, listAvailableBackups, restoreFromEnhancedBackup }
 import { useToast } from '@/components/ui/use-toast';
 import { Download, Upload, Trash2, RefreshCw } from 'lucide-react';
 import { Filesystem } from '@capacitor/filesystem';
+import { Capacitor } from '@capacitor/core';
 // Use web APIs for clipboard/open to avoid requiring extra Capacitor plugins
 
 // Filesystem directory constants
@@ -34,6 +35,7 @@ interface BackupInfo {
     };
   };
   uri?: string | undefined;
+  storageKey?: string; // For web platform localStorage key
 }
 
 export const BackupManager = () => {
@@ -51,15 +53,23 @@ export const BackupManager = () => {
     setBackups(availableBackups);
     if (availableBackups.length > 0) {
       setLastBackup(availableBackups[0].timestamp);
-      // Get the backup location from Filesystem
-      try {
-        const { uri } = await Filesystem.getUri({
-          path: availableBackups[0].fileName,
-          directory: "DATA"
-        });
-        setBackupLocation(uri);
-      } catch (error) {
-        console.error('Error getting backup location:', error);
+      // Get the backup location - handle web vs mobile differently
+      const isWeb = Capacitor.getPlatform() === 'web';
+      if (isWeb) {
+        // For web, use the URI from the backup info
+        setBackupLocation(availableBackups[0].uri || null);
+      } else {
+        // For mobile, get URI from Filesystem
+        try {
+          const { uri } = await Filesystem.getUri({
+            path: availableBackups[0].fileName,
+            directory: "DATA"
+          });
+          setBackupLocation(uri);
+        } catch (error) {
+          console.error('Error getting backup location:', error);
+          setBackupLocation(availableBackups[0].uri || null);
+        }
       }
     }
   };
@@ -80,21 +90,38 @@ export const BackupManager = () => {
         reader.onload = async (event) => {
           try {
             const content = event.target?.result as string;
-            // Save the uploaded file to app storage
-            const fileName = `restored_backup_${new Date().getTime()}.json`;
-            await Filesystem.writeFile({
-              path: fileName,
-              data: content,
-              directory: "DATA"
-        });            const result = await restoreFromEnhancedBackup(fileName);
-            if (result.success) {
-              toast({
-                title: 'Backup Restored',
-                description: 'Your backup has been successfully restored.',
-              });
-              loadBackups();
+            const isWeb = Capacitor.getPlatform() === 'web';
+            
+            if (isWeb) {
+              // For web, directly restore from the file content
+              const result = await restoreFromEnhancedBackup(content);
+              if (result.success) {
+                toast({
+                  title: 'Backup Restored',
+                  description: 'Your backup has been successfully restored.',
+                });
+                loadBackups();
+              } else {
+                throw new Error(result.error);
+              }
             } else {
-              throw new Error(result.error);
+              // For mobile, save the uploaded file to app storage first
+              const fileName = `restored_backup_${new Date().getTime()}.json`;
+              await Filesystem.writeFile({
+                path: fileName,
+                data: content,
+                directory: "DATA"
+              });
+              const result = await restoreFromEnhancedBackup(fileName);
+              if (result.success) {
+                toast({
+                  title: 'Backup Restored',
+                  description: 'Your backup has been successfully restored.',
+                });
+                loadBackups();
+              } else {
+                throw new Error(result.error);
+              }
             }
           } catch (error) {
             toast({
@@ -184,14 +211,18 @@ export const BackupManager = () => {
     }
   };
 
-  const handleRestore = async (fileName: string) => {
+  const handleRestore = async (backup: BackupInfo) => {
     if (!confirm("Are you sure you want to restore this backup? This will replace all current data.")) {
       return;
     }
 
     setIsLoading(true);
     try {
-      const result = await restoreFromEnhancedBackup(fileName);
+      // Use storageKey for web, fileName for mobile
+      const isWeb = Capacitor.getPlatform() === 'web';
+      const restorePath = isWeb && backup.storageKey ? backup.storageKey : backup.fileName;
+      
+      const result = await restoreFromEnhancedBackup(restorePath);
       if (result.success) {
         toast({
           title: "Backup Restored",
@@ -282,7 +313,12 @@ export const BackupManager = () => {
                             <Button size="sm" variant="outline" onClick={async () => {
                               try {
                                 let content: string | undefined;
-                                if (backup.uri && backup.uri.startsWith('blob:')) {
+                                const isWeb = Capacitor.getPlatform() === 'web';
+                                
+                                if (isWeb && backup.storageKey) {
+                                  // For web, read from localStorage
+                                  content = localStorage.getItem(backup.storageKey) || undefined;
+                                } else if (backup.uri && backup.uri.startsWith('blob:')) {
                                   // fetch blob
                                   const resp = await fetch(backup.uri);
                                   content = await resp.text();
@@ -320,7 +356,12 @@ export const BackupManager = () => {
                           // View raw JSON modal
                           try {
                             let content: string | undefined;
-                            if (backup.uri && backup.uri.startsWith('blob:')) {
+                            const isWeb = Capacitor.getPlatform() === 'web';
+                            
+                            if (isWeb && backup.storageKey) {
+                              // For web, read from localStorage
+                              content = localStorage.getItem(backup.storageKey) || undefined;
+                            } else if (backup.uri && backup.uri.startsWith('blob:')) {
                               const resp = await fetch(backup.uri);
                               content = await resp.text();
                             } else {
@@ -431,7 +472,10 @@ export const BackupManager = () => {
                       // create quick snapshot
                       await createEnhancedBackup();
                     }
-                    const result = await restoreFromEnhancedBackup(previewItem.fileName);
+                    // Use storageKey for web, fileName for mobile
+                    const isWeb = Capacitor.getPlatform() === 'web';
+                    const restorePath = isWeb && previewItem.storageKey ? previewItem.storageKey : previewItem.fileName;
+                    const result = await restoreFromEnhancedBackup(restorePath);
                     if (result.success) {
                       toast({ title: 'Restored', description: `Restored ${result.metadata.counts.bills} bills` });
                       await loadBackups();
