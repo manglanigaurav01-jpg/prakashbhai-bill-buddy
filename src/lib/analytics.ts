@@ -1,4 +1,5 @@
-import { Bill, Payment, ItemUsage, Customer } from '@/types';
+// @ts-ignore - Types are used in function signatures and type annotations
+import type { Bill, Payment, ItemUsage, Customer } from '@/types';
 import { getBills, getPayments, getCustomers, getItems } from './storage';
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
 
@@ -98,7 +99,7 @@ export const analyzePaymentPatterns = (): PaymentPattern[] => {
 };
 
 // Popular Items Tracking
-export const trackPopularItems = (timeframe: 'month' | 'quarter' | 'year' = 'month'): PopularItem[] => {
+export const trackPopularItems = (_timeframe: 'month' | 'quarter' | 'year' = 'month'): PopularItem[] => {
   const bills = getBills();
   const items = getItems();
   const itemStats = new Map<string, PopularItem>();

@@ -1,5 +1,4 @@
 import { getAuth } from 'firebase/auth';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { backupToGoogleDrive } from './google-drive';
 
 // Schedule monthly backups at month end

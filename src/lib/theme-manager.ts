@@ -51,7 +51,7 @@ export const initTheme = (): void => {
   
   // Listen for system theme changes
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-  const handleSystemThemeChange = (e: MediaQueryListEvent) => {
+  const handleSystemThemeChange = (_e: MediaQueryListEvent) => {
     if (getTheme() === 'system') {
       applyTheme('system');
     }

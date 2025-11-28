@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Plus, Search, Trash2, Calculator, Save, FileText, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Plus, Search, Trash2, Save, FileText } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,7 +44,8 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
   const [discount, setDiscount] = useState<string>('');
   const [discountType, setDiscountType] = useState<'percentage' | 'flat'>('percentage');
 
-  const itemInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
+  // @ts-ignore - Intentionally unused, kept for future use
+  const _itemInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
   useEffect(() => {
     loadCustomers();
@@ -84,7 +85,8 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
     setActiveItemIndex(null);
   };
 
-  const handleQuickItemSelect = (index: number, itemName: string) => {
+  // @ts-ignore - Intentionally unused, kept for future use
+  const _handleQuickItemSelect = (index: number, itemName: string) => {
     const existingItem = availableItems.find(item => item.name === itemName);
     if (existingItem) {
       handleItemSelect(index, existingItem);

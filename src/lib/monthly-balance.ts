@@ -1,6 +1,6 @@
-import { Bill, Customer, Payment, MonthlyBalance } from '@/types';
+import { MonthlyBalance } from '@/types';
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
-import { getBills, getPayments, getCustomers } from './storage';
+import { getBills, getPayments } from './storage';
 
 export const generateMonthlyBalances = async (customerId: string): Promise<MonthlyBalance[]> => {
   const bills = getBills().filter(b => b.customerId === customerId);

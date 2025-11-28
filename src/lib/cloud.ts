@@ -1,5 +1,4 @@
-import { getBackupConfig } from '@/lib/backup';
-import { initFirebase, firebaseSignInWithGoogle, firebaseSignOut, readUserSnapshot, writeUserSnapshot } from '@/lib/firebase';
+import { initFirebase, firebaseSignInWithGoogle, readUserSnapshot, writeUserSnapshot } from '@/lib/firebase';
 
 export type CloudProvider = 'google' | 'microsoft';
 

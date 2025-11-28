@@ -1,7 +1,7 @@
-import { utils, write } from 'xlsx';
+import { write } from 'xlsx';
 
 type MessageIn = { type: 'export-xlsx'; workbook: any; fileName: string };
-type MessageOut = { type: 'export-xlsx-result'; fileName: string; buffer: ArrayBuffer } | { type: 'error'; message: string };
+// MessageOut type removed - not currently used
 
 self.addEventListener('message', async (ev: MessageEvent<MessageIn>) => {
   const msg = ev.data;

@@ -9,7 +9,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { ArrowLeft, DollarSign, Save, Trash2, CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { getCustomers, recordPayment, getPaymentHistory, deletePayment } from "@/lib/storage";
+import { getCustomers, getPaymentHistory, deletePayment } from "@/lib/storage";
 import { Customer, Payment } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 

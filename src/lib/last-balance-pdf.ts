@@ -1,12 +1,12 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Bill, CustomerBalance, MonthlyBalance } from '@/types';
+import { MonthlyBalance } from '@/types';
 import { startOfMonth, endOfMonth, subMonths, format, parse } from 'date-fns';
 import { generateMonthlyBalances } from './monthly-balance';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
-import { getCustomerBalance, getBillsByCustomer, getPayments } from './storage';
+import { getBillsByCustomer, getPayments } from './storage';
 // Note: Worker is used for heavy PDF generation on web
 
 const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
@@ -31,7 +31,7 @@ export const generateMonthlyBalancePDF = async (
   const monthEnd = endOfMonth(monthDate);
   
   // Get all monthly balances to find previous month
-  const monthlyBalances = await generateMonthlyBalances(customerId);
+  const monthlyBalances: MonthlyBalance[] = await generateMonthlyBalances(customerId);
   const currentMonthIndex = monthlyBalances.findIndex(
     b => b.month === month && b.year === year
   );
@@ -232,7 +232,7 @@ export const generateMonthlyBalancePDF = async (
 
 export const generateLastBalancePDF = async (customerId: string, customerName: string) => {
   // Get all monthly balances
-  const monthlyBalances = await generateMonthlyBalances(customerId);
+  const monthlyBalances: MonthlyBalance[] = await generateMonthlyBalances(customerId);
   
   // Get the current date and determine the month to show
   const currentDate = new Date();

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { createEnhancedBackup, listAvailableBackups, restoreFromEnhancedBackup } from '@/lib/enhanced-backup';
 import { useToast } from '@/components/ui/use-toast';
-import { Download, Upload, Trash2, RefreshCw } from 'lucide-react';
+import { Download, Upload, RefreshCw } from 'lucide-react';
 import { Filesystem } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 // Use web APIs for clipboard/open to avoid requiring extra Capacitor plugins
@@ -184,7 +184,8 @@ export const BackupManager = () => {
     }
   };
 
-  const handleOpenBackupLocation = async () => {
+  // @ts-ignore - Intentionally unused, kept for future use
+  const _handleOpenBackupLocation = async () => {
     if (!backupLocation) return;
     try {
       // Prefer window.open in web builds. On native, Filesystem URIs may be handled by the OS.
@@ -195,7 +196,8 @@ export const BackupManager = () => {
     }
   };
 
-  const handleCopyBackupLocation = async () => {
+  // @ts-ignore - Intentionally unused, kept for future use
+  const _handleCopyBackupLocation = async () => {
     if (!backupLocation) return;
     try {
       if (navigator && (navigator as any).clipboard && (navigator as any).clipboard.writeText) {
@@ -207,7 +209,8 @@ export const BackupManager = () => {
     }
   };
 
-  const handleRestore = async (backup: BackupInfo) => {
+  // @ts-ignore - Intentionally unused, kept for future use
+  const _handleRestore = async (backup: BackupInfo) => {
     if (!confirm("Are you sure you want to restore this backup? This will replace all current data.")) {
       return;
     }

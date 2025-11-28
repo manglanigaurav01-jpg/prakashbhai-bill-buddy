@@ -1,7 +1,6 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut as fbSignOut, type Auth, type User } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup, getRedirectResult, signOut as fbSignOut, type Auth, type User } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, type Firestore } from 'firebase/firestore';
-import { FIREBASE_FALLBACK_CONFIG } from './firebase.local.config';
 
 export interface FirebaseServices {
   app: FirebaseApp;

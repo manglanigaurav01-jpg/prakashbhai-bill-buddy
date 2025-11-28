@@ -9,18 +9,10 @@ import {
   getBusinessAnalytics
 } from './storage';
 
-// Filesystem directory constants
-const CACHE_DIR = 'CACHE';
-const DATA_DIR = 'DATA';
-const DOCUMENTS_DIR = 'DOCUMENTS';
-const EXTERNAL_DIR = 'EXTERNAL';
-const EXTERNAL_STORAGE_DIR = 'EXTERNAL_STORAGE';
-import { checkDataConsistency, DataValidationResult } from './validation';
 import { format } from 'date-fns';
-import { v4 as uuidv4 } from 'uuid';
 
-// Constants
-const BACKUP_INTERVAL = 30 * 60 * 1000; // 30 minutes
+// Filesystem directory constant
+const DATA_DIR = 'DATA' as const;
 const MAX_LOCAL_BACKUPS = 5;
 
 // Enhanced backup data structure
@@ -80,7 +72,7 @@ const getAllData = () => {
 
   // Validate data relationships
   const customerIds = new Set(customers.map(c => c.id));
-  const itemIds = new Set(items.map(i => i.id));
+  // itemIds validation removed - not currently used
 
   // Validate bills have valid customer references
   const validBills = bills.filter(bill => customerIds.has(bill.customerId));

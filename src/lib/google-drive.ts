@@ -1,6 +1,5 @@
 import { getAuth } from 'firebase/auth';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { toast } from '@/hooks/use-toast';
 import { getBills, getPayments, getCustomers, getItems } from '@/lib/storage';
 
 const storage = getStorage();

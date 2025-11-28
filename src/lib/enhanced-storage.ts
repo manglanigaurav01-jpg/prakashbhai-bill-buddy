@@ -1,8 +1,7 @@
-import { Customer, Bill, Payment, CustomerBalance, ItemMaster } from '@/types';
+import { Customer, Bill, Payment, ItemMaster } from '@/types';
 import { validateBillDate, validatePaymentDate } from './validation';
 import { buildIndexes, invalidateIndexes, needsReindexing } from './indexing';
 import { createLocalBackup } from './data-backup';
-import { validateDate } from './validation';
 
 const STORAGE_KEYS = {
   CUSTOMERS: 'prakash_customers',
@@ -158,7 +157,8 @@ export const savePayment = (payment: Omit<Payment, 'id' | 'createdAt'>): Payment
 };
 
 // Function to rebuild indexes if needed
-const ensureIndexes = () => {
+// @ts-ignore - Intentionally unused, kept for future use
+const _ensureIndexes = () => {
   if (needsReindexing()) {
     buildIndexes(getBills(), getPayments(), getCustomers(), getItems());
   }

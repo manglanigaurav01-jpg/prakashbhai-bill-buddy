@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Download, TrendingUp, Users, Package, Calendar, IndianRupee } from 'lucide-react';
+import { ArrowLeft, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getBills, getPayments, getItems, getAllCustomerBalances, getBusinessAnalytics, updateBusinessAnalytics } from '@/lib/storage';
-import { SyncStatus } from './SyncStatus';
+import { getBills, getPayments, getAllCustomerBalances } from '@/lib/storage';
 import { utils } from 'xlsx';
 
 interface AnalyticsData {
@@ -73,7 +72,6 @@ export const Analytics: React.FC<AnalyticsProps> = ({ onNavigate }) => {
     setLoading(true);
     const bills = getBills();
     const payments = getPayments();
-    const items = getItems();
 
     // Calculate date range
     const endDate = new Date();
@@ -152,13 +150,13 @@ export const Analytics: React.FC<AnalyticsProps> = ({ onNavigate }) => {
     // Outstanding payments - using customer balances instead since payments don't have billId
     const customerBalances = getAllCustomerBalances();
     const outstandingPayments = customerBalances
-      .filter(balance => balance.pending > 0)
-      .map(balance => ({
+      .filter((balance: any) => balance.pending > 0)
+      .map((balance: any) => ({
         customer: balance.customerName,
         amount: balance.pending,
         daysOverdue: 0 // We don't have bill-specific payment tracking
       }))
-      .sort((a, b) => b.amount - a.amount);
+      .sort((a: any, b: any) => b.amount - a.amount);
 
     // Seasonal trends
     const currentYearSales = new Array(12).fill(0);

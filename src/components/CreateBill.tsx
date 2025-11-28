@@ -172,7 +172,7 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
 
     // If we have table items, validate them
     if (hasTableItems) {
-      items.forEach((item, index) => {
+      items.forEach((item) => {
         validations.push(
           validateItemName(item.itemName),
           validateItemQuantity(item.quantity.toString()),

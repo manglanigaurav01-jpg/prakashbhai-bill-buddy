@@ -1,5 +1,4 @@
 import { getAuth } from 'firebase/auth';
-import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { backupToGoogleDrive } from './google-drive';
 
 const BACKUP_INTERVAL = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds

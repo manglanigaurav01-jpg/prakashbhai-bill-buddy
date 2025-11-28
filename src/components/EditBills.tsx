@@ -1,19 +1,17 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Edit3, Trash2, Search, SortAsc, SortDesc, Save, Plus, X, CheckCircle, Share2 } from 'lucide-react';
+import { ArrowLeft, Edit3, Trash2, Search, SortAsc, SortDesc, Save, Plus, X, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
 import { toast } from '@/hooks/use-toast';
-import { getBills, getCustomers, saveBill, updateBill, deleteBill } from '@/lib/storage';
+import { getBills, getCustomers, updateBill, deleteBill } from '@/lib/storage';
 import { Bill, BillItem, Customer } from '@/types';
 import { shareViaWhatsApp, createBillMessage } from '@/lib/whatsapp';
-import { generateBillPDF } from '@/lib/pdf';
 import { SwipeableItem } from '@/components/SwipeableItem';
 import { hapticMedium, hapticSuccess, hapticError } from '@/lib/haptics';
 
@@ -41,9 +39,8 @@ export const EditBills: React.FC<EditBillsProps> = ({ onNavigate }) => {
   const [error, setError] = useState<string | null>(null);
   // virtualization state (no external deps)
   const listContainerRef = useRef<HTMLDivElement | null>(null);
-  const [containerHeight, setContainerHeight] = useState<number>(600);
+  const [containerHeight] = useState<number>(600);
   const [startIndex, setStartIndex] = useState<number>(0);
-  const searchDebounceRef = useRef<any>(null);
 
   // Async loader: try IndexedDB (async-storage) first, fallback to storage.ts
   const loadData = async () => {
@@ -188,11 +185,13 @@ export const EditBills: React.FC<EditBillsProps> = ({ onNavigate }) => {
   const longPressTimers = useRef<{ [key: string]: any }>({});
   const LONG_PRESS_MS = 600;
 
-  const handlePressStart = (id: string) => {
+  // @ts-ignore - Intentionally unused, kept for future use
+  const _handlePressStart = (id: string) => {
     if (longPressTimers.current[id]) clearTimeout(longPressTimers.current[id]);
     longPressTimers.current[id] = setTimeout(() => setShowDeleteId(id), LONG_PRESS_MS);
   };
-  const handlePressEnd = (id: string) => {
+  // @ts-ignore - Intentionally unused, kept for future use
+  const _handlePressEnd = (id: string) => {
     if (longPressTimers.current[id]) {
       clearTimeout(longPressTimers.current[id]);
       longPressTimers.current[id] = null;

@@ -14,17 +14,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const isDarkMode = effectiveTheme === 'dark';
 
-  const menuItems = [
-    { icon: FileText, label: "Create Bill", view: "createBill" },
-    { icon: Users, label: "Customers", view: "customers" },
-    { icon: Calculator, label: "Last Balance", view: "lastBalance" },
-    { icon: BarChart, label: "L/B History", view: "balanceHistory" },
-    { icon: CreditCard, label: "Payments", view: "editPayments" },
-    { icon: Package, label: "Items", view: "itemMaster" },
-    { icon: Edit3, label: "Edit Bills", view: "editBills" },
-    { icon: TrendingUp, label: "Analytics", view: "analytics" },
-    { icon: SettingsIcon, label: "Settings", view: "settings" },
-  ];
+  // Menu items are defined inline in the JSX below
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-soft to-accent-soft p-8">

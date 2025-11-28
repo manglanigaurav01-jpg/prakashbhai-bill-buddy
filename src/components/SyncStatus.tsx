@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Cloud, CloudOff, RefreshCw } from 'lucide-react';
+import { Cloud, CloudOff } from 'lucide-react';
 
 const STORAGE_KEYS = {
   SYNC_STATUS: 'prakash_sync_status',

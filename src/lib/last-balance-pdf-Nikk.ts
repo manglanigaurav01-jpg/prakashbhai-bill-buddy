@@ -1,12 +1,10 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Bill, CustomerBalance, MonthlyBalance } from '@/types';
-import { startOfMonth, endOfMonth, subMonths, format, isSameMonth } from 'date-fns';
-import { generateMonthlyBalances } from './monthly-balance';
+import { startOfMonth, endOfMonth, format } from 'date-fns';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { Share } from '@capacitor/share';
-import { getCustomerBalance, getBillsByCustomer, getPayments } from './storage';
+import { getBillsByCustomer, getPayments } from './storage';
 
 const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
   const bytes = new Uint8Array(buffer);
@@ -18,24 +16,10 @@ const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
 };
 
 export const generateLastBalancePDF = async (customerId: string, customerName: string) => {
-  // Get all monthly balances
-  const monthlyBalances = await generateMonthlyBalances(customerId);
-  
   // Get the current date and determine the month to show
   const currentDate = new Date();
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
-  const previousMonthEnd = subMonths(monthEnd, 1);
-  
-  // Get customer's current balance
-  const customerBalance = await getCustomerBalance(customerId);
-  
-  // Find previous month's balance for opening balance
-  const previousMonthBalance = monthlyBalances.find(
-    balance => 
-      balance.month === format(previousMonthEnd, 'MMMM') && 
-      balance.year === previousMonthEnd.getFullYear()
-  );
   
   // Get all bills for the current month only
   const bills = (await getBillsByCustomer(customerId)).filter(bill => {
@@ -157,7 +141,7 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
         const uniqueFileName = `last_balance_${timestamp}_${fileName}`;
         
         // Save directly to Documents directory without creating subdirectory
-        const savedFile = await Filesystem.writeFile({
+        await Filesystem.writeFile({
           path: uniqueFileName,
           data: base64Data,
           directory: 'DOCUMENTS' as Directory

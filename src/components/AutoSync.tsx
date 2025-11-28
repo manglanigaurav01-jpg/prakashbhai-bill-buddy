@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
 import { Button } from './ui/button';
 import { Alert, AlertTitle, AlertDescription } from './ui/alert';
-import { Loader2Icon, CloudIcon, CloudOffIcon, RefreshCwIcon } from 'lucide-react';
+import { Loader2Icon, CloudIcon, CloudOffIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useSyncStore } from '@/lib/sync-store';
 import { getCurrentUser, signInWithGoogle, signOut, syncUp, syncDown } from '@/lib/cloud';
 import { initMonthlyBackup } from '@/lib/monthly-backup';
 

@@ -1,6 +1,5 @@
 import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
-import { uploadToOneDrive, checkOneDriveConnection } from './onedrive';
+import { Filesystem } from '@capacitor/filesystem';
 import { takeSnapshot, restoreSnapshot } from './async-storage';
 
 type BackupFrequency = 'daily' | 'weekly' | 'monthly';
@@ -262,7 +261,7 @@ export const initAutoBackup = (): void => {
     }
     const cfg = getBackupConfig();
     if (cfg.mode !== 'automatic') return;
-    const interval = frequencyToMs(cfg.frequency);
+    // Interval is calculated but not stored since setInterval uses frequencyToMs directly
 
     // Periodic check (every hour) if due; cheaper than huge interval
     autoBackupTimer = setInterval(async () => {

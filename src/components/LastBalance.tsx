@@ -5,7 +5,6 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Download } from "lucide-react";
 import { getCustomers } from "@/lib/storage";
-import { generateCustomerSummaryPDF } from "@/lib/pdf";
 import { generateLastBalancePDF } from "@/lib/last-balance-pdf";
 import { Customer, MonthlyBalance } from "@/types";
 import { useToast } from "@/hooks/use-toast";
@@ -27,7 +26,7 @@ interface CustomerSummary {
 export const LastBalance = ({ onNavigate }: LastBalanceProps) => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<string>("");
-  const [monthlyBalances, setMonthlyBalances] = useState<MonthlyBalance[]>([]);
+  const [, setMonthlyBalances] = useState<MonthlyBalance[]>([]);
   const [customerSummary, setCustomerSummary] = useState<CustomerSummary | undefined>();
   const { toast } = useToast();
 

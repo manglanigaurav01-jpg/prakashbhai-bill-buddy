@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Search, SortAsc, SortDesc, Edit3, Trash2, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -115,7 +115,7 @@ export const EditPayments: React.FC<EditPaymentsProps> = ({ onNavigate }) => {
     // Validate date with future warning
     const { validatePaymentDateWithFutureWarning, validateLargeAmount } = await import('@/lib/validation');
     const { getPayments } = await import('@/lib/storage');
-    const { hapticWarning, hapticSuccess, hapticError } = await import('@/lib/haptics');
+    const { hapticWarning, hapticSuccess } = await import('@/lib/haptics');
     
     const dateValidation = validatePaymentDateWithFutureWarning(editingDate);
     if (dateValidation.warning) {

@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Download, TrendingUp, Users, Package, Calendar, IndianRupee } from 'lucide-react';
+import { ArrowLeft, Download, TrendingUp, Users, Package, IndianRupee } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getBills, getPayments, getItems, getAllCustomerBalances, getBusinessAnalytics, updateBusinessAnalytics } from '@/lib/storage';
-import { SyncStatus } from './SyncStatus';
+import { getBills, getPayments, updateBusinessAnalytics } from '@/lib/storage';
 import * as XLSX from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
 import { Capacitor } from '@capacitor/core';
@@ -47,8 +46,7 @@ export const EnhancedAnalytics: React.FC<EnhancedAnalyticsProps> = ({ onNavigate
     
     const bills = getBills();
     const payments = getPayments();
-    const items = getItems();
-    const analytics = await updateBusinessAnalytics();
+    await updateBusinessAnalytics();
 
     // Calculate date range
     const endDate = new Date();
@@ -303,7 +301,7 @@ export const EnhancedAnalytics: React.FC<EnhancedAnalyticsProps> = ({ onNavigate
         </Button>
       </div>
 
-      <SyncStatus />
+      {/* SyncStatus component removed - not currently used */}
 
       {loading ? (
         <div>Loading analytics...</div>
