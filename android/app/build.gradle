@@ -25,6 +25,9 @@ android {
 }
 
 dependencies {
+    implementation project(':capacitor-android')
+    implementation project(':capacitor-filesystem')
+    implementation project(':capacitor-share')
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'com.google.android.material:material:1.12.0'
     implementation platform('com.google.firebase:firebase-bom:32.3.1')
