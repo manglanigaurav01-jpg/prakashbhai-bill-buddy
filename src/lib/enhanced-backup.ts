@@ -1,5 +1,6 @@
-import { Filesystem } from '@capacitor/filesystem';
+import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
+import { Share } from '@capacitor/share';
 import { Bill, Customer, Payment, ItemMaster, ItemRateHistory } from '@/types';
 import { 
   getCustomers, 
@@ -11,20 +12,13 @@ import {
 } from './storage';
 
 // Filesystem directory constants
-const CACHE_DIR = 'CACHE';
 const DATA_DIR = 'DATA';
-const DOCUMENTS_DIR = 'DOCUMENTS';
-const EXTERNAL_DIR = 'EXTERNAL';
-const EXTERNAL_STORAGE_DIR = 'EXTERNAL_STORAGE';
-import { checkDataConsistency, DataValidationResult } from './validation';
 import { format } from 'date-fns';
-import { v4 as uuidv4 } from 'uuid';
 
 // Web platform backup storage key prefix
 const WEB_BACKUP_PREFIX = 'prakash_web_backup_';
 
 // Constants
-const BACKUP_INTERVAL = 30 * 60 * 1000; // 30 minutes
 const MAX_LOCAL_BACKUPS = 5;
 
 // Enhanced backup data structure
@@ -84,7 +78,6 @@ const getAllData = () => {
 
   // Validate data relationships
   const customerIds = new Set(customers.map(c => c.id));
-  const itemIds = new Set(items.map(i => i.id));
 
   // Validate bills have valid customer references
   const validBills = bills.filter(bill => customerIds.has(bill.customerId));
@@ -210,25 +203,50 @@ export const createEnhancedBackup = async () => {
         }
       }
     } else {
-      // For mobile platforms, use Filesystem API
+      // For mobile platforms, save to DOCUMENTS directory and share it
       try {
+        // Save to DOCUMENTS directory (accessible for sharing)
+        const timestamp = new Date().getTime();
+        const uniqueFileName = `backup_${timestamp}_${fileName}`;
+        
+        // Convert JSON string to base64 for Filesystem API
+        const base64Data = btoa(unescape(encodeURIComponent(backupJson)));
+        
+        await Filesystem.writeFile({
+          path: uniqueFileName,
+          data: base64Data,
+          directory: 'DOCUMENTS' as Directory
+        });
+
+        // Also save to DATA directory for internal listing/restore
         await Filesystem.writeFile({
           path: fileName,
           data: backupJson,
           directory: DATA_DIR
         });
 
+        // Get file URI for sharing
+        const fileInfo = await Filesystem.getUri({
+          path: uniqueFileName,
+          directory: 'DOCUMENTS' as Directory
+        });
+
+        if (!fileInfo.uri) {
+          throw new Error('Could not get file URI');
+        }
+
+        // Share the backup file (forces user to save it to an accessible location)
+        await Share.share({
+          title: 'Bill Buddy Backup',
+          text: `Backup file created on ${format(new Date(), 'dd/MM/yyyy HH:mm')}`,
+          url: fileInfo.uri,
+          dialogTitle: 'Share Backup File'
+        });
+
+        uri = fileInfo.uri;
+
         // Clean up old backups
         await cleanupOldBackups();
-
-        // Try to get a platform-specific URI
-        try {
-          const info = await Filesystem.getUri({ path: fileName, directory: DATA_DIR });
-          uri = (info && (info as any).uri) || (info as any).path || undefined;
-        } catch (e) {
-          // URI not available, that's okay
-          console.warn('Could not get file URI:', e);
-        }
       } catch (fsError) {
         throw new Error(`Filesystem error: ${fsError instanceof Error ? fsError.message : String(fsError)}`);
       }

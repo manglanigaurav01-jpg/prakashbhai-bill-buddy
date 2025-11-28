@@ -157,21 +157,17 @@ export const BackupManager = () => {
     try {
       const result = await createEnhancedBackup();
       if (result.success) {
-        toast({
-          title: "Backup Created",
-          description: `Successfully created backup with ${result.metadata.counts.bills} bills and ${result.metadata.counts.payments} payments.`
-        });
-        // If the backup returned a uri/path, surface it in the UI
-        if (result.uri) {
-          setBackupLocation(result.uri);
-          try {
-            if (navigator && (navigator as any).clipboard && (navigator as any).clipboard.writeText) {
-              await (navigator as any).clipboard.writeText(result.uri);
-              toast({ title: 'Backup path copied', description: 'Backup path copied to clipboard.' });
-            }
-          } catch (e) {
-            // ignore clipboard errors
-          }
+        const isWeb = Capacitor.getPlatform() === 'web';
+        if (isWeb) {
+          toast({
+            title: "Backup Created",
+            description: `Successfully created backup with ${result.metadata.counts.bills} bills and ${result.metadata.counts.payments} payments. File downloaded.`
+          });
+        } else {
+          toast({
+            title: "Backup Created",
+            description: `Backup created successfully! Please save it to your preferred location (Downloads, Drive, etc.) using the share dialog.`
+          });
         }
         await loadBackups();
       } else {
@@ -260,19 +256,10 @@ export const BackupManager = () => {
                     ? new Date(lastBackup).toLocaleString()
                     : "No backups available"}
                 </p>
-                {backupLocation && (
-                  <div className="mt-2 p-2 bg-muted rounded-lg">
-                    <p className="text-xs font-medium mb-1">Backup Location:</p>
-                    <p className="text-xs text-muted-foreground break-all font-mono">{backupLocation}</p>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="mt-2"
-                      onClick={handleCopyBackupLocation}
-                    >
-                      Copy Location
-                    </Button>
-                  </div>
+                {Capacitor.getPlatform() !== 'web' && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Backups are shared automatically. Save them to Downloads, Drive, or any accessible location.
+                  </p>
                 )}
               </div>
               <Button 

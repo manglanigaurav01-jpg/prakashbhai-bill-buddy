@@ -1,30 +1,18 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileText, Users, Calculator, CreditCard, TrendingUp, Package, Settings as SettingsIcon, Edit3, Sun, Moon, BarChart, Search } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { GlobalSearch } from "@/components/GlobalSearch";
+import { useTheme } from "@/lib/theme-manager";
 
 interface DashboardProps {
   onNavigate: (view: string) => void;
 }
 
 export const Dashboard = ({ onNavigate }: DashboardProps) => {
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const { effectiveTheme, toggleTheme } = useTheme();
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const shouldBeDark = savedTheme === 'dark' || (!savedTheme && systemPrefersDark);
-    setIsDarkMode(shouldBeDark);
-  }, []);
-
-  const toggleTheme = () => {
-    const newTheme = !isDarkMode;
-    setIsDarkMode(newTheme);
-    localStorage.setItem('theme', newTheme ? 'dark' : 'light');
-    document.documentElement.classList.toggle('dark', newTheme);
-  };
+  const isDarkMode = effectiveTheme === 'dark';
 
   const menuItems = [
     { icon: FileText, label: "Create Bill", view: "createBill" },

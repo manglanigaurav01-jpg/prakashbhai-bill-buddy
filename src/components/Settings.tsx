@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertTriangle, ArrowLeft, Moon, Sun, Trash2, User } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Moon, Sun, Trash2, User, Shield, Database, Cloud, Settings as SettingsIcon, Lock, Download, Upload, RefreshCw } from "lucide-react";
 import { getCurrentUser, signInWithGoogle, signOutUser, onAuthStateChanged } from '@/lib/auth';
 import { AutoSync } from "./AutoSync";
 import { useToast } from "@/hooks/use-toast";
@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { initializeAutoBackup } from '@/lib/auto-backup';
 import type { User } from 'firebase/auth';
+import { Separator } from "@/components/ui/separator";
 
 interface SettingsProps {
   onNavigate: (view: string) => void;
@@ -253,179 +254,297 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-soft to-accent-soft p-6">
-      <div className="max-w-2xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center mb-8">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onNavigate('dashboard')}
-            className="mr-4"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-          <h1 className="text-3xl font-bold text-foreground">Settings</h1>
+    <div className="min-h-screen bg-gradient-to-br from-primary-soft via-background to-accent-soft p-4 md:p-6">
+      <div className="max-w-4xl mx-auto">
+        {/* Enhanced Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onNavigate('dashboard')}
+              className="rounded-full hover:bg-primary/10"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                Settings
+              </h1>
+              <p className="text-sm text-muted-foreground mt-1">Manage your app preferences and data</p>
+            </div>
+          </div>
+          <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-card/50 backdrop-blur-sm rounded-full border">
+            <SettingsIcon className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium">Configuration</span>
+          </div>
         </div>
 
-        <div className="space-y-6">
-          {/* Appearance Settings */}
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                {isDarkMode ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-                Appearance
-              </CardTitle>
-              <CardDescription>
-                Customize how the app looks and feels
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Dark Mode</label>
-                  <p className="text-xs text-muted-foreground">
-                    Switch between light and dark themes
-                  </p>
-                </div>
-                <Switch
-                  checked={isDarkMode}
-                  onCheckedChange={toggleDarkMode}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Data Management */}
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Trash2 className="w-5 h-5" />
-                Data Management
-              </CardTitle>
-              <CardDescription>
-                Manage your application data and storage
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Button
-                  variant="destructive"
-                  className="w-full justify-start"
-                  onClick={handleClearDataClick}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Clear All Data
-                </Button>
-                <p className="text-xs text-muted-foreground">
-                  This will permanently delete all customers, bills, payments, items, and PDF files
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Security Settings */}
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5" />
-                Security
-              </CardTitle>
-              <CardDescription>
-                Protect sensitive actions with a password.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {passwordEnabled ? (
-                <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => { setPasswordAction('change'); setShowPasswordDialog(true); }}>Change Password</Button>
-                  <Button variant="destructive" onClick={() => { setPasswordAction('remove'); setShowPasswordDialog(true); }}>Remove Password</Button>
-                </div>
-              ) : (
-                <Button onClick={() => { setPasswordAction('set'); setShowPasswordDialog(true); }}>
-                  Set 4-Digit Password
-                </Button>
-              )}
-              <p className="text-xs text-muted-foreground mt-2">
-                This password will be required to clear all data.
-              </p>
-            </CardContent>
-          </Card>
-
-          {/* Google Sign-in & Auto Backup */}
-          <Card className="shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5" />
-                Google Account & Auto Backup
-              </CardTitle>
-              <CardDescription>
-                Sign in with Google to enable automatic monthly backups at month end
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {currentUser ? (
-                <div className="space-y-3">
-                  <div className="p-3 bg-primary/5 rounded-lg">
-                    <p className="text-sm font-medium">Signed in as:</p>
-                    <p className="text-sm text-muted-foreground">{currentUser.email}</p>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Main Settings */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Appearance Settings */}
+            <Card className="shadow-xl border-2 hover:shadow-2xl transition-all duration-300 bg-card/80 backdrop-blur-sm">
+              <CardHeader className="pb-4">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${isDarkMode ? 'bg-primary/20 text-primary' : 'bg-accent/20 text-accent'}`}>
+                    {isDarkMode ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    ✓ Automatic backups will be created at the end of each month
-                  </p>
-                  <Button variant="outline" onClick={handleSignOut} className="w-full">
-                    Sign Out
-                  </Button>
+                  <div>
+                    <CardTitle className="text-xl">Appearance</CardTitle>
+                    <CardDescription>Customize your visual experience</CardDescription>
+                  </div>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    Sign in with Google to enable automatic monthly backups. Backups will be created automatically at the end of each month.
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+                  <div className="space-y-1">
+                    <label className="text-sm font-semibold flex items-center gap-2">
+                      Dark Mode
+                      {isDarkMode && <span className="text-xs px-2 py-0.5 bg-primary/20 text-primary rounded-full">Active</span>}
+                    </label>
+                    <p className="text-xs text-muted-foreground">
+                      Switch between light and dark themes
+                    </p>
+                  </div>
+                  <Switch
+                    checked={isDarkMode}
+                    onCheckedChange={toggleDarkMode}
+                    className="data-[state=checked]:bg-primary"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Security Settings */}
+            <Card className="shadow-xl border-2 hover:shadow-2xl transition-all duration-300 bg-card/80 backdrop-blur-sm border-primary/20">
+              <CardHeader className="pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/20 text-primary">
+                    <Shield className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl">Security & Privacy</CardTitle>
+                    <CardDescription>Protect your sensitive data</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {passwordEnabled ? (
+                  <div className="space-y-3">
+                    <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Lock className="w-4 h-4 text-green-500" />
+                        <span className="text-sm font-semibold text-green-500">Password Protection Active</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Your data is protected with a 4-digit password
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => { setPasswordAction('change'); setShowPasswordDialog(true); }}
+                        className="w-full"
+                      >
+                        <Lock className="w-4 h-4 mr-2" />
+                        Change Password
+                      </Button>
+                      <Button 
+                        variant="destructive" 
+                        onClick={() => { setPasswordAction('remove'); setShowPasswordDialog(true); }}
+                        className="w-full"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle className="w-4 h-4 text-yellow-500" />
+                        <span className="text-sm font-semibold text-yellow-500">No Password Set</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Set a password to protect sensitive actions like clearing all data
+                      </p>
+                    </div>
+                    <Button 
+                      onClick={() => { setPasswordAction('set'); setShowPasswordDialog(true); }}
+                      className="w-full bg-primary hover:bg-primary/90"
+                    >
+                      <Lock className="w-4 h-4 mr-2" />
+                      Set 4-Digit Password
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Google Account & Auto Backup */}
+            <Card className="shadow-xl border-2 hover:shadow-2xl transition-all duration-300 bg-card/80 backdrop-blur-sm border-accent/20">
+              <CardHeader className="pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-accent/20 text-accent">
+                    <Cloud className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl">Cloud Backup</CardTitle>
+                    <CardDescription>Automatic monthly backups with Google</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {currentUser ? (
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-lg bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="p-2 bg-primary/20 rounded-full">
+                          <User className="w-5 h-5 text-primary" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold">Signed in as</p>
+                          <p className="text-sm text-muted-foreground break-all">{currentUser.email}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-green-500 bg-green-500/10 px-3 py-2 rounded-lg">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                        <span>Automatic backups enabled</span>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground flex items-center gap-2">
+                        <RefreshCw className="w-3 h-3" />
+                        Backups will be created automatically at the end of each month
+                      </p>
+                    </div>
+                    <Button variant="outline" onClick={handleSignOut} className="w-full">
+                      Sign Out
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-lg bg-muted/50 border border-dashed">
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Sign in with Google to enable automatic monthly backups. Your data will be safely backed up at the end of each month.
+                      </p>
+                      <Button 
+                        onClick={handleGoogleSignIn} 
+                        disabled={isSigningIn}
+                        className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white"
+                      >
+                        {isSigningIn ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                            Signing in...
+                          </>
+                        ) : (
+                          <>
+                            <User className="w-4 h-4 mr-2" />
+                            Sign in with Google
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground flex items-center gap-2 px-2">
+                      <span className="w-1 h-1 bg-muted-foreground rounded-full" />
+                      You can use the app without signing in. Sign in later to enable auto-backup.
+                    </p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Enhanced Backup System */}
+            <BackupManager />
+
+            {/* Auto Cloud Sync */}
+            <AutoSync />
+          </div>
+
+          {/* Right Column - Quick Actions */}
+          <div className="space-y-6">
+            {/* Data Management */}
+            <Card className="shadow-xl border-2 hover:shadow-2xl transition-all duration-300 bg-card/80 backdrop-blur-sm border-destructive/20">
+              <CardHeader className="pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-destructive/20 text-destructive">
+                    <Database className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl">Data Management</CardTitle>
+                    <CardDescription>Manage your app data</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="p-4 rounded-lg bg-destructive/5 border border-destructive/20">
+                  <p className="text-xs text-muted-foreground mb-3">
+                    This will permanently delete all customers, bills, payments, items, and PDF files. This action cannot be undone.
                   </p>
-                  <Button 
-                    onClick={handleGoogleSignIn} 
-                    disabled={isSigningIn}
+                  <Button
+                    variant="destructive"
                     className="w-full"
+                    onClick={handleClearDataClick}
                   >
-                    {isSigningIn ? "Signing in..." : "Sign in with Google"}
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Clear All Data
                   </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Recycle Bin Navigation */}
+            <Card className="shadow-xl border-2 hover:shadow-2xl transition-all duration-300 bg-card/80 backdrop-blur-sm">
+              <CardHeader className="pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-muted text-foreground">
+                    <Trash2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl">Recycle Bin</CardTitle>
+                    <CardDescription>Recover deleted items</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="p-4 rounded-lg bg-muted/50 mb-3">
                   <p className="text-xs text-muted-foreground">
-                    Note: You can use the app without signing in. You can sign in later from here.
+                    Items are kept for 30 days before permanent deletion
                   </p>
                 </div>
-              )}
-            </CardContent>
-          </Card>
+                <Button
+                  variant="outline"
+                  onClick={() => onNavigate('recycleBin')}
+                  className="w-full"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Open Recycle Bin
+                </Button>
+              </CardContent>
+            </Card>
 
-          {/* Enhanced Backup System */}
-          <BackupManager />
-
-          {/* Recycle Bin Navigation */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Trash2 className="h-5 w-5" />
-                Recycle Bin
-              </CardTitle>
-              <CardDescription>
-                View and manage deleted items. Items are kept for 30 days before permanent deletion.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button
-                variant="outline"
-                onClick={() => onNavigate('recycleBin')}
-                className="w-full"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Open Recycle Bin
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Auto Cloud Sync */}
-          <AutoSync />
+            {/* Quick Info Card */}
+            <Card className="shadow-xl border-2 bg-gradient-to-br from-primary/5 to-accent/5 backdrop-blur-sm">
+              <CardContent className="pt-6">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm">
+                    <SettingsIcon className="w-4 h-4 text-primary" />
+                    <span className="font-semibold">Quick Tips</span>
+                  </div>
+                  <Separator />
+                  <div className="space-y-2 text-xs text-muted-foreground">
+                    <p>• Enable dark mode for better viewing in low light</p>
+                    <p>• Set a password to protect sensitive actions</p>
+                    <p>• Sign in with Google for automatic backups</p>
+                    <p>• Check recycle bin to recover deleted items</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
 
         {/* Confirmation Dialog */}
@@ -472,52 +591,115 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
         <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>
-                {passwordAction === 'set' && 'Set New Password'}
-                {passwordAction === 'change' && 'Change Password'}
-                {passwordAction === 'remove' && 'Remove Password Protection'}
-                {passwordAction === 'confirmClear' && 'Enter Password to Clear Data'}
-              </DialogTitle>
-              <DialogDescription>
-                {passwordAction === 'set' && 'Create a 4-digit numeric password.'}
-                {passwordAction === 'change' && 'Enter your current and new password.'}
+              <div className="flex items-center gap-3 mb-2">
+                <div className={`p-2 rounded-lg ${passwordAction === 'confirmClear' || passwordAction === 'remove' ? 'bg-destructive/20 text-destructive' : 'bg-primary/20 text-primary'}`}>
+                  <Lock className="w-5 h-5" />
+                </div>
+                <DialogTitle className="text-xl">
+                  {passwordAction === 'set' && 'Set New Password'}
+                  {passwordAction === 'change' && 'Change Password'}
+                  {passwordAction === 'remove' && 'Remove Password Protection'}
+                  {passwordAction === 'confirmClear' && 'Confirm Data Deletion'}
+                </DialogTitle>
+              </div>
+              <DialogDescription className="text-sm">
+                {passwordAction === 'set' && 'Create a 4-digit numeric password to protect sensitive actions.'}
+                {passwordAction === 'change' && 'Enter your current password and choose a new one.'}
                 {passwordAction === 'remove' && 'Enter your current password to remove protection.'}
-                {passwordAction === 'confirmClear' && 'This is a destructive action. Please confirm.'}
+                {passwordAction === 'confirmClear' && (
+                  <span className="text-destructive font-semibold">This is a destructive action. All data will be permanently deleted.</span>
+                )}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               {(passwordAction === 'change' || passwordAction === 'remove') && (
                 <div className="space-y-2">
-                  <Label htmlFor="current-password">Current Password</Label>
-                  <Input id="current-password" type="password" inputMode="numeric" pattern="[0-9]*" maxLength={4} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} />
+                  <Label htmlFor="current-password" className="text-sm font-semibold">Current Password</Label>
+                  <Input 
+                    id="current-password" 
+                    type="password" 
+                    inputMode="numeric" 
+                    pattern="[0-9]*" 
+                    maxLength={4} 
+                    value={currentPassword} 
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    className="text-center text-2xl tracking-widest font-mono"
+                    placeholder="••••"
+                  />
                 </div>
               )}
               {(passwordAction === 'set' || passwordAction === 'change') && (
                 <>
                   <div className="space-y-2">
-                    <Label htmlFor="new-password">New 4-Digit Password</Label>
-                    <Input id="new-password" type="password" inputMode="numeric" pattern="[0-9]*" maxLength={4} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+                    <Label htmlFor="new-password" className="text-sm font-semibold">New 4-Digit Password</Label>
+                    <Input 
+                      id="new-password" 
+                      type="password" 
+                      inputMode="numeric" 
+                      pattern="[0-9]*" 
+                      maxLength={4} 
+                      value={newPassword} 
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="text-center text-2xl tracking-widest font-mono"
+                      placeholder="••••"
+                    />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="confirm-new-password">Confirm New Password</Label>
-                    <Input id="confirm-new-password" type="password" inputMode="numeric" pattern="[0-9]*" maxLength={4} value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} />
+                    <Label htmlFor="confirm-new-password" className="text-sm font-semibold">Confirm New Password</Label>
+                    <Input 
+                      id="confirm-new-password" 
+                      type="password" 
+                      inputMode="numeric" 
+                      pattern="[0-9]*" 
+                      maxLength={4} 
+                      value={confirmNewPassword} 
+                      onChange={(e) => setConfirmNewPassword(e.target.value)}
+                      className="text-center text-2xl tracking-widest font-mono"
+                      placeholder="••••"
+                    />
                   </div>
                 </>
               )}
               {passwordAction === 'confirmClear' && (
                 <div className="space-y-2">
-                  <Label htmlFor="password-input">Enter 4-Digit Password</Label>
-                  <Input id="password-input" type="password" inputMode="numeric" pattern="[0-9]*" maxLength={4} value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} />
+                  <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 mb-4">
+                    <p className="text-sm text-destructive font-semibold mb-2">⚠️ Warning: This action cannot be undone</p>
+                    <p className="text-xs text-muted-foreground">
+                      All customers, bills, payments, items, and PDF files will be permanently deleted.
+                    </p>
+                  </div>
+                  <Label htmlFor="password-input" className="text-sm font-semibold">Enter 4-Digit Password</Label>
+                  <Input 
+                    id="password-input" 
+                    type="password" 
+                    inputMode="numeric" 
+                    pattern="[0-9]*" 
+                    maxLength={4} 
+                    value={passwordInput} 
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    className="text-center text-2xl tracking-widest font-mono"
+                    placeholder="••••"
+                  />
                 </div>
               )}
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => { setShowPasswordDialog(false); resetPasswordFields(); }}>Cancel</Button>
+            <DialogFooter className="gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => { setShowPasswordDialog(false); resetPasswordFields(); }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
               <Button
                 onClick={handlePasswordDialogSubmit}
                 variant={passwordAction === 'confirmClear' || passwordAction === 'remove' ? 'destructive' : 'default'}
+                className="flex-1"
               >
-                Confirm
+                {passwordAction === 'set' && 'Set Password'}
+                {passwordAction === 'change' && 'Change Password'}
+                {passwordAction === 'remove' && 'Remove Password'}
+                {passwordAction === 'confirmClear' && 'Delete All Data'}
               </Button>
             </DialogFooter>
           </DialogContent>

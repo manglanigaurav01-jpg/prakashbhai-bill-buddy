@@ -91,53 +91,37 @@ export const generateMonthlyBalancePDF = async (
     totalSales += closingBalance;
   }
 
-  // Sort bills by date
+  // Sort bills by date (ascending)
   bills.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   
-  // Sort payments by date
+  // Sort payments by date (ascending)
   customerPayments.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  // Track which payments have been matched to bills
-  const usedPaymentIds = new Set<string>();
-
-  // Process bills and try to match payments
+  // First, add all sales (bills) in ascending date order with no gaps
   bills.forEach(bill => {
     const billDate = new Date(bill.date);
-    const matchingPayment = customerPayments.find(p => {
-      if (usedPaymentIds.has(p.id)) return false;
-      const paymentDate = new Date(p.date);
-      return format(paymentDate, 'dd/MM/yyyy') === format(billDate, 'dd/MM/yyyy');
-    });
-
     tableData.push([
       srNo++,
       format(billDate, 'dd/MM/yyyy'),
       bill.items.map(i => i.itemName).join(', '),
       `Rs. ${bill.grandTotal.toFixed(2)}`,
-      matchingPayment ? format(new Date(matchingPayment.date), 'dd/MM/yyyy') : '-',
-      matchingPayment ? `Rs. ${matchingPayment.amount.toFixed(2)}` : '-'
+      '-',
+      '-'
     ]);
-
     totalSales += bill.grandTotal;
-    if (matchingPayment) {
-      totalPaid += matchingPayment.amount;
-      usedPaymentIds.add(matchingPayment.id);
-    }
   });
 
-  // Add any remaining payments that weren't matched to bills
+  // Then, add all payments in ascending date order with no gaps
   customerPayments.forEach(payment => {
-    if (!usedPaymentIds.has(payment.id)) {
-      tableData.push([
-        srNo++,
-        '-',
-        'Payment',
-        '-',
-        format(new Date(payment.date), 'dd/MM/yyyy'),
-        `Rs. ${payment.amount.toFixed(2)}`
-      ]);
-      totalPaid += payment.amount;
-    }
+    tableData.push([
+      srNo++,
+      '-',
+      '-',
+      '-',
+      format(new Date(payment.date), 'dd/MM/yyyy'),
+      `Rs. ${payment.amount.toFixed(2)}`
+    ]);
+    totalPaid += payment.amount;
   });
 
   // Generate table
@@ -316,54 +300,37 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
     totalSales += closingBalance;
   }
 
-  // Sort bills by date
+  // Sort bills by date (ascending)
   bills.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   
-  // Sort payments by date
+  // Sort payments by date (ascending)
   currentMonthPayments.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  // Track which payments have been matched to bills
-  const usedPaymentIds = new Set<string>();
-
-  // Process bills and try to match payments
+  // First, add all sales (bills) in ascending date order with no gaps
   bills.forEach(bill => {
-    // Try to find a payment on the same date or closest date
     const billDate = new Date(bill.date);
-    const matchingPayment = currentMonthPayments.find(p => {
-      if (usedPaymentIds.has(p.id)) return false;
-      const paymentDate = new Date(p.date);
-      return format(paymentDate, 'dd/MM/yyyy') === format(billDate, 'dd/MM/yyyy');
-    });
-
     tableData.push([
       srNo++,
       format(billDate, 'dd/MM/yyyy'),
       bill.items.map(i => i.itemName).join(', '),
       `Rs. ${bill.grandTotal.toFixed(2)}`,
-      matchingPayment ? format(new Date(matchingPayment.date), 'dd/MM/yyyy') : '-',
-      matchingPayment ? `Rs. ${matchingPayment.amount.toFixed(2)}` : '-'
+      '-',
+      '-'
     ]);
-
     totalSales += bill.grandTotal;
-    if (matchingPayment) {
-      totalPaid += matchingPayment.amount;
-      usedPaymentIds.add(matchingPayment.id);
-    }
   });
 
-  // Add any remaining payments that weren't matched to bills
+  // Then, add all payments in ascending date order with no gaps
   currentMonthPayments.forEach(payment => {
-    if (!usedPaymentIds.has(payment.id)) {
-      tableData.push([
-        srNo++,
-        '-',
-        'Payment',
-        '-',
-        format(new Date(payment.date), 'dd/MM/yyyy'),
-        `Rs. ${payment.amount.toFixed(2)}`
-      ]);
-      totalPaid += payment.amount;
-    }
+    tableData.push([
+      srNo++,
+      '-',
+      '-',
+      '-',
+      format(new Date(payment.date), 'dd/MM/yyyy'),
+      `Rs. ${payment.amount.toFixed(2)}`
+    ]);
+    totalPaid += payment.amount;
   });
 
   // Generate table
@@ -446,7 +413,6 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
               let srNo = 1;
               let totalSales = 0;
               let totalPaid = 0;
-              const usedPaymentIds = {};
 
               // Add "Last Month Closing Balance" as first row if previous month balance exists
               // The closing balance already accounts for payments (openingBalance + bills - payments)
@@ -464,50 +430,39 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
                 totalSales += closingBalance;
               }
 
+              // Sort bills by date (ascending)
               bills.sort(function(a,b){ return new Date(a.date).getTime() - new Date(b.date).getTime(); });
+              // Sort payments by date (ascending)
               (payments || []).sort(function(a,b){ return new Date(a.date).getTime() - new Date(b.date).getTime(); });
 
-              // Process bills and try to match payments
+              // First, add all sales (bills) in ascending date order with no gaps
               bills.forEach(function(bill){
                 const billDate = new Date(bill.date);
                 const billDateStr = billDate.toLocaleDateString('en-GB');
                 
-                // Try to find a payment on the same date
-                const matchingPayment = (payments || []).find(function(p){
-                  if (usedPaymentIds[p.id]) return false;
-                  const paymentDate = new Date(p.date);
-                  return paymentDate.toLocaleDateString('en-GB') === billDateStr;
-                });
-
                 tableData.push([
                   srNo++,
                   billDateStr,
                   (bill.items || []).map(function(i){ return i.itemName; }).join(', '),
                   'Rs. ' + Number(bill.grandTotal).toFixed(2),
-                  matchingPayment ? (new Date(matchingPayment.date)).toLocaleDateString('en-GB') : '-',
-                  matchingPayment ? 'Rs. ' + Number(matchingPayment.amount).toFixed(2) : '-'
+                  '-',
+                  '-'
                 ]);
 
                 totalSales += Number(bill.grandTotal) || 0;
-                if (matchingPayment) {
-                  totalPaid += Number(matchingPayment.amount) || 0;
-                  usedPaymentIds[matchingPayment.id] = true;
-                }
               });
 
-              // Add any remaining payments that weren't matched to bills
+              // Then, add all payments in ascending date order with no gaps
               (payments || []).forEach(function(payment){
-                if (!usedPaymentIds[payment.id]) {
-                  tableData.push([
-                    srNo++,
-                    '-',
-                    'Payment',
-                    '-',
-                    (new Date(payment.date)).toLocaleDateString('en-GB'),
-                    'Rs. ' + Number(payment.amount).toFixed(2)
-                  ]);
-                  totalPaid += Number(payment.amount) || 0;
-                }
+                tableData.push([
+                  srNo++,
+                  '-',
+                  '-',
+                  '-',
+                  (new Date(payment.date)).toLocaleDateString('en-GB'),
+                  'Rs. ' + Number(payment.amount).toFixed(2)
+                ]);
+                totalPaid += Number(payment.amount) || 0;
               });
 
               const tableStartY = 50;
