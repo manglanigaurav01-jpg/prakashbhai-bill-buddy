@@ -12,6 +12,7 @@ buildscript {
 }
 
 android {
+    compileSdkVersion rootProject.ext.compileSdkVersion
     defaultConfig {
         applicationId "com.prakashbhai.billbuddy"
         minSdkVersion rootProject.ext.minSdkVersion
