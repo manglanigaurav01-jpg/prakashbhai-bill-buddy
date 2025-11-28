@@ -184,7 +184,7 @@ export const BackupManager = () => {
     }
   };
 
-  // @ts-ignore - Intentionally unused, kept for future use
+  // @ts-expect-error - Intentionally unused, kept for future use
   const _handleOpenBackupLocation = async () => {
     if (!backupLocation) return;
     try {
@@ -196,7 +196,7 @@ export const BackupManager = () => {
     }
   };
 
-  // @ts-ignore - Intentionally unused, kept for future use
+  // @ts-expect-error - Intentionally unused, kept for future use
   const _handleCopyBackupLocation = async () => {
     if (!backupLocation) return;
     try {
@@ -209,7 +209,7 @@ export const BackupManager = () => {
     }
   };
 
-  // @ts-ignore - Intentionally unused, kept for future use
+  // @ts-expect-error - Intentionally unused, kept for future use
   const _handleRestore = async (backup: BackupInfo) => {
     if (!confirm("Are you sure you want to restore this backup? This will replace all current data.")) {
       return;

@@ -13,7 +13,7 @@ const initHaptics = async () => {
   
   try {
     // Dynamic import to avoid build errors if plugin not installed
-    // @ts-ignore - Optional dependency, may not be installed
+    // @ts-expect-error - Optional dependency, may not be installed
     const { Haptics: CapacitorHaptics } = await import('@capacitor/haptics');
     Haptics = CapacitorHaptics;
     hapticsAvailable = true;

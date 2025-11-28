@@ -522,7 +522,12 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
           };
 
           worker.onerror = (err) => {
-            try { worker.terminate(); URL.revokeObjectURL(workerUrl); } catch (e) {}
+            try { 
+              worker.terminate(); 
+              URL.revokeObjectURL(workerUrl); 
+            } catch (e) {
+              // Ignore cleanup errors
+            }
             reject(err instanceof Error ? err : new Error('Worker runtime error'));
           };
 

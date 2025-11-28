@@ -3,8 +3,11 @@
 // If vitest is not installed, this file will be skipped
 
 try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { expect, afterEach } = require('vitest');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { cleanup } = require('@testing-library/react');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const matchers = require('@testing-library/jest-dom/matchers');
 
   // Extend Vitest's expect with jest-dom matchers

@@ -262,8 +262,8 @@ export const autoFixDataIssues = (): {
   issues: string[];
 } => {
   const integrity = checkDataIntegrity();
-  let fixed = 0;
   const issues: string[] = [];
+  const fixed = 0;
   
   // Remove orphaned bills (or mark them)
   if (integrity.orphanedBills.length > 0) {

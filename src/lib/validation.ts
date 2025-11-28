@@ -126,8 +126,8 @@ export const validateEmail = (value: string, fieldName: string): ValidationResul
 };
 
 export const validatePhone = (value: string, fieldName: string): ValidationResult => {
-  const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
-  if (!phoneRegex.test(value.replace(/[\s\-\(\)]/g, ''))) {
+  const phoneRegex = /^[+]?[1-9][\d]{0,15}$/;
+  if (!phoneRegex.test(value.replace(/[\s\-()]/g, ''))) {
     return { isValid: false, error: `${fieldName} must be a valid phone number` };
   }
   return { isValid: true };

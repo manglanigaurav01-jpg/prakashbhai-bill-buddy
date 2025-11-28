@@ -185,12 +185,12 @@ export const EditBills: React.FC<EditBillsProps> = ({ onNavigate }) => {
   const longPressTimers = useRef<{ [key: string]: any }>({});
   const LONG_PRESS_MS = 600;
 
-  // @ts-ignore - Intentionally unused, kept for future use
+  // @ts-expect-error - Intentionally unused, kept for future use
   const _handlePressStart = (id: string) => {
     if (longPressTimers.current[id]) clearTimeout(longPressTimers.current[id]);
     longPressTimers.current[id] = setTimeout(() => setShowDeleteId(id), LONG_PRESS_MS);
   };
-  // @ts-ignore - Intentionally unused, kept for future use
+  // @ts-expect-error - Intentionally unused, kept for future use
   const _handlePressEnd = (id: string) => {
     if (longPressTimers.current[id]) {
       clearTimeout(longPressTimers.current[id]);

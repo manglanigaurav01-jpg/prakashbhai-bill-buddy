@@ -92,6 +92,7 @@ export const deleteCustomer = (customerId: string): void => {
   const customers = getCustomers();
   const customer = customers.find(c => c.id === customerId);
   if (customer) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { addToRecycleBin } = require('./recycle-bin');
     addToRecycleBin('customer', customer, `Customer - ${customer.name}`);
   }
@@ -210,6 +211,7 @@ export const deleteBill = (billId: string): void => {
   const bills = getBills();
   const bill = bills.find(b => b.id === billId);
   if (bill) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { addToRecycleBin } = require('./recycle-bin');
     addToRecycleBin('bill', bill, `Bill #${billId.slice(-6)} - ${bill.customerName} - ₹${bill.grandTotal}`);
   }
@@ -247,6 +249,7 @@ export const deletePayment = (paymentId: string): void => {
   const payments = getPayments();
   const payment = payments.find(p => p.id === paymentId);
   if (payment) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { addToRecycleBin } = require('./recycle-bin');
     addToRecycleBin('payment', payment, `Payment - ${payment.customerName} - ₹${payment.amount}`);
   }
@@ -389,6 +392,7 @@ export const deleteItem = (itemId: string): void => {
   const items = getItems();
   const item = items.find(i => i.id === itemId);
   if (item) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { addToRecycleBin } = require('./recycle-bin');
     addToRecycleBin('customer', item as any, `Item - ${item.name}`);
   }

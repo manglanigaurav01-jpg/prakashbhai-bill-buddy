@@ -207,7 +207,7 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
           toast({ title: "Incorrect Password", description: "The password you entered is incorrect.", variant: "destructive" });
         }
         break;
-      case 'set':
+      case 'set': {
         if (newPassword !== confirmNewPassword) {
           toast({ title: "Passwords don't match", variant: "destructive" });
           return;
@@ -220,7 +220,8 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
           resetPasswordFields();
         }
         break;
-      case 'change':
+      }
+      case 'change': {
         if (newPassword !== confirmNewPassword) {
           toast({ title: "New passwords don't match", variant: "destructive" });
           return;
@@ -232,7 +233,8 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
           resetPasswordFields();
         }
         break;
-      case 'remove':
+      }
+      case 'remove': {
         const removeResult = removePassword(currentPassword);
         toast({ title: removeResult.success ? "Password Removed" : "Error", description: removeResult.message, variant: removeResult.success ? "default" : "destructive" });
         if (removeResult.success) {
@@ -241,6 +243,7 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
           resetPasswordFields();
         }
         break;
+      }
     }
   };
 

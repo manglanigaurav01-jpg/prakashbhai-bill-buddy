@@ -8,7 +8,7 @@ import { Capacitor } from '@capacitor/core';
 const FILESYSTEM_DIR = 'CACHE' as const;
 
 // Helper function for filesystem operations
-// @ts-ignore - Intentionally unused, kept for future use
+// @ts-expect-error - Intentionally unused, kept for future use
 const _writeAndSharePDF = async (fileName: string, pdfData: ArrayBuffer) => {
   const base64Data = arrayBufferToBase64(pdfData);
   await Filesystem.writeFile({

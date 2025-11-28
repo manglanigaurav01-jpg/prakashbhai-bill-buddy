@@ -5,6 +5,7 @@
 // Check if vitest is available
 let describe: any, it: any, expect: any;
 try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const vitest = require('vitest');
   describe = vitest.describe;
   it = vitest.it;

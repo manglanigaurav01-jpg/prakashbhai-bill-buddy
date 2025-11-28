@@ -44,7 +44,7 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
   const [discount, setDiscount] = useState<string>('');
   const [discountType, setDiscountType] = useState<'percentage' | 'flat'>('percentage');
 
-  // @ts-ignore - Intentionally unused, kept for future use
+  // @ts-expect-error - Intentionally unused, kept for future use
   const _itemInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
   useEffect(() => {
@@ -85,7 +85,7 @@ export const EnhancedCreateBill: React.FC<CreateBillProps> = ({ onNavigate }) =>
     setActiveItemIndex(null);
   };
 
-  // @ts-ignore - Intentionally unused, kept for future use
+  // @ts-expect-error - Intentionally unused, kept for future use
   const _handleQuickItemSelect = (index: number, itemName: string) => {
     const existingItem = availableItems.find(item => item.name === itemName);
     if (existingItem) {
