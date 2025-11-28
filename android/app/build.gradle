@@ -13,6 +13,7 @@ buildscript {
 
 android {
     compileSdkVersion rootProject.ext.compileSdkVersion
+    namespace "com.prakashbhai.billbuddy"
     defaultConfig {
         applicationId "com.prakashbhai.billbuddy"
         minSdkVersion rootProject.ext.minSdkVersion
