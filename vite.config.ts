@@ -19,11 +19,14 @@ export default defineConfig(({ mode }) => ({
   build: {
     rollupOptions: {
       external: (id) => {
-        // Externalize optional Capacitor plugins that may not be installed
+        // Externalize optional dependencies that may not be installed
         if (id.includes('@codetrix-studio/capacitor-google-auth')) {
           return true;
         }
         if (id.includes('@capacitor/haptics')) {
+          return true;
+        }
+        if (id.includes('@sentry/react')) {
           return true;
         }
         return false;
