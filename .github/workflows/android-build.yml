@@ -112,7 +112,7 @@ jobs:
           fi
       
       - name: Sync Capacitor
-        run: npx cap sync android --no-deps
+        run: npx cap sync android
       
       - name: Cache Gradle dependencies
         uses: actions/cache@v4
