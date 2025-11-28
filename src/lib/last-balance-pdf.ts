@@ -69,9 +69,10 @@ export const generateMonthlyBalancePDF = async (
     new Date(p.date) <= monthEnd
   );
 
-  // Table data with Sr No
-  const tableData: any[] = [];
-  let srNo = 1;
+  // Prepare aligned rows for sales/payments so we don't show placeholder dashes
+  const salesRows: Array<{ sr: string; date: string; item: string; total: string }> = [];
+  const paymentRows: Array<{ date: string; amount: string }> = [];
+  let srCounter = 1;
   let totalSales = 0;
   let totalPaid = 0;
 
@@ -79,14 +80,12 @@ export const generateMonthlyBalancePDF = async (
   // The closing balance already accounts for payments (openingBalance + bills - payments)
   if (previousMonthBalance && typeof previousMonthBalance.closingBalance === 'number') {
     const closingBalance = previousMonthBalance.closingBalance;
-    tableData.push([
-      '-',
-      '-',
-      'Last Month Closing Balance',
-      `Rs. ${closingBalance.toFixed(2)}`,
-      '-',
-      '-'
-    ]);
+    salesRows.push({
+      sr: '',
+      date: '',
+      item: 'Last Month Closing Balance',
+      total: `Rs. ${closingBalance.toFixed(2)}`
+    });
     // Add closing balance to total sales
     totalSales += closingBalance;
   }
@@ -100,29 +99,36 @@ export const generateMonthlyBalancePDF = async (
   // First, add all sales (bills) in ascending date order with no gaps
   bills.forEach(bill => {
     const billDate = new Date(bill.date);
-    tableData.push([
-      srNo++,
-      format(billDate, 'dd/MM/yyyy'),
-      bill.items.map(i => i.itemName).join(', '),
-      `Rs. ${bill.grandTotal.toFixed(2)}`,
-      '-',
-      '-'
-    ]);
+    salesRows.push({
+      sr: String(srCounter++),
+      date: format(billDate, 'dd/MM/yyyy'),
+      item: bill.items.map(i => i.itemName).join(', '),
+      total: `Rs. ${bill.grandTotal.toFixed(2)}`
+    });
     totalSales += bill.grandTotal;
   });
 
   // Then, add all payments in ascending date order with no gaps
   customerPayments.forEach(payment => {
-    tableData.push([
-      srNo++,
-      '-',
-      '-',
-      '-',
-      format(new Date(payment.date), 'dd/MM/yyyy'),
-      `Rs. ${payment.amount.toFixed(2)}`
-    ]);
+    paymentRows.push({
+      date: format(new Date(payment.date), 'dd/MM/yyyy'),
+      amount: `Rs. ${payment.amount.toFixed(2)}`
+    });
     totalPaid += payment.amount;
   });
+
+  const maxRows = Math.max(salesRows.length, paymentRows.length);
+  const tableData: any[] = [];
+  for (let i = 0; i < maxRows; i++) {
+    tableData.push([
+      salesRows[i]?.sr ?? '',
+      salesRows[i]?.date ?? '',
+      salesRows[i]?.item ?? '',
+      salesRows[i]?.total ?? '',
+      paymentRows[i]?.date ?? '',
+      paymentRows[i]?.amount ?? ''
+    ]);
+  }
 
   // Generate table
   autoTable(doc, {
@@ -276,9 +282,9 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
     return paymentDate >= monthStart && paymentDate <= today;
   });
 
-  // Table data with Sr No
-  const tableData: any[] = [];
-  let srNo = 1;
+  const salesRows: Array<{ sr: string; date: string; item: string; total: string }> = [];
+  const paymentRows: Array<{ date: string; amount: string }> = [];
+  let srCounter = 1;
   let totalSales = 0;
   let totalPaid = 0;
 
@@ -286,14 +292,12 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
   // The closing balance already accounts for payments (openingBalance + bills - payments)
   if (previousMonthBalance && typeof previousMonthBalance.closingBalance === 'number') {
     const closingBalance = previousMonthBalance.closingBalance;
-    tableData.push([
-      '-',
-      '-',
-      'Last Month Closing Balance',
-      `Rs. ${closingBalance.toFixed(2)}`,
-      '-',
-      '-'
-    ]);
+    salesRows.push({
+      sr: '',
+      date: '',
+      item: 'Last Month Closing Balance',
+      total: `Rs. ${closingBalance.toFixed(2)}`
+    });
     // Add closing balance to total sales
     totalSales += closingBalance;
   }
@@ -307,29 +311,36 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
   // First, add all sales (bills) in ascending date order with no gaps
   bills.forEach(bill => {
     const billDate = new Date(bill.date);
-    tableData.push([
-      srNo++,
-      format(billDate, 'dd/MM/yyyy'),
-      bill.items.map(i => i.itemName).join(', '),
-      `Rs. ${bill.grandTotal.toFixed(2)}`,
-      '-',
-      '-'
-    ]);
+    salesRows.push({
+      sr: String(srCounter++),
+      date: format(billDate, 'dd/MM/yyyy'),
+      item: bill.items.map(i => i.itemName).join(', '),
+      total: `Rs. ${bill.grandTotal.toFixed(2)}`
+    });
     totalSales += bill.grandTotal;
   });
 
   // Then, add all payments in ascending date order with no gaps
   currentMonthPayments.forEach(payment => {
-    tableData.push([
-      srNo++,
-      '-',
-      '-',
-      '-',
-      format(new Date(payment.date), 'dd/MM/yyyy'),
-      `Rs. ${payment.amount.toFixed(2)}`
-    ]);
+    paymentRows.push({
+      date: format(new Date(payment.date), 'dd/MM/yyyy'),
+      amount: `Rs. ${payment.amount.toFixed(2)}`
+    });
     totalPaid += payment.amount;
   });
+
+  const maxRows = Math.max(salesRows.length, paymentRows.length);
+  const tableData: any[] = [];
+  for (let i = 0; i < maxRows; i++) {
+    tableData.push([
+      salesRows[i]?.sr ?? '',
+      salesRows[i]?.date ?? '',
+      salesRows[i]?.item ?? '',
+      salesRows[i]?.total ?? '',
+      paymentRows[i]?.date ?? '',
+      paymentRows[i]?.amount ?? ''
+    ]);
+  }
 
   // Generate table
   autoTable(doc, {
