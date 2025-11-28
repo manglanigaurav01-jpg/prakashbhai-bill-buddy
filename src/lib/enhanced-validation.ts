@@ -3,17 +3,10 @@
 import { 
   ValidationResult, 
   DataValidationResult,
-  validateRequired,
   validateCustomerName,
-  validateItemName,
-  validateItemRate,
-  validateItemQuantity,
-  validatePaymentAmount,
-  validateBillDate,
-  validatePaymentDate
+  validateItemName
 } from './validation';
 import { getCustomers, getBills, getPayments, getItems } from './storage';
-import { Customer, Bill, Payment, ItemMaster } from '@/types';
 
 // Real-time validation hook result
 export interface RealTimeValidation {
@@ -176,7 +169,6 @@ export const checkDataIntegrity = (): DataValidationResult & {
   const items = getItems();
   
   const customerIds = new Set(customers.map(c => c.id));
-  const itemIds = new Set(items.map(i => i.id));
   
   // Check bills
   bills.forEach((bill, index) => {
@@ -289,5 +281,5 @@ export const autoFixDataIssues = (): {
 };
 
 // Import React for hooks
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 

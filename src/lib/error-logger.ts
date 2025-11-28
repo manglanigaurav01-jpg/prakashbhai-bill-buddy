@@ -22,22 +22,26 @@ export const initErrorLogging = async (sentryDsn?: string): Promise<void> => {
   if (sentryDsn && typeof window !== 'undefined') {
     try {
       // Dynamically import Sentry if DSN is provided
-      const Sentry = await import('@sentry/react');
-      Sentry.init({
-        dsn: sentryDsn,
-        environment: process.env.NODE_ENV || 'development',
-        tracesSampleRate: 0.1,
-        beforeSend(event) {
-          // Filter out sensitive data
-          if (event.request) {
-            delete event.request.cookies;
-            delete event.request.headers;
+      // Note: @sentry/react is optional dependency
+      // @ts-ignore - Optional dependency, may not be installed
+      const Sentry = await import('@sentry/react').catch(() => null);
+      if (Sentry && Sentry.init) {
+        Sentry.init({
+          dsn: sentryDsn,
+          environment: process.env.NODE_ENV || 'development',
+          tracesSampleRate: 0.1,
+          beforeSend(event: any) {
+            // Filter out sensitive data
+            if (event.request) {
+              delete event.request.cookies;
+              delete event.request.headers;
+            }
+            return event;
           }
-          return event;
-        }
-      });
-      sentryAvailable = true;
-      console.log('Error logging initialized with Sentry');
+        });
+        sentryAvailable = true;
+        console.log('Error logging initialized with Sentry');
+      }
     } catch (error) {
       console.warn('Failed to initialize Sentry:', error);
     }
@@ -143,12 +147,16 @@ export const setupGlobalErrorHandler = (): (() => void) => {
     );
   };
   
-  window.addEventListener('error', handleError);
-  window.addEventListener('unhandledrejection', handleUnhandledRejection);
+  if (typeof window !== 'undefined') {
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }
   
-  return () => {
-    window.removeEventListener('error', handleError);
-    window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-  };
+  return () => {}; // No-op if window is not available
 };
 

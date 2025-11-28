@@ -1,5 +1,5 @@
-import { Customer, Bill, Payment, CustomerBalance, ItemMaster, ItemRateHistory, ItemUsage, BillItem } from '@/types';
-import { subMonths, format, startOfMonth, endOfMonth } from 'date-fns';
+import { Customer, Bill, Payment, CustomerBalance, ItemMaster, ItemRateHistory, ItemUsage } from '@/types';
+import { format } from 'date-fns';
 
 export interface BusinessAnalytics {
   version: string;
@@ -88,6 +88,18 @@ export const saveCustomer = (customer: Omit<Customer, 'id' | 'createdAt'>): Cust
   return newCustomer;
 };
 
+export const deleteCustomer = (customerId: string): void => {
+  const customers = getCustomers();
+  const customer = customers.find(c => c.id === customerId);
+  if (customer) {
+    const { addToRecycleBin } = require('./recycle-bin');
+    addToRecycleBin('customer', customer, `Customer - ${customer.name}`);
+  }
+  const updatedCustomers = customers.filter(c => c.id !== customerId);
+  localStorage.setItem(STORAGE_KEYS.CUSTOMERS, JSON.stringify(updatedCustomers));
+  window.dispatchEvent(new Event('storage'));
+};
+
 // Bill management
 export const getBills = (): Bill[] => {
   const data = localStorage.getItem(STORAGE_KEYS.BILLS);
@@ -114,16 +126,11 @@ export const getBusinessAnalytics = (): BusinessAnalytics => {
 
 export const updateBusinessAnalytics = async () => {
   const bills = getBills();
-  const payments = getPayments();
   const customers = getCustomers();
   const now = new Date();
 
   // Calculate sales trends
   const monthlyTrends: { [key: string]: number } = {};
-  const last6Months = Array.from({length: 6}, (_, i) => {
-    const month = subMonths(now, i);
-    return format(month, 'yyyy-MM');
-  });
 
   bills.forEach(bill => {
     const billMonth = format(new Date(bill.date), 'yyyy-MM');

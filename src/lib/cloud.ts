@@ -99,11 +99,11 @@ export const syncUp = async (): Promise<{ success: boolean; message: string }> =
   if (!user) return { success: false, message: 'Not logged in' };
   
   // Try to sync with retry mechanism
+  if (!user) {
+    return { success: false, message: 'User not authenticated' };
+  }
   const result = await import('./sync-retry').then(m => m.syncWithRetry(user, 'push'));
   return result;
-  const snapshot = await buildLocalSnapshot();
-  await pushCloudSnapshot(user, snapshot);
-  return { success: true, message: 'Data synced to cloud' };
 };
 
 let syncTimer: any = null;

@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertTriangle, ArrowLeft, Moon, Sun, Trash2, User, Shield, Database, Cloud, Settings as SettingsIcon, Lock, Download, Upload, RefreshCw } from "lucide-react";
-import { getCurrentUser, signInWithGoogle, signOutUser, onAuthStateChanged } from '@/lib/auth';
+import { AlertTriangle, ArrowLeft, Moon, Sun, Trash2, User as UserIcon, Shield, Database, Cloud, Settings as SettingsIcon, Lock, RefreshCw } from "lucide-react";
+import { signInWithGoogle, signOutUser, onAuthStateChanged } from '@/lib/auth';
 import { AutoSync } from "./AutoSync";
 import { useToast } from "@/hooks/use-toast";
 import { Filesystem, Directory } from '@capacitor/filesystem';
@@ -47,7 +47,7 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
 
   // Monitor auth state
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged((user) => {
+    const unsubscribe = onAuthStateChanged((user: User | null) => {
       setCurrentUser(user);
       if (user) {
         // Initialize auto backup when user signs in
@@ -402,7 +402,7 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
                     <div className="p-4 rounded-lg bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20">
                       <div className="flex items-center gap-3 mb-3">
                         <div className="p-2 bg-primary/20 rounded-full">
-                          <User className="w-5 h-5 text-primary" />
+                          <UserIcon className="w-5 h-5 text-primary" />
                         </div>
                         <div className="flex-1">
                           <p className="text-sm font-semibold">Signed in as</p>
@@ -442,7 +442,7 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
                           </>
                         ) : (
                           <>
-                            <User className="w-4 h-4 mr-2" />
+                            <UserIcon className="w-4 h-4 mr-2" />
                             Sign in with Google
                           </>
                         )}

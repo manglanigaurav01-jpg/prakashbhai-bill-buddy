@@ -150,6 +150,10 @@ export const validateFutureDate = (value: Date | string | null | undefined, fiel
   const dateResult = validateDate(value, fieldName);
   if (!dateResult.isValid) return dateResult;
   
+  if (!value) {
+    return { isValid: false, error: `${fieldName} is required` };
+  }
+  
   const date = value instanceof Date ? value : new Date(value);
   if (date <= new Date()) {
     return { isValid: false, error: `${fieldName} must be in the future` };
@@ -161,6 +165,10 @@ export const validateFutureDate = (value: Date | string | null | undefined, fiel
 export const validatePastDate = (value: Date | string | null | undefined, fieldName: string): ValidationResult => {
   const dateResult = validateDate(value, fieldName);
   if (!dateResult.isValid) return dateResult;
+  
+  if (!value) {
+    return { isValid: false, error: `${fieldName} is required` };
+  }
   
   const date = value instanceof Date ? value : new Date(value);
   if (date >= new Date()) {
@@ -231,6 +239,10 @@ export const validateBillDateWithFutureWarning = (value: Date | string | null | 
   const dateResult = validateDate(value, 'Bill date');
   if (!dateResult.isValid) return dateResult;
   
+  if (!value) {
+    return { isValid: false, error: 'Bill date is required' };
+  }
+  
   const date = value instanceof Date ? value : new Date(value);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -252,6 +264,10 @@ export const validateBillDateWithFutureWarning = (value: Date | string | null | 
 export const validatePaymentDateWithFutureWarning = (value: Date | string | null | undefined): ValidationResultWithWarning => {
   const dateResult = validateDate(value, 'Payment date');
   if (!dateResult.isValid) return dateResult;
+  
+  if (!value) {
+    return { isValid: false, error: 'Payment date is required' };
+  }
   
   const date = value instanceof Date ? value : new Date(value);
   const today = new Date();

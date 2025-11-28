@@ -229,16 +229,16 @@ export const EnhancedAnalytics: React.FC<EnhancedAnalyticsProps> = ({ onNavigate
           const base64Data = btoa(binary);
           
           // Save to Documents directory
-          const savedFile = await Filesystem.writeFile({
+          await Filesystem.writeFile({
             path: fileName,
             data: base64Data,
-            directory: Directory.Documents
+            directory: 'DOCUMENTS' as Directory
           });
           
           // Get file URI
           const fileInfo = await Filesystem.getUri({
             path: fileName,
-            directory: Directory.Documents
+            directory: 'DOCUMENTS' as Directory
           });
           
           if (!fileInfo.uri) {

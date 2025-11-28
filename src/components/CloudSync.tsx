@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +14,7 @@ export const CloudSync = () => {
 
   const handleSignUp = async () => {
     const result = await signUp(email, password);
-    if (result.success) {
+    if (result.success && result.user) {
       setIsLoggedIn(true);
       setUserId(result.user.uid);
       toast({
@@ -24,7 +24,7 @@ export const CloudSync = () => {
     } else {
       toast({
         title: 'Error',
-        description: result.error,
+        description: result.error || 'Failed to create account',
         variant: 'destructive'
       });
     }
@@ -32,7 +32,7 @@ export const CloudSync = () => {
 
   const handleSignIn = async () => {
     const result = await signIn(email, password);
-    if (result.success) {
+    if (result.success && result.user) {
       setIsLoggedIn(true);
       setUserId(result.user.uid);
       toast({

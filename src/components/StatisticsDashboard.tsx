@@ -1,11 +1,11 @@
 // Statistics Dashboard with customizable widgets
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, TrendingUp, TrendingDown, DollarSign, Users, FileText, CreditCard, Calendar, BarChart3, PieChart, RefreshCw } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, DollarSign, Users, FileText, CreditCard, BarChart3, RefreshCw } from 'lucide-react';
 import { getBills, getPayments, getCustomers, getAllCustomerBalances } from '@/lib/storage';
-import { format, subDays, startOfMonth, endOfMonth, isSameMonth } from 'date-fns';
+import { format, subDays } from 'date-fns';
 
 interface DashboardProps {
   onNavigate: (view: string) => void;

@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Bill, CustomerBalance, MonthlyBalance } from '@/types';
-import { startOfMonth, endOfMonth, subMonths, format, isSameMonth, parse } from 'date-fns';
+import { startOfMonth, endOfMonth, subMonths, format, parse } from 'date-fns';
 import { generateMonthlyBalances } from './monthly-balance';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
@@ -190,7 +190,7 @@ export const generateMonthlyBalancePDF = async (
         const timestamp = new Date().getTime();
         const uniqueFileName = `balance_${timestamp}_${fileName}`;
         
-        const savedFile = await Filesystem.writeFile({
+        await Filesystem.writeFile({
           path: uniqueFileName,
           data: base64Data,
           directory: 'DOCUMENTS' as Directory
@@ -225,7 +225,8 @@ export const generateMonthlyBalancePDF = async (
     }
   } catch (error) {
     console.error('Error handling PDF:', error);
-    throw new Error('Failed to process PDF: ' + (error.message || 'Unknown error'));
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error('Failed to process PDF: ' + errorMessage);
   }
 };
 
@@ -238,9 +239,6 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const previousMonthEnd = subMonths(monthEnd, 1);
-  
-  // Get customer's current balance
-  const customerBalance = await getCustomerBalance(customerId);
   
   // Find previous month's balance for opening balance
   const previousMonthBalance = monthlyBalances.find(
@@ -556,7 +554,7 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
   const uniqueFileName = `last_balance_${timestamp}_${fileName}`;
         
         // Save directly to Documents directory without creating subdirectory
-        const savedFile = await Filesystem.writeFile({
+        await Filesystem.writeFile({
           path: uniqueFileName,
           data: base64Data,
           directory: 'DOCUMENTS' as Directory
@@ -593,6 +591,7 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
     }
   } catch (error) {
     console.error('Error handling PDF:', error);
-    throw new Error('Failed to process PDF: ' + (error.message || 'Unknown error'));
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error('Failed to process PDF: ' + errorMessage);
   }
 };

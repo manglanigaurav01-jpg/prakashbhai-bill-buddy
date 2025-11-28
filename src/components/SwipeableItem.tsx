@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, TouchEvent } from 'react';
+import React, { useRef, useState, TouchEvent } from 'react';
 import { Edit3, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';

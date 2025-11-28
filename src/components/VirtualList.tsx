@@ -1,6 +1,6 @@
 // Virtual scrolling component for performance with large lists
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo } from 'react';
 
 interface VirtualListProps<T> {
   items: T[];

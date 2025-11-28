@@ -1,4 +1,4 @@
-import * as React from "react"
+// React import removed - not needed with new JSX transform
 import { format } from "date-fns"
 import { CalendarIcon } from "lucide-react"
 import { cn } from "@/lib/utils"

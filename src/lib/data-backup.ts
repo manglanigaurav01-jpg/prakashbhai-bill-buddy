@@ -1,9 +1,6 @@
 import { Filesystem, Directory } from '@capacitor/filesystem';
-import { Bill, Customer, Payment, ItemMaster } from '@/types';
 import { getCustomers, getBills, getPayments, getItems } from './storage';
-import { checkDataConsistency, DataValidationResult } from './validation';
-import { format } from 'date-fns';
-import { v4 as uuidv4 } from 'uuid';
+import { checkDataConsistency } from './validation';
 
 // Constants
 const BACKUP_INTERVAL = 30 * 60 * 1000; // 30 minutes
@@ -71,15 +68,14 @@ export const createLocalBackup = async () => {
     await Filesystem.writeFile({
       path: fileName,
       data: backupString,
-      directory: Directory.Data,
-      recursive: true
+      directory: 'DATA' as Directory
     });
 
     // Save metadata
     await Filesystem.writeFile({
       path: `${fileName}.meta`,
       data: JSON.stringify(metadata),
-      directory: Directory.Data
+      directory: 'DATA' as Directory
     });
 
     // Clean up old backups
@@ -97,22 +93,26 @@ const cleanupOldBackups = async () => {
   try {
     const result = await Filesystem.readdir({
       path: '',
-      directory: Directory.Data
+      directory: 'DATA' as Directory
     });
 
     const backups = result.files
       .filter(f => f.name.startsWith('backup_') && f.name.endsWith('.json'))
-      .sort((a, b) => (new Date(b.mtime!).getTime() - new Date(a.mtime!).getTime()));
+      .sort((a, b) => {
+        const aTime = a.mtime ? new Date(a.mtime).getTime() : 0;
+        const bTime = b.mtime ? new Date(b.mtime).getTime() : 0;
+        return bTime - aTime;
+      });
 
     // Keep only the most recent backups
     for (let i = MAX_LOCAL_BACKUPS; i < backups.length; i++) {
       await Filesystem.deleteFile({
         path: backups[i].name,
-        directory: Directory.Data
+        directory: 'DATA' as Directory
       });
       await Filesystem.deleteFile({
         path: `${backups[i].name}.meta`,
-        directory: Directory.Data
+        directory: 'DATA' as Directory
       });
     }
   } catch (error) {
@@ -126,16 +126,19 @@ export const restoreFromBackup = async (backupFile: string) => {
     // Read backup and metadata
     const backupContent = await Filesystem.readFile({
       path: backupFile,
-      directory: Directory.Data
+      directory: 'DATA' as Directory
     });
 
     const metadataContent = await Filesystem.readFile({
       path: `${backupFile}.meta`,
-      directory: Directory.Data
+      directory: 'DATA' as Directory
     });
 
-    const backup = JSON.parse(typeof backupContent.data === 'string' ? backupContent.data : await backupContent.data.text());
-    const metadata: BackupMetadata = JSON.parse(typeof metadataContent.data === 'string' ? metadataContent.data : await metadataContent.data.text());
+    const backupData = typeof backupContent.data === 'string' ? backupContent.data : String(backupContent.data);
+    const metadataData = typeof metadataContent.data === 'string' ? metadataContent.data : String(metadataContent.data);
+    
+    const backup = JSON.parse(backupData);
+    const metadata: BackupMetadata = JSON.parse(metadataData);
 
     // Verify checksum
     const currentChecksum = calculateChecksum(JSON.stringify(backup));
@@ -158,18 +161,20 @@ export const restoreFromBackup = async (backupFile: string) => {
     return { success: true, message: 'Restore completed successfully' };
   } catch (error) {
     console.error('Restore failed:', error);
-    return { success: false, message: `Failed to restore: ${error.message}` };
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return { success: false, message: `Failed to restore: ${errorMessage}` };
   }
 };
 
 // Function to start automatic backup
 export const startAutomaticBackup = () => {
-  setInterval(async () => {
+  const _interval = setInterval(async () => {
     const result = await createLocalBackup();
     if (!result.success) {
       console.error('Automatic backup failed:', result.message);
     }
   }, BACKUP_INTERVAL);
+  return _interval;
 };
 
 // Function to list available backups
@@ -177,21 +182,26 @@ export const listAvailableBackups = async () => {
   try {
     const result = await Filesystem.readdir({
       path: '',
-      directory: Directory.Data
+      directory: 'DATA' as Directory
     });
 
     const backups = await Promise.all(
       result.files
         .filter(f => f.name.startsWith('backup_') && f.name.endsWith('.json'))
-        .sort((a, b) => (new Date(b.mtime!).getTime() - new Date(a.mtime!).getTime()))
+        .sort((a, b) => {
+          const aTime = a.mtime ? new Date(a.mtime).getTime() : 0;
+          const bTime = b.mtime ? new Date(b.mtime).getTime() : 0;
+          return bTime - aTime;
+        })
         .map(async (file) => {
           const metadataContent = await Filesystem.readFile({
             path: `${file.name}.meta`,
-            directory: Directory.Data
+            directory: 'DATA' as Directory
           });
+          const metadataData = typeof metadataContent.data === 'string' ? metadataContent.data : String(metadataContent.data);
           return {
             fileName: file.name,
-            metadata: JSON.parse(typeof metadataContent.data === 'string' ? metadataContent.data : await metadataContent.data.text()) as BackupMetadata
+            metadata: JSON.parse(metadataData) as BackupMetadata
           };
         })
     );
@@ -199,6 +209,7 @@ export const listAvailableBackups = async () => {
     return { success: true, backups };
   } catch (error) {
     console.error('Failed to list backups:', error);
-    return { success: false, message: 'Failed to list backups' };
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return { success: false, message: `Failed to list backups: ${errorMessage}` };
   }
 };

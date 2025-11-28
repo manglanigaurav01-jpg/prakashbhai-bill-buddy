@@ -193,6 +193,7 @@ export const generateLastBalancePDF = async (customerId: string, customerName: s
     }
   } catch (error) {
     console.error('Error handling PDF:', error);
-    throw new Error('Failed to process PDF: ' + (error.message || 'Unknown error'));
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    throw new Error('Failed to process PDF: ' + errorMessage);
   }
 };

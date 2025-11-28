@@ -7,26 +7,6 @@ import { Capacitor } from '@capacitor/core';
 const app = initializeApp(FIREBASE_CONFIG);
 const auth = getAuth(app);
 
-// Initialize Google Auth for mobile (attempt dynamic import at runtime)
-const tryInitNativeGoogleAuth = async () => {
-  if (!Capacitor.isNativePlatform()) return false;
-  try {
-    // dynamic import prevents build-time dependency and avoids install-time ERESOLVE
-    // if the package isn't present. If present, initialize it for native usage.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const mod = await import('@codetrix-studio/capacitor-google-auth');
-    if (mod && typeof mod.GoogleAuth?.initialize === 'function') {
-      mod.GoogleAuth.initialize();
-      return true;
-    }
-  } catch (err) {
-    // If the dynamic import fails (package not installed), we silently skip
-    // native GoogleAuth and fall back to web-based popup flows.
-    console.warn('Native GoogleAuth not available:', err);
-  }
-  return false;
-};
-
 export const signInWithGoogle = async () => {
   try {
     if (Capacitor.isNativePlatform()) {
@@ -113,6 +93,6 @@ export const getCurrentUser = () => {
   return auth.currentUser;
 };
 
-export const onAuthStateChanged = (callback) => {
+export const onAuthStateChanged = (callback: (user: any) => void) => {
   return auth.onAuthStateChanged(callback);
 };

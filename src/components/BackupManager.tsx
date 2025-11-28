@@ -156,7 +156,7 @@ export const BackupManager = () => {
     setIsLoading(true);
     try {
       const result = await createEnhancedBackup();
-      if (result.success) {
+      if (result.success && result.metadata) {
         const isWeb = Capacitor.getPlatform() === 'web';
         if (isWeb) {
           toast({
@@ -171,7 +171,7 @@ export const BackupManager = () => {
         }
         await loadBackups();
       } else {
-        throw new Error(result.message);
+        throw new Error(result.message || 'Failed to create backup');
       }
     } catch (error) {
       toast({
@@ -219,14 +219,14 @@ export const BackupManager = () => {
       const restorePath = isWeb && backup.storageKey ? backup.storageKey : backup.fileName;
       
       const result = await restoreFromEnhancedBackup(restorePath);
-      if (result.success) {
+      if (result.success && result.metadata) {
         toast({
           title: "Backup Restored",
           description: `Successfully restored data with ${result.metadata.counts.bills} bills and ${result.metadata.counts.payments} payments.`
         });
         await loadBackups();
       } else {
-        throw new Error(result.message);
+        throw new Error(result.message || 'Failed to restore backup');
       }
     } catch (error) {
       toast({
@@ -291,10 +291,10 @@ export const BackupManager = () => {
                       <div className="flex gap-2">
                         {backup.uri && (
                           <>
-                            <Button size="sm" variant="outline" onClick={() => { window.open(backup.uri, '_blank'); }}>
+                            <Button size="sm" variant="outline" onClick={() => { if (backup.uri) window.open(backup.uri, '_blank'); }}>
                               Open
                             </Button>
-                            <Button size="sm" variant="outline" onClick={() => { navigator.clipboard?.writeText(backup.uri); toast({ title: 'Copied', description: 'Backup URI copied to clipboard.' }); }}>
+                            <Button size="sm" variant="outline" onClick={() => { if (backup.uri) navigator.clipboard?.writeText(backup.uri); toast({ title: 'Copied', description: 'Backup URI copied to clipboard.' }); }}>
                               Copy
                             </Button>
                             <Button size="sm" variant="outline" onClick={async () => {
@@ -463,11 +463,11 @@ export const BackupManager = () => {
                     const isWeb = Capacitor.getPlatform() === 'web';
                     const restorePath = isWeb && previewItem.storageKey ? previewItem.storageKey : previewItem.fileName;
                     const result = await restoreFromEnhancedBackup(restorePath);
-                    if (result.success) {
+                    if (result.success && result.metadata) {
                       toast({ title: 'Restored', description: `Restored ${result.metadata.counts.bills} bills` });
                       await loadBackups();
                     } else {
-                      throw new Error(result.message);
+                      throw new Error(result.message || 'Failed to restore backup');
                     }
                   } catch (err) {
                     toast({ variant: 'destructive', title: 'Restore Failed', description: err instanceof Error ? err.message : String(err) });

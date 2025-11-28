@@ -1,7 +1,7 @@
 // Bulk operations for bills, payments, customers, and items
 
-import { Bill, Payment, Customer, ItemMaster } from '@/types';
-import { getBills, getPayments, getCustomers, getItems, deleteBill, deletePayment, deleteCustomer, deleteItem } from './storage';
+import { Bill } from '@/types';
+import { getBills, getPayments, getItems, deleteBill, deletePayment, deleteCustomer, deleteItem } from './storage';
 
 export interface BulkOperationResult {
   success: boolean;
@@ -107,7 +107,8 @@ export const bulkDeleteItems = (itemIds: string[]): BulkOperationResult => {
   
   itemIds.forEach(id => {
     try {
-      const item = getItems().find(i => i.id === id);
+      const items = getItems();
+      const item = items.find((i: any) => i.id === id);
       if (!item) {
         failed++;
         errors.push(`Item ${id} not found`);
@@ -142,9 +143,10 @@ export const bulkDeleteItems = (itemIds: string[]): BulkOperationResult => {
 };
 
 // Bulk update bills (e.g., change date, customer)
+// Note: This is a placeholder - would need updateBill function in storage
 export const bulkUpdateBills = (
   billIds: string[],
-  updates: Partial<Bill>
+  _updates: Partial<Bill>
 ): BulkOperationResult => {
   const errors: string[] = [];
   let processed = 0;
