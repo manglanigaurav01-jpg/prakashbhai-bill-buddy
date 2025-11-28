@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:491579424292:android:93a7e573e3498a6cdee2b1",
         "android_client_info": {
-          "package_name": "app.lovable.fefdfaed58db469497b3784882c36196"
+          "package_name": "com.prakashbhai.billbuddy"
         }
       },
       "oauth_client": [
@@ -17,7 +17,7 @@
           "client_id": "491579424292-uvcgap1os7gbhj10jnakcg308gthland.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "app.lovable.fefdfaed58db469497b3784882c36196",
+            "package_name": "com.prakashbhai.billbuddy",
             "certificate_hash": "b4e0a116dbf8ef0076ff3be29df058f713273450"
           }
         },
