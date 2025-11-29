@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getBills, getPayments, getAllCustomerBalances } from '@/lib/storage';
-import { utils } from 'xlsx';
+import { utils, write } from 'xlsx';
 
 interface AnalyticsData {
   revenues: { date: string; amount: number }[];
@@ -30,16 +30,70 @@ export const Analytics: React.FC<AnalyticsProps> = ({ onNavigate }) => {
   const exportToExcel = () => {
     if (!analyticsData) return;
 
-    const workbook = {
-      SheetNames: ['Revenue', 'Top Items', 'Customer Patterns', 'Outstanding', 'Seasonal'],
-      Sheets: {
-        'Revenue': utils.json_to_sheet(analyticsData.revenues),
-        'Top Items': utils.json_to_sheet(analyticsData.topItems),
-        'Customer Patterns': utils.json_to_sheet(analyticsData.customerPatterns),
-        'Outstanding': utils.json_to_sheet(analyticsData.outstandingPayments),
-        'Seasonal': utils.json_to_sheet(analyticsData.seasonalTrends)
-      }
-    };
+    // Calculate summary metrics
+    const totalRevenue = analyticsData.revenues.reduce((sum, r) => sum + r.amount, 0);
+    const totalPending = analyticsData.outstandingPayments.reduce((sum, p) => sum + p.amount, 0);
+    const topCustomers = analyticsData.customerPatterns.slice(0, 5);
+    const topItems = analyticsData.topItems.slice(0, 5);
+
+    // Create summary sheet with formulas
+    const summaryRows: any[][] = [
+      ['Metric', 'Value'],
+      ['Total Revenue', totalRevenue],
+      ['Total Pending', totalPending],
+      [],
+      ['Top Customers'],
+      ['Customer', 'Total Amount'],
+      ...topCustomers.map(c => [c.customer, c.totalAmount]),
+      [],
+      ['Top Items'],
+      ['Item', 'Revenue'],
+      ...topItems.map(i => [i.name, i.revenue]),
+    ];
+
+    const summarySheet = utils.aoa_to_sheet(summaryRows);
+    // Add Excel formulas for totals (using SUM formulas that reference the data sheets)
+    // Note: These formulas will calculate from the Revenue and Outstanding sheets
+    const revenueSheetName = 'Revenue';
+    const outstandingSheetName = 'Outstanding';
+    summarySheet['B2'] = { t: 'n', f: `SUM('${revenueSheetName}'.B:B)` };
+    summarySheet['B3'] = { t: 'n', f: `SUM('${outstandingSheetName}'.B:B)` };
+    
+    // Create workbook with Summary as first sheet
+    const workbook = utils.book_new();
+    utils.book_append_sheet(workbook, summarySheet, 'Summary');
+    
+    // Add other sheets
+    if (analyticsData.revenues.length > 0) {
+      const revenueSheet = utils.json_to_sheet(analyticsData.revenues);
+      // Add total row with formula
+      const lastRow = analyticsData.revenues.length + 2;
+      revenueSheet[`A${lastRow}`] = { t: 's', v: 'Total' };
+      revenueSheet[`B${lastRow}`] = { t: 'n', f: `SUM(B2:B${lastRow - 1})` };
+      utils.book_append_sheet(workbook, revenueSheet, revenueSheetName);
+    }
+    
+    if (analyticsData.topItems.length > 0) {
+      utils.book_append_sheet(workbook, utils.json_to_sheet(analyticsData.topItems), 'Top Items');
+    }
+    
+    if (analyticsData.customerPatterns.length > 0) {
+      utils.book_append_sheet(workbook, utils.json_to_sheet(analyticsData.customerPatterns), 'Customer Patterns');
+    }
+    
+    if (analyticsData.outstandingPayments.length > 0) {
+      const outstandingSheet = utils.json_to_sheet(analyticsData.outstandingPayments);
+      // Add total row with formula
+      const lastRow = analyticsData.outstandingPayments.length + 2;
+      outstandingSheet[`A${lastRow}`] = { t: 's', v: 'Total' };
+      outstandingSheet[`B${lastRow}`] = { t: 'n', f: `SUM(B2:B${lastRow - 1})` };
+      utils.book_append_sheet(workbook, outstandingSheet, outstandingSheetName);
+    }
+    
+    if (analyticsData.seasonalTrends.length > 0) {
+      utils.book_append_sheet(workbook, utils.json_to_sheet(analyticsData.seasonalTrends), 'Seasonal');
+    }
+
     // Use a web worker to generate the workbook to avoid blocking the UI
     try {
       const worker = new Worker(new URL('@/workers/export-worker.ts', import.meta.url));
@@ -65,6 +119,8 @@ export const Analytics: React.FC<AnalyticsProps> = ({ onNavigate }) => {
       };
     } catch (err) {
       console.error('Worker creation failed, falling back to main thread', err);
+      // Fallback: write directly
+      write(workbook, { bookType: 'xlsx', type: 'array' });
     }
   };
 

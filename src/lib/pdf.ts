@@ -7,6 +7,7 @@ import { Capacitor } from '@capacitor/core';
 // Constants for Filesystem
 const FILESYSTEM_DIR = 'CACHE' as const;
 const BILLS_ROOT_FOLDER = 'BillBuddyBills';
+const REPORTS_ROOT_FOLDER = 'BillBuddyReports';
 
 // Helper function for filesystem operations
 // @ts-expect-error - Intentionally unused, kept for future use
@@ -67,6 +68,25 @@ const savePdfToCustomerFolder = async (
   } catch (e) {
     // If this fails, we still want the normal share / save flow to work
     console.error('Failed to save PDF to customer folder:', e);
+  }
+};
+
+// Save report PDFs to Reports folder
+const savePdfToReportsFolder = async (
+  fileName: string,
+  base64Data: string
+) => {
+  if (!Capacitor.isNativePlatform()) return;
+
+  try {
+    const reportsPath = `${REPORTS_ROOT_FOLDER}/${fileName}`;
+    await Filesystem.writeFile({
+      path: reportsPath,
+      data: base64Data,
+      directory: 'DOCUMENTS' as any,
+    } as any);
+  } catch (e) {
+    console.error('Failed to save PDF to reports folder:', e);
   }
 };
 
@@ -194,13 +214,18 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
   const mm = (today.getMonth() + 1).toString().padStart(2, '0');
   const yyyy = today.getFullYear();
   const dateStamp = `${dd}-${mm}-${yyyy}`;
-  const fileName = `${balance.customerName}_${dateStamp}_Summary.pdf`;
+  // File naming: DD-MM-YYYY_Summary.pdf
+  const fileName = `${dateStamp}_Summary.pdf`;
 
   try {
     if (Capacitor.isNativePlatform()) {
       const pdfOutput = doc.output('arraybuffer');
       const base64Data = arrayBufferToBase64(pdfOutput);
 
+      // Always save to My Files: Documents/BillBuddyBills/<CustomerName>/<DD-MM-YYYY>_Summary.pdf
+      await savePdfToCustomerFolder(balance.customerName, fileName, base64Data);
+
+      // Also save to CACHE for sharing
       await Filesystem.writeFile({
         path: fileName,
         data: base64Data,
@@ -214,13 +239,13 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
 
       const { Share } = await import('@capacitor/share');
       await Share.share({
-        title: 'Bill PDF',
-        text: 'Bill generated successfully',
+        title: 'Customer Summary PDF',
+        text: 'Customer summary generated successfully',
         url: fileUri.uri,
         dialogTitle: 'Save or Share PDF'
       });
 
-      return { success: true, message: 'Bill downloaded successfully' };
+      return { success: true, message: 'Summary saved to My Files and ready to share!' };
     } else {
       doc.save(fileName);
       return { success: true, message: 'Summary downloaded successfully' };
@@ -340,21 +365,23 @@ export const generateBillPDF = async (bill: Bill) => {
   const billMm = (billDate.getMonth() + 1).toString().padStart(2, '0');
   const billYyyy = billDate.getFullYear();
   const billDateStamp = `${billDd}-${billMm}-${billYyyy}`;
-  const fileName = `${bill.customerName}_${billDateStamp}_${bill.id}.pdf`;
+  // File naming: DD-MM-YYYY_BillNo.pdf (BillNo is the bill ID)
+  const fileName = `${billDateStamp}_${bill.id}.pdf`;
 
   try {
     if (Capacitor.isNativePlatform()) {
       const pdfOutput = doc.output('arraybuffer');
       const base64Data = arrayBufferToBase64(pdfOutput);
 
+      // Always save to My Files first: Documents/BillBuddyBills/<CustomerName>/<DD-MM-YYYY>_<BillId>.pdf
+      await savePdfToCustomerFolder(bill.customerName, fileName, base64Data);
+
+      // Also save to CACHE for sharing
       await Filesystem.writeFile({
         path: fileName,
         data: base64Data,
         directory: 'CACHE',
       });
-
-      // Also save a persistent copy into Documents/BillBuddyBills/<CustomerName>/
-      await savePdfToCustomerFolder(bill.customerName, fileName, base64Data);
 
       const fileUri = await Filesystem.getUri({
         directory: 'CACHE',
@@ -363,13 +390,13 @@ export const generateBillPDF = async (bill: Bill) => {
 
       const { Share } = await import('@capacitor/share');
       await Share.share({
-        title: 'Customer Summary PDF',
-        text: 'Customer summary generated successfully',
+        title: 'Bill PDF',
+        text: 'Bill generated successfully',
         url: fileUri.uri,
         dialogTitle: 'Save or Share PDF'
       });
 
-      return { success: true, message: 'PDF ready - choose where to save it!' };
+      return { success: true, message: 'PDF saved to My Files and ready to share!' };
     } else {
       doc.save(fileName);
       return { success: true, message: 'Bill downloaded successfully' };
@@ -423,6 +450,10 @@ export const generatePendingPDF = async (pendingCustomers: CustomerBalance[], to
       const pdfOutput = doc.output('arraybuffer');
       const base64Data = arrayBufferToBase64(pdfOutput);
 
+      // Always save to My Files: Documents/BillBuddyReports/Pending_<DD-MM-YYYY>.pdf
+      await savePdfToReportsFolder(fileName, base64Data);
+
+      // Also save to CACHE for sharing
       await Filesystem.writeFile({
         path: fileName,
         data: base64Data,
@@ -442,7 +473,7 @@ export const generatePendingPDF = async (pendingCustomers: CustomerBalance[], to
         dialogTitle: 'Save or Share PDF'
       });
 
-      return { success: true, message: 'PDF ready - choose where to save it!' };
+      return { success: true, message: 'Report saved to My Files and ready to share!' };
     } else {
       doc.save(fileName);
       return { success: true, message: 'Pending amounts report downloaded successfully' };
@@ -496,6 +527,10 @@ export const generateAdvancePDF = async (advanceCustomers: CustomerBalance[], to
       const pdfOutput = doc.output('arraybuffer');
       const base64Data = arrayBufferToBase64(pdfOutput);
 
+      // Always save to My Files: Documents/BillBuddyReports/Advance_<DD-MM-YYYY>.pdf
+      await savePdfToReportsFolder(fileName, base64Data);
+
+      // Also save to CACHE for sharing
       await Filesystem.writeFile({
         path: fileName,
         data: base64Data,
@@ -515,7 +550,7 @@ export const generateAdvancePDF = async (advanceCustomers: CustomerBalance[], to
         dialogTitle: 'Save or Share PDF'
       });
 
-      return { success: true, message: 'PDF ready - choose where to save it!' };
+      return { success: true, message: 'Report saved to My Files and ready to share!' };
     } else {
       doc.save(fileName);
       return { success: true, message: 'Advance amounts report downloaded successfully' };

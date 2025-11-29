@@ -224,10 +224,13 @@ export const ItemMaster: React.FC<ItemMasterProps> = ({ onNavigate }) => {
 
         <Card>
           <CardHeader>
-            <CardTitle>All Items Usage</CardTitle>
+            <CardTitle>All Items Usage ({analytics.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
+            <div 
+              className="space-y-2 overflow-auto"
+              style={{ maxHeight: '400px' }}
+            >
               {analytics.map((item) => (
                 <div key={item.itemId} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded">
                   <div className="flex-1">
@@ -240,6 +243,9 @@ export const ItemMaster: React.FC<ItemMasterProps> = ({ onNavigate }) => {
                   </div>
                 </div>
               ))}
+              {analytics.length === 0 && (
+                <p className="text-center text-muted-foreground py-8">No items found</p>
+              )}
             </div>
           </CardContent>
         </Card>

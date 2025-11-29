@@ -195,9 +195,9 @@ export const EnhancedAnalytics: React.FC<EnhancedAnalyticsProps> = ({ onNavigate
       ];
 
       const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows);
-      // Add Excel formulas for totals
-      summarySheet['B2'].f = 'SUMIF(A:A,"Total Revenue",B:B)';
-      summarySheet['B3'].f = 'SUMIF(A:A,"Total Pending",B:B)';
+      // Add Excel formulas for totals (reference the data sheets)
+      summarySheet['B2'] = { t: 'n', f: `SUM('Revenue Trends'.B:B)` };
+      summarySheet['B3'] = { t: 'n', f: `SUM('Outstanding Payments'.B:B)` };
       XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
 
       // Revenue sheet

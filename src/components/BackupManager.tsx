@@ -106,17 +106,37 @@ export const BackupManager = () => {
               }
             } else {
               // For mobile, save the uploaded file to app storage first
-              const fileName = `restored_backup_${new Date().getTime()}.json`;
+              const timestamp = new Date().getTime();
+              const fileName = `restored_backup_${timestamp}.json`;
+              
+              // Convert content to base64 for Filesystem API
+              const base64Data = btoa(unescape(encodeURIComponent(content)));
+              
+              // Save to DATA directory for internal restore
               await Filesystem.writeFile({
                 path: fileName,
                 data: content,
                 directory: "DATA"
               });
+              
+              // Also save a copy to BillBuddyBackups folder in Documents (My Files)
+              try {
+                const backupFolderPath = `BillBuddyBackups/${fileName}`;
+                await Filesystem.writeFile({
+                  path: backupFolderPath,
+                  data: base64Data,
+                  directory: 'DOCUMENTS' as any,
+                } as any);
+              } catch (saveError) {
+                // If saving to Documents fails, log but don't block restore
+                console.warn('Failed to save backup copy to My Files:', saveError);
+              }
+              
               const result = await restoreFromEnhancedBackup(fileName);
               if (result.success) {
                 toast({
                   title: 'Backup Restored',
-                  description: 'Your backup has been successfully restored.',
+                  description: 'Your backup has been successfully restored and saved to My Files.',
                 });
                 loadBackups();
               } else {
