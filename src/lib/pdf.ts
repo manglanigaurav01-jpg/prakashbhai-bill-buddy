@@ -58,17 +58,7 @@ const savePdfToCustomerFolder = async (
     const safeCustomer = sanitizeFolderName(customerName);
     const customerFolderPath = `${BILLS_ROOT_FOLDER}/${safeCustomer}`;
 
-    // Ensure customer folder exists (ignore error if it already exists)
-    try {
-      await Filesystem.mkdir({
-        path: customerFolderPath,
-        directory: 'DOCUMENTS' as any,
-        recursive: true,
-      } as any);
-    } catch {
-      // best-effort only
-    }
-
+    // writeFile will automatically create the directory structure if it doesn't exist
     await Filesystem.writeFile({
       path: `${customerFolderPath}/${fileName}`,
       data: base64Data,
