@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Search, SortAsc, SortDesc, Edit3, Trash2, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -35,6 +35,11 @@ export const EditPayments: React.FC<EditPaymentsProps> = ({ onNavigate }) => {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [editingAmount, setEditingAmount] = useState<string>('');
   const [showDeleteId, setShowDeleteId] = useState<string | null>(null);
+
+  // Virtualization state for large payment lists
+  const listContainerRef = useRef<HTMLDivElement | null>(null);
+  const [containerHeight] = useState<number>(600);
+  const [startIndex, setStartIndex] = useState<number>(0);
 
   useEffect(() => {
     const loadData = async () => {
@@ -288,33 +293,78 @@ export const EditPayments: React.FC<EditPaymentsProps> = ({ onNavigate }) => {
           </Card>
         )}
 
-        <div className="space-y-3">
-          {filteredSorted.map((p) => (
-            <SwipeableItem
-              key={p.id}
-              onEdit={() => startEdit(p)}
-              onDelete={() => handleDelete(p.id)}
-            >
-              <Card className="hover:shadow-md transition-all duration-200">
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="text-sm text-muted-foreground">{formatDate(new Date(p.date))}</div>
-                    <div className="text-lg font-semibold">{p.customerName}</div>
-                    <div className="text-sm text-muted-foreground">Amount: ₹{p.amount.toFixed(2)}</div>
-                  </div>
-                  <div>
-                    <Button size="sm" variant="outline" onClick={() => startEdit(p)}>
-                      <Edit3 className="w-4 h-4 mr-1" /> Edit
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </SwipeableItem>
-          ))}
-          {filteredSorted.length === 0 && (
+        {/* Payments list - virtualized for performance on large datasets */}
+        <div>
+          {filteredSorted.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center text-muted-foreground">No payments found</CardContent>
             </Card>
+          ) : (
+            <div
+              ref={listContainerRef}
+              className="overflow-auto"
+              style={{ maxHeight: `${containerHeight}px` }}
+              onScroll={(e) => {
+                const el = e.currentTarget as HTMLDivElement;
+                const scrollTop = el.scrollTop;
+                const ITEM_HEIGHT = 96;
+                const newStart = Math.floor(scrollTop / ITEM_HEIGHT);
+                if (newStart !== startIndex) setStartIndex(newStart);
+              }}
+            >
+              {(() => {
+                const ITEM_HEIGHT = 96;
+                const overscan = 6;
+                const totalItems = filteredSorted.length;
+                const containerH = listContainerRef.current
+                  ? listContainerRef.current.getBoundingClientRect().height
+                  : containerHeight;
+                const visibleCount = Math.ceil(containerH / ITEM_HEIGHT) + overscan * 2;
+                const renderStart = Math.max(0, startIndex - overscan);
+                const renderEnd = Math.min(totalItems, renderStart + visibleCount);
+                const topSpacer = renderStart * ITEM_HEIGHT;
+                const bottomSpacer = Math.max(0, (totalItems - renderEnd) * ITEM_HEIGHT);
+                const slice = filteredSorted.slice(renderStart, renderEnd);
+
+                return (
+                  <div>
+                    <div style={{ height: topSpacer }} />
+                    <div className="space-y-3">
+                      {slice.map((p) => (
+                        <SwipeableItem
+                          key={p.id}
+                          onEdit={() => startEdit(p)}
+                          onDelete={() => handleDelete(p.id)}
+                        >
+                          <Card
+                            className="hover:shadow-md transition-all duration-200"
+                            style={{ height: ITEM_HEIGHT }}
+                          >
+                            <CardContent className="p-4 flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="text-sm text-muted-foreground">
+                                  {formatDate(new Date(p.date))}
+                                </div>
+                                <div className="text-lg font-semibold">{p.customerName}</div>
+                                <div className="text-sm text-muted-foreground">
+                                  Amount: ₹{p.amount.toFixed(2)}
+                                </div>
+                              </div>
+                              <div>
+                                <Button size="sm" variant="outline" onClick={() => startEdit(p)}>
+                                  <Edit3 className="w-4 h-4 mr-1" /> Edit
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </SwipeableItem>
+                      ))}
+                    </div>
+                    <div style={{ height: bottomSpacer }} />
+                  </div>
+                );
+              })()}
+            </div>
           )}
         </div>
 

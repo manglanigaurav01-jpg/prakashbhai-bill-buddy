@@ -173,7 +173,33 @@ export const EnhancedAnalytics: React.FC<EnhancedAnalyticsProps> = ({ onNavigate
     
     try {
       const workbook = XLSX.utils.book_new();
-      
+
+      // Summary sheet (first sheet)
+      const totalRevenue = analyticsData.revenues.reduce((sum, r) => sum + r.amount, 0);
+      const totalPending = analyticsData.outstandingPayments.reduce((sum, p) => sum + p.amount, 0);
+      const topCustomers = analyticsData.customerPatterns.slice(0, 5);
+      const topItems = analyticsData.topItems.slice(0, 5);
+
+      const summaryRows: any[][] = [
+        ['Metric', 'Value'],
+        ['Total Revenue', totalRevenue],
+        ['Total Pending', totalPending],
+        [],
+        ['Top Customers'],
+        ['Customer', 'Total Amount'],
+        ...topCustomers.map(c => [c.customer, c.totalAmount]),
+        [],
+        ['Top Items'],
+        ['Item', 'Revenue'],
+        ...topItems.map(i => [i.name, i.revenue]),
+      ];
+
+      const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows);
+      // Add Excel formulas for totals
+      summarySheet['B2'].f = 'SUMIF(A:A,"Total Revenue",B:B)';
+      summarySheet['B3'].f = 'SUMIF(A:A,"Total Pending",B:B)';
+      XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+
       // Revenue sheet
       const revenueData = analyticsData.revenues.map(r => ({
         Date: new Date(r.date).toLocaleDateString(),
@@ -181,6 +207,12 @@ export const EnhancedAnalytics: React.FC<EnhancedAnalyticsProps> = ({ onNavigate
       }));
       if (revenueData.length > 0) {
         const revenueSheet = XLSX.utils.json_to_sheet(revenueData);
+        // Add a total row with formula
+        const lastRow = revenueData.length + 2; // header + 1-based index
+        const totalLabelCell = `A${lastRow}`;
+        const totalValueCell = `B${lastRow}`;
+        (revenueSheet as any)[totalLabelCell] = { t: 's', v: 'Total Revenue' };
+        (revenueSheet as any)[totalValueCell] = { t: 'n', f: `SUM(B2:B${lastRow - 1})` };
         XLSX.utils.book_append_sheet(workbook, revenueSheet, "Revenue Trends");
       }
       

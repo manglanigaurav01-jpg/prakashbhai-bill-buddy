@@ -6,6 +6,7 @@ import { Capacitor } from '@capacitor/core';
 
 // Constants for Filesystem
 const FILESYSTEM_DIR = 'CACHE' as const;
+const BILLS_ROOT_FOLDER = 'BillBuddyBills';
 
 // Helper function for filesystem operations
 // @ts-expect-error - Intentionally unused, kept for future use
@@ -37,6 +38,46 @@ const arrayBufferToBase64 = (buffer: ArrayBuffer): string => {
     binary += String.fromCharCode(bytes[i]);
   }
   return btoa(binary);
+};
+
+// Sanitize folder names so they are safe for filesystem paths
+const sanitizeFolderName = (name: string): string => {
+  return name.replace(/[^a-zA-Z0-9-_]/g, '_') || 'UnknownCustomer';
+};
+
+// Save a copy of the PDF into device storage under:
+// Documents/BillBuddyBills/<CustomerName>/<DD-MM-YYYY>_<BillId>.pdf
+const savePdfToCustomerFolder = async (
+  customerName: string,
+  fileName: string,
+  base64Data: string
+) => {
+  if (!Capacitor.isNativePlatform()) return;
+
+  try {
+    const safeCustomer = sanitizeFolderName(customerName);
+    const customerFolderPath = `${BILLS_ROOT_FOLDER}/${safeCustomer}`;
+
+    // Ensure customer folder exists (ignore error if it already exists)
+    try {
+      await Filesystem.mkdir({
+        path: customerFolderPath,
+        directory: 'DOCUMENTS' as any,
+        recursive: true,
+      } as any);
+    } catch {
+      // best-effort only
+    }
+
+    await Filesystem.writeFile({
+      path: `${customerFolderPath}/${fileName}`,
+      data: base64Data,
+      directory: 'DOCUMENTS' as any,
+    } as any);
+  } catch (e) {
+    // If this fails, we still want the normal share / save flow to work
+    console.error('Failed to save PDF to customer folder:', e);
+  }
 };
 
 export const generateCustomerSummaryPDF = async (customerId: string) => {
@@ -158,7 +199,12 @@ export const generateCustomerSummaryPDF = async (customerId: string) => {
   doc.setFont('helvetica', 'normal');
   doc.text('Thank you for your business!', 105, doc.internal.pageSize.height - 20, { align: 'center' });
 
-  const fileName = `${balance.customerName}_Summary_${new Date().toISOString().split('T')[0]}.pdf`;
+  const today = new Date();
+  const dd = today.getDate().toString().padStart(2, '0');
+  const mm = (today.getMonth() + 1).toString().padStart(2, '0');
+  const yyyy = today.getFullYear();
+  const dateStamp = `${dd}-${mm}-${yyyy}`;
+  const fileName = `${balance.customerName}_${dateStamp}_Summary.pdf`;
 
   try {
     if (Capacitor.isNativePlatform()) {
@@ -299,7 +345,12 @@ export const generateBillPDF = async (bill: Bill) => {
   doc.setFont('helvetica', 'normal');
   doc.text('Thank you for your business!', 105, doc.internal.pageSize.height - 20, { align: 'center' });
 
-  const fileName = `${bill.customerName}_${new Date(bill.date).toISOString().split('T')[0]}_${bill.id}.pdf`;
+  const billDate = new Date(bill.date);
+  const billDd = billDate.getDate().toString().padStart(2, '0');
+  const billMm = (billDate.getMonth() + 1).toString().padStart(2, '0');
+  const billYyyy = billDate.getFullYear();
+  const billDateStamp = `${billDd}-${billMm}-${billYyyy}`;
+  const fileName = `${bill.customerName}_${billDateStamp}_${bill.id}.pdf`;
 
   try {
     if (Capacitor.isNativePlatform()) {
@@ -311,6 +362,9 @@ export const generateBillPDF = async (bill: Bill) => {
         data: base64Data,
         directory: 'CACHE',
       });
+
+      // Also save a persistent copy into Documents/BillBuddyBills/<CustomerName>/
+      await savePdfToCustomerFolder(bill.customerName, fileName, base64Data);
 
       const fileUri = await Filesystem.getUri({
         directory: 'CACHE',
@@ -367,7 +421,12 @@ export const generatePendingPDF = async (pendingCustomers: CustomerBalance[], to
   doc.setFont('helvetica', 'bold');
   doc.text(`Total Pending: Rs. ${totalPending.toFixed(2)}`, 20, finalY);
 
-  const fileName = `Pending_Amounts_${new Date().toISOString().split('T')[0]}.pdf`;
+  const today = new Date();
+  const dd = today.getDate().toString().padStart(2, '0');
+  const mm = (today.getMonth() + 1).toString().padStart(2, '0');
+  const yyyy = today.getFullYear();
+  const dateStamp = `${dd}-${mm}-${yyyy}`;
+  const fileName = `Pending_${dateStamp}.pdf`;
 
   try {
     if (Capacitor.isNativePlatform()) {
@@ -435,7 +494,12 @@ export const generateAdvancePDF = async (advanceCustomers: CustomerBalance[], to
   doc.setFont('helvetica', 'bold');
   doc.text(`Total Advance: Rs. ${totalAdvance.toFixed(2)}`, 20, finalY);
 
-  const fileName = `Advance_Amounts_${new Date().toISOString().split('T')[0]}.pdf`;
+  const today = new Date();
+  const dd = today.getDate().toString().padStart(2, '0');
+  const mm = (today.getMonth() + 1).toString().padStart(2, '0');
+  const yyyy = today.getFullYear();
+  const dateStamp = `${dd}-${mm}-${yyyy}`;
+  const fileName = `Advance_${dateStamp}.pdf`;
 
   try {
     if (Capacitor.isNativePlatform()) {

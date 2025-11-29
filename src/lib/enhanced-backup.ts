@@ -13,6 +13,7 @@ import {
 
 // Filesystem directory constants
 const DATA_DIR = 'DATA';
+const BACKUP_FOLDER = 'BillBuddyBackups';
 import { format } from 'date-fns';
 
 // Web platform backup storage key prefix
@@ -205,15 +206,16 @@ export const createEnhancedBackup = async () => {
     } else {
       // For mobile platforms, save to DOCUMENTS directory and share it
       try {
-        // Save to DOCUMENTS directory (accessible for sharing)
+        // Save to DOCUMENTS directory inside a dedicated folder (visible in file manager)
         const timestamp = new Date().getTime();
         const uniqueFileName = `backup_${timestamp}_${fileName}`;
-        
+        const documentsPath = `${BACKUP_FOLDER}/${uniqueFileName}`;
+
         // Convert JSON string to base64 for Filesystem API
         const base64Data = btoa(unescape(encodeURIComponent(backupJson)));
-        
+
         await Filesystem.writeFile({
-          path: uniqueFileName,
+          path: documentsPath,
           data: base64Data,
           directory: 'DOCUMENTS' as Directory
         });
@@ -225,9 +227,9 @@ export const createEnhancedBackup = async () => {
           directory: DATA_DIR
         });
 
-        // Get file URI for sharing
+        // Get file URI for sharing (points into BillBuddyBackups folder)
         const fileInfo = await Filesystem.getUri({
-          path: uniqueFileName,
+          path: documentsPath,
           directory: 'DOCUMENTS' as Directory
         });
 
@@ -296,7 +298,26 @@ export const restoreFromEnhancedBackup = async (backupFilePath: string) => {
         path: backupFilePath,
         directory: DATA_DIR
       });
-      backupContent = data.toString();
+
+      // Capacitor can return either plain JSON string or base64 data depending on
+      // how the file was originally written. Older backups that were shared via
+      // the FILESYSTEM API may be base64 when you pick them again from "My Files".
+      // Try to parse as JSON first; if that fails, fall back to base64 decoding.
+      const rawContent = data.toString();
+      try {
+        JSON.parse(rawContent);
+        backupContent = rawContent;
+      } catch {
+        try {
+          // Decode base64 → UTF-8 string
+          const decoded = decodeURIComponent(escape(atob(rawContent)));
+          // Ensure the decoded string is valid JSON
+          JSON.parse(decoded);
+          backupContent = decoded;
+        } catch {
+          throw new Error('The selected backup file is not in a supported format. Please select a valid Bill Buddy backup file.');
+        }
+      }
     }
 
     const backup: EnhancedBackupData = JSON.parse(backupContent);

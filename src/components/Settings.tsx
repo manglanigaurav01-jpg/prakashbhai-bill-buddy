@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { initializeAutoBackup } from '@/lib/auto-backup';
 import type { User } from 'firebase/auth';
 import { Separator } from "@/components/ui/separator";
+import { checkDataIntegrity } from "@/lib/enhanced-validation";
 
 interface SettingsProps {
   onNavigate: (view: string) => void;
@@ -34,6 +35,15 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
   const [passwordInput, setPasswordInput] = useState('');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
+  const [integritySummary, setIntegritySummary] = useState<{
+    customers: number;
+    bills: number;
+    payments: number;
+    totalSales: number;
+    totalPaid: number;
+    pending: number;
+    issues: number;
+  } | null>(null);
 
   // Check for existing dark mode preference
   useEffect(() => {
@@ -55,6 +65,37 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
       }
     });
     return () => unsubscribe();
+  }, []);
+
+  // Simple integrity summary (counts + totals) so user can quickly verify data
+  useEffect(() => {
+    try {
+      const customersRaw = localStorage.getItem('prakash_customers');
+      const billsRaw = localStorage.getItem('prakash_bills');
+      const paymentsRaw = localStorage.getItem('prakash_payments');
+
+      const customers = customersRaw ? JSON.parse(customersRaw) : [];
+      const bills = billsRaw ? JSON.parse(billsRaw) : [];
+      const payments = paymentsRaw ? JSON.parse(paymentsRaw) : [];
+
+      const totalSales = bills.reduce((sum: number, b: any) => sum + (b.grandTotal || 0), 0);
+      const totalPaid = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+      const pending = totalSales - totalPaid;
+
+      const integrity = checkDataIntegrity();
+
+      setIntegritySummary({
+        customers: customers.length,
+        bills: bills.length,
+        payments: payments.length,
+        totalSales,
+        totalPaid,
+        pending,
+        issues: integrity.errors.length + integrity.orphanedBills.length + integrity.orphanedPayments.length + integrity.invalidReferences.length,
+      });
+    } catch (e) {
+      console.error('Failed to compute integrity summary', e);
+    }
   }, []);
 
   const handleGoogleSignIn = async () => {
@@ -382,6 +423,64 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
                       Set 4-Digit Password
                     </Button>
                   </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Data Integrity & Summary */}
+            <Card className="shadow-xl border-2 hover:shadow-2xl transition-all duration-300 bg-card/80 backdrop-blur-sm border-primary/20">
+              <CardHeader className="pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/20 text-primary">
+                    <Database className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl">Data Integrity</CardTitle>
+                    <CardDescription>Quick check that your data looks correct</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {integritySummary ? (
+                  <>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+                      <div className="p-3 rounded-lg bg-muted/50">
+                        <p className="text-muted-foreground">Customers</p>
+                        <p className="text-lg font-semibold">{integritySummary.customers}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-muted/50">
+                        <p className="text-muted-foreground">Bills</p>
+                        <p className="text-lg font-semibold">{integritySummary.bills}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-muted/50">
+                        <p className="text-muted-foreground">Payments</p>
+                        <p className="text-lg font-semibold">{integritySummary.payments}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-muted/50 col-span-2 md:col-span-1">
+                        <p className="text-muted-foreground">Total Sales</p>
+                        <p className="text-lg font-semibold">₹{integritySummary.totalSales.toLocaleString()}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-muted/50 col-span-2 md:col-span-1">
+                        <p className="text-muted-foreground">Total Paid</p>
+                        <p className="text-lg font-semibold">₹{integritySummary.totalPaid.toLocaleString()}</p>
+                      </div>
+                      <div className="p-3 rounded-lg bg-muted/50 col-span-2">
+                        <p className="text-muted-foreground">Pending</p>
+                        <p className="text-lg font-semibold">₹{integritySummary.pending.toLocaleString()}</p>
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground flex items-center justify-between mt-2">
+                      <span>
+                        Integrity issues detected:{' '}
+                        {integritySummary.issues === 0
+                          ? 'None'
+                          : `${integritySummary.issues} potential issue${integritySummary.issues > 1 ? 's' : ''}`}
+                      </span>
+                      <span>Use Backup & Restore if something does not look right.</span>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Loading integrity summary...</p>
                 )}
               </CardContent>
             </Card>
