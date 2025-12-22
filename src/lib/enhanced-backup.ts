@@ -211,6 +211,18 @@ export const createEnhancedBackup = async () => {
         const uniqueFileName = `backup_${timestamp}_${fileName}`;
         const documentsPath = `${BACKUP_FOLDER}/${uniqueFileName}`;
 
+        // Ensure the backup folder exists in Documents before writing
+        try {
+          await Filesystem.mkdir({
+            path: BACKUP_FOLDER,
+            directory: 'DOCUMENTS' as Directory,
+            recursive: true
+          });
+        } catch (mkdirErr) {
+          // Ignore if folder already exists or creation is not supported on platform
+          console.warn('Could not create backup folder in Documents, continuing:', mkdirErr);
+        }
+
         // Convert JSON string to base64 for Filesystem API
         const base64Data = btoa(unescape(encodeURIComponent(backupJson)));
 
