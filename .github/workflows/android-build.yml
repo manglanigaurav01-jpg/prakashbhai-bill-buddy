@@ -88,11 +88,9 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps --prefer-offline --no-audit --no-fund
       
-      - name: Install Capacitor plugins
+      - name: Ensure Capacitor deps from package.json
         run: |
-          npm install @capacitor/share@latest
-          npm install @capacitor/filesystem@latest
-          npm install @capacitor/core@latest
+          echo "Using @capacitor/* versions defined in package.json (installed by npm ci)"
       
       - name: Build React app
         env:
