@@ -17,50 +17,53 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   // Menu items are defined inline in the JSX below
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-soft to-accent-soft p-8">
-      <div className="max-w-lg mx-auto">
-        <div className="flex justify-between items-start mb-8">
-          <div className="text-center flex-1">
-            <h1 className="text-3xl font-bold text-foreground mb-2">Prakashbhai</h1>
-            <p className="text-business-gray text-lg">Bill Manager</p>
+    <div className="min-h-screen bg-gradient-to-br from-primary-soft to-accent-soft p-4 sm:p-6 lg:p-8">
+      <div className="max-w-sm sm:max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-6xl mx-auto">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 gap-4">
+          <div className="text-center sm:text-left flex-1">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-2">Prakashbhai</h1>
+            <p className="text-business-gray text-base sm:text-lg">Bill Manager</p>
           </div>
-          <div className="flex gap-2 ml-4">
+          <div className="flex gap-2 w-full sm:w-auto justify-center sm:justify-end">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setShowGlobalSearch(true)}
-              className="transition-all duration-200 hover:scale-105"
+              className="transition-all duration-200 hover:scale-105 flex-1 sm:flex-none"
             >
               <Search className="w-4 h-4" />
+              <span className="hidden sm:inline ml-2">Search</span>
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={toggleTheme}
-              className="transition-all duration-200 hover:scale-105"
+              className="transition-all duration-200 hover:scale-105 flex-1 sm:flex-none"
             >
               {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              <span className="hidden sm:inline ml-2">{isDarkMode ? 'Light' : 'Dark'}</span>
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => onNavigate('settings')}
+              className="flex-1 sm:flex-none"
             >
-              <SettingsIcon className="w-4 h-4 mr-2" />
-              Settings
+              <SettingsIcon className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Settings</span>
             </Button>
           </div>
         </div>
-        
-        <GlobalSearch 
-          open={showGlobalSearch} 
+
+        <GlobalSearch
+          open={showGlobalSearch}
           onOpenChange={setShowGlobalSearch}
           onNavigate={onNavigate}
         />
-        
+
         <Card className="shadow-lg">
-          <CardContent className="p-8">
-            <div className="grid grid-cols-2 gap-4">
+          <CardContent className="p-4 sm:p-6 lg:p-8">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
               <Button
                 variant="outline"
                 size="lg"

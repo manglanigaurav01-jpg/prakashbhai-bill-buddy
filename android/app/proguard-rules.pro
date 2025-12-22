@@ -19,3 +19,16 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Capacitor platform files
+-keep class com.getcapacitor.** { *; }
+-keep class androidx.appcompat.** { *; }
+-keep class com.google.android.material.** { *; }
+
+# Firebase
+-keep class com.google.firebase.** { *; }
+-keep class com.google.android.gms.** { *; }
+
+# React Native/WebView
+-keep class org.apache.cordova.** { *; }
+-keep class android.webkit.** { *; }

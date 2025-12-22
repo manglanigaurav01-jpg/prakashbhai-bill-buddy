@@ -16,6 +16,13 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  optimizeDeps: {
+    exclude: [
+      '@sentry/react',
+      '@capacitor/haptics',
+      '@codetrix-studio/capacitor-google-auth'
+    ],
+  },
   build: {
     rollupOptions: {
       external: (id) => {
