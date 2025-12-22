@@ -19,6 +19,7 @@ declare module '@capacitor/filesystem' {
     writeFile(options: { path: string; data: string; directory: Directory }): Promise<{ uri: string }>;
     readFile(options: { path: string; directory: Directory }): Promise<{ data: string }>;
     getUri(options: { path: string; directory: Directory }): Promise<{ uri: string }>;
+    mkdir(options: { path: string; directory?: Directory; recursive?: boolean }): Promise<void>;
   }
 
   export const Filesystem: FilesystemPlugin;
