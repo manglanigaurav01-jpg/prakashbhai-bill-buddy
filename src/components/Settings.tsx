@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertTriangle, ArrowLeft, Moon, Sun, Trash2, User as UserIcon, Shield, Database, Cloud, Settings as SettingsIcon, Lock, RefreshCw } from "lucide-react";
-import { signInWithGoogle, signOutUser, onAuthStateChanged } from '@/lib/auth';
+import { signInWithGoogle, signOutUser, onAuthStateChanged, clearAuthSessionState } from '@/lib/auth';
 import { AutoSync } from "./AutoSync";
 import { useToast } from "@/hooks/use-toast";
 import { Filesystem, Directory } from '@capacitor/filesystem';
@@ -101,6 +101,9 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
   const handleGoogleSignIn = async () => {
     setIsSigningIn(true);
     try {
+      // Clear any problematic auth session state before signing in
+      clearAuthSessionState();
+
       // Add a safety timeout to ensure loading state is reset
       const timeoutId = setTimeout(() => {
         setIsSigningIn(false);

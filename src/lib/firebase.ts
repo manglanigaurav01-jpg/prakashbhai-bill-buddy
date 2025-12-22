@@ -43,7 +43,7 @@ export const initFirebase = (): FirebaseServices | null => {
 export const firebaseSignInWithGoogle = async (): Promise<User> => {
   const services = initFirebase();
   if (!services) throw new Error('FIREBASE_NOT_CONFIGURED');
-  
+
   try {
     // Always use signInWithPopup for both web and mobile
     services.googleProvider.setCustomParameters({
@@ -54,20 +54,24 @@ export const firebaseSignInWithGoogle = async (): Promise<User> => {
       redirect_uri: window.location.origin
     });
 
-    // Clear any existing auth state
+    // Clear any existing auth state to prevent session conflicts
     await fbSignOut(services.auth);
-    
+
+    // Clear any stored auth state
+    localStorage.removeItem('auth_user');
+    localStorage.removeItem('cloud_user_v1');
+
     // Add timeout to prevent infinite loading
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error('Sign-in timeout. Please try again.')), 60000); // 60 second timeout
     });
-    
+
     // Use popup signin for all platforms
     const signInPromise = signInWithPopup(services.auth, services.googleProvider);
-    
+
     // Race between sign-in and timeout
     const result = await Promise.race([signInPromise, timeoutPromise]) as any;
-    
+
     if (!result?.user) {
       throw new Error('No user data received from Google');
     }
@@ -84,23 +88,24 @@ export const firebaseSignInWithGoogle = async (): Promise<User> => {
 
   } catch (error: any) {
     console.error('Google sign-in error:', error);
-    
+
     // Clear any problematic auth state
     localStorage.removeItem('auth_user');
+    localStorage.removeItem('cloud_user_v1');
     await fbSignOut(services.auth);
 
     if (error.code === 'auth/popup-closed-by-user') {
       throw new Error('Sign-in cancelled');
     }
-    
+
     if (error.code === 'auth/popup-blocked') {
       throw new Error('Popup was blocked. Please allow popups and try again.');
     }
-    
+
     if (error.message?.includes('timeout')) {
       throw new Error('Sign-in timed out. Please try again.');
     }
-    
+
     throw new Error(error.message || 'Sign-in failed. Please try again.');
   }
 };

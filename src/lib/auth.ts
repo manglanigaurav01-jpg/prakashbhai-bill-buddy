@@ -1,11 +1,17 @@
-import { getAuth, signInWithPopup, signInWithCredential, GoogleAuthProvider, signOut } from 'firebase/auth';
-import { initializeApp } from 'firebase/app';
+import { getAuth, signInWithPopup, signInWithCredential, GoogleAuthProvider, signOut, connectAuthEmulator } from 'firebase/auth';
+import { initializeApp, getApps } from 'firebase/app';
 import { FIREBASE_CONFIG } from './firebase.config';
 import { Capacitor } from '@capacitor/core';
 
-// Initialize Firebase
-const app = initializeApp(FIREBASE_CONFIG);
+// Initialize Firebase - ensure only one instance
+const app = getApps().length ? getApps()[0] : initializeApp(FIREBASE_CONFIG);
 const auth = getAuth(app);
+
+// Clear any existing auth state on initialization to prevent session conflicts
+if (typeof window !== 'undefined') {
+  // Clear Firebase auth persistence issues
+  auth.signOut().catch(() => {});
+}
 
 export const signInWithGoogle = async () => {
   try {
@@ -95,4 +101,25 @@ export const getCurrentUser = () => {
 
 export const onAuthStateChanged = (callback: (user: any) => void) => {
   return auth.onAuthStateChanged(callback);
+};
+
+export const clearAuthSessionState = async () => {
+  try {
+    // Clear any existing auth state to prevent session conflicts
+    await signOut(auth);
+
+    // Clear any stored auth state
+    localStorage.removeItem('auth_user');
+    localStorage.removeItem('cloud_user_v1');
+
+    // Clear any Firebase session storage issues
+    if (typeof window !== 'undefined') {
+      // Clear Firebase auth persistence issues
+      sessionStorage.clear();
+    }
+
+    console.log('Auth session state cleared successfully');
+  } catch (error) {
+    console.error('Error clearing auth session state:', error);
+  }
 };
