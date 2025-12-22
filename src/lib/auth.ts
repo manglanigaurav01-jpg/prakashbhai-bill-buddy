@@ -1,4 +1,4 @@
-import { getAuth, signInWithPopup, signInWithCredential, GoogleAuthProvider, signOut, connectAuthEmulator } from 'firebase/auth';
+import { getAuth, signInWithPopup, signInWithCredential, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { initializeApp, getApps } from 'firebase/app';
 import { FIREBASE_CONFIG } from './firebase.config';
 import { Capacitor } from '@capacitor/core';
