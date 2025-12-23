@@ -1,5 +1,5 @@
 // Unit tests for backup and restore functions
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { createEnhancedBackup, restoreFromEnhancedBackup } from '../lib/enhanced-backup';
 import * as storage from '../lib/storage';
 
@@ -48,12 +48,12 @@ describe('Backup and Restore', () => {
     localStorageMock.clear();
 
     // Setup mock return values for storage functions
-    (storage.getCustomers as vi.Mock).mockReturnValue(mockCustomers);
-    (storage.getBills as vi.Mock).mockReturnValue(mockBills);
-    (storage.getPayments as vi.Mock).mockReturnValue(mockPayments);
-    (storage.getItems as vi.Mock).mockReturnValue(mockItems);
-    (storage.getRateHistory as vi.Mock).mockReturnValue(mockRateHistory);
-    (storage.getBusinessAnalytics as vi.Mock).mockReturnValue(mockAnalytics);
+    (storage.getCustomers as Mock).mockReturnValue(mockCustomers);
+    (storage.getBills as Mock).mockReturnValue(mockBills);
+    (storage.getPayments as Mock).mockReturnValue(mockPayments);
+    (storage.getItems as Mock).mockReturnValue(mockItems);
+    (storage.getRateHistory as Mock).mockReturnValue(mockRateHistory);
+    (storage.getBusinessAnalytics as Mock).mockReturnValue(mockAnalytics);
   });
 
   it('should create a valid backup', async () => {
