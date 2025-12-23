@@ -338,158 +338,31 @@ export const createEnhancedBackup = async () => {
   }
 };
 
-// Enhanced restore function
-export const restoreFromEnhancedBackup = async (backupFilePath: string) => {
+export const restoreFromEnhancedBackup = async (backupFileContent: string) => {
   try {
     const isWeb = Capacitor.getPlatform() === 'web';
     let backupContent: string = '';
 
     if (isWeb) {
       // For web, check if it's a localStorage key or a file upload
-      if (backupFilePath.startsWith(WEB_BACKUP_PREFIX)) {
+      if (backupFileContent.startsWith(WEB_BACKUP_PREFIX)) {
         // It's a localStorage key
-        const stored = localStorage.getItem(backupFilePath);
+        const stored = localStorage.getItem(backupFileContent);
         if (!stored) {
           throw new Error('Backup not found in storage');
         }
         backupContent = stored;
       } else {
-        // It might be a file that was uploaded - try to read it
-        // If it's a blob URL or file object, we need to handle it differently
-        // For now, assume it's already JSON content
-        backupContent = stripBomAndTrim(backupFilePath);
+        // It's a file that was uploaded, so the content is passed directly
+        backupContent = stripBomAndTrim(backupFileContent);
       }
     } else {
-      // For mobile, use Filesystem API
-      const { data } = await Filesystem.readFile({
-        path: backupFilePath,
-        directory: DATA_DIR
-      });
+      // For mobile, we also expect the file content directly
+      backupContent = stripBomAndTrim(backupFileContent);
+    }
 
-      // Capacitor may return different encodings depending on how the file
-      // was created and where it was picked from. Accept the following:
-      // - Plain JSON text
-      // - Base64 of UTF-8 encoded JSON (common when file was written with base64)
-      // - data: URI with base64 payload
-      // Be tolerant of BOM, whitespace and line endings.
-      const rawContent = (data || '').toString();
-
-      const tryParseJson = (s: string) => {
-        try {
-          JSON.parse(s);
-          return true;
-        } catch {
-          return false;
-        }
-      };
-
-      let candidate = stripBomAndTrim(rawContent);
-
-      // If it's a data URI like data:application/json;base64,AAAA
-      const dataUriMatch = candidate.match(/^data:\w+\/[\w+.-]+;base64,(.+)$/i);
-      if (dataUriMatch && dataUriMatch[1]) {
-        candidate = dataUriMatch[1];
-      }
-
-      // If candidate looks like plain JSON, accept it immediately
-      if (candidate.startsWith('{') || candidate.startsWith('[')) {
-        if (tryParseJson(candidate)) {
-          backupContent = candidate;
-        } else {
-          // Might still be base64-encoded JSON that starts with printable characters
-          try {
-            const decoded = decodeURIComponent(escape(atob(candidate)));
-            if (tryParseJson(decoded)) {
-              backupContent = decoded;
-            } else {
-              throw new Error('Invalid JSON');
-            }
-          } catch (e) {
-            throw new Error('The selected backup file is not in a supported format. Please select a valid Bill Buddy backup file.');
-          }
-        }
-      } else {
-        // Not starting with JSON punctuation — treat as base64 or garbage.
-        // Remove any whitespace/newlines from base64 candidate
-        const base64Candidate = candidate.replace(/\s+/g, '');
-        // Basic base64 detection: only base64 chars and length mod 4
-        const isProbablyBase64 = /^[A-Za-z0-9+/=]+$/.test(base64Candidate) && (base64Candidate.length % 4 === 0);
-
-        if (isProbablyBase64) {
-          try {
-            // Convert base64 to Uint8Array
-            const binStr = atob(base64Candidate);
-            const len = binStr.length;
-            const bytes = new Uint8Array(len);
-            for (let i = 0; i < len; i++) bytes[i] = binStr.charCodeAt(i);
-
-            // Detect gzip (0x1f,0x8b)
-            if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
-              try {
-                const inflated = pako.inflate(bytes);
-                const text = new TextDecoder('utf-8').decode(inflated);
-                if (tryParseJson(text)) {
-                  backupContent = text;
-                }
-              } catch (gzErr) {
-                console.warn('Gzip inflate failed during restore detection:', gzErr);
-              }
-            }
-
-            // Detect BOM for UTF-16 (LE/BE)
-            if (!backupContent && bytes.length >= 2) {
-              if (bytes[0] === 0xff && bytes[1] === 0xfe) {
-                // UTF-16 LE
-                try {
-                  const text = new TextDecoder('utf-16le').decode(bytes);
-                  if (tryParseJson(text)) {
-                    backupContent = text;
-                  }
-                } catch (utf16Err) {
-                  console.warn('UTF-16LE decode failed:', utf16Err);
-                }
-              } else if (bytes[0] === 0xfe && bytes[1] === 0xff) {
-                // UTF-16 BE
-                try {
-                  const text = new TextDecoder('utf-16be').decode(bytes);
-                  if (tryParseJson(text)) {
-                    backupContent = text;
-                  }
-                } catch (utf16Err) {
-                  console.warn('UTF-16BE decode failed:', utf16Err);
-                }
-              }
-            }
-
-            // Fallback: try UTF-8 decode from bytes
-            if (!backupContent) {
-              try {
-                const textUtf8 = new TextDecoder('utf-8').decode(bytes);
-                if (tryParseJson(textUtf8)) {
-                  backupContent = textUtf8;
-                }
-              } catch (utf8Err) {
-                console.warn('UTF-8 decode from bytes failed:', utf8Err);
-              }
-            }
-
-            // Last fallback: treat atob result as string and try parsing
-            if (!backupContent) {
-              const decodedStr = binStr;
-              if (tryParseJson(decodedStr)) {
-                backupContent = decodedStr;
-              } else {
-                throw new Error('Decoded base64 is not valid JSON');
-              }
-            }
-          } catch (e) {
-            throw new Error('The selected backup file is not in a supported format. Please select a valid Bill Buddy backup file.');
-          }
-        } else {
-          // Not JSON nor base64 — give helpful error
-          throw new Error('The selected backup file is not in a supported format. Please select a valid Bill Buddy backup file.');
-        }
-      }
+    if (!backupContent) {
+      throw new Error('The selected backup file is empty or could not be read.');
     }
 
     const backup: EnhancedBackupData = JSON.parse(backupContent);
@@ -497,16 +370,16 @@ export const restoreFromEnhancedBackup = async (backupFilePath: string) => {
     // Validate backup structure and checksum
     const calculatedChecksum = calculateChecksum(JSON.stringify(backup.data));
     if (calculatedChecksum !== backup.metadata.checksum) {
-      throw new Error('Backup checksum validation failed');
+      throw new Error('Backup checksum validation failed. The file may be corrupt or altered.');
     }
 
     // Store all data
-    localStorage.setItem('prakash_customers', JSON.stringify(backup.data.customers));
-    localStorage.setItem('prakash_bills', JSON.stringify(backup.data.bills));
-    localStorage.setItem('prakash_payments', JSON.stringify(backup.data.payments));
-    localStorage.setItem('prakash_items', JSON.stringify(backup.data.items));
-    localStorage.setItem('prakash_item_rate_history', JSON.stringify(backup.data.itemRateHistory));
-    localStorage.setItem('prakash_business_analytics', JSON.stringify(backup.data.businessAnalytics));
+    localStorage.setItem('prakash_customers', JSON.stringify(backup.data.customers || []));
+    localStorage.setItem('prakash_bills', JSON.stringify(backup.data.bills || []));
+    localStorage.setItem('prakash_payments', JSON.stringify(backup.data.payments || []));
+    localStorage.setItem('prakash_items', JSON.stringify(backup.data.items || []));
+    localStorage.setItem('prakash_item_rate_history', JSON.stringify(backup.data.itemRateHistory || []));
+    localStorage.setItem('prakash_business_analytics', JSON.stringify(backup.data.businessAnalytics || {}));
 
     // Trigger storage event for components to refresh
     window.dispatchEvent(new Event('storage'));
@@ -518,10 +391,21 @@ export const restoreFromEnhancedBackup = async (backupFilePath: string) => {
     };
   } catch (error) {
     console.error('Backup restoration failed:', error);
+    
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    if (errorMessage.includes('JSON.parse')) {
+      return {
+        success: false,
+        message: 'The selected backup file is not in a valid JSON format.',
+        error: errorMessage
+      };
+    }
+
     return {
       success: false,
-      message: 'Failed to restore backup',
-      error: error instanceof Error ? error.message : String(error)
+      message: errorMessage,
+      error: errorMessage
     };
   }
 };

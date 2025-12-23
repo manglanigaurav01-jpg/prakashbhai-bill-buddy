@@ -1,12 +1,32 @@
 import { useEffect, useRef } from 'react';
 import { App } from '@capacitor/app';
 
-export function useMobileNavigation(setCurrentView: (view: string) => void) {
-  const navigationStack = useRef<string[]>(['dashboard']);
+// Define view types
+type View =
+  | 'dashboard'
+  | 'createBill'
+  | 'customers'
+  | 'balance'
+  | 'amountTracker'
+  | 'lastBalance'
+  | 'totalBusiness'
+  | 'itemMaster'
+  | 'editBills'
+  | 'editPayments'
+  | 'settings'
+  | 'analytics'
+  | 'balanceHistory'
+  | 'recycleBin'
+  | 'statistics';
+
+export function useMobileNavigation(setCurrentView: (view: View) => void) {
+  const navigationStack = useRef<View[]>(['dashboard']);
 
   useEffect(() => {
     // Listen for back button events
-    const backButtonListener = App.addListener('backButton', () => {
+    let listenerHandle: any = null;
+
+    App.addListener('backButton', () => {
       // If we have more than one view in the stack, go back
       if (navigationStack.current.length > 1) {
         navigationStack.current.pop(); // Remove current view
@@ -17,14 +37,18 @@ export function useMobileNavigation(setCurrentView: (view: string) => void) {
         // This prevents the app from closing unexpectedly
         App.exitApp();
       }
+    }).then((handle) => {
+      listenerHandle = handle;
     });
 
     return () => {
-      backButtonListener.remove();
+      if (listenerHandle) {
+        listenerHandle.remove();
+      }
     };
   }, [setCurrentView]);
 
-  const navigateTo = (view: string) => {
+  const navigateTo = (view: View) => {
     // Add current view to stack before navigating
     const currentView = navigationStack.current[navigationStack.current.length - 1];
     if (currentView !== view) {
