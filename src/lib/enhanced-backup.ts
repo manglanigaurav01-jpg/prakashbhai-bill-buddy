@@ -69,6 +69,9 @@ const calculateChecksum = (data: string): string => {
   return hash.toString(16);
 };
 
+// Function to strip BOM and trim
+const stripBomAndTrim = (s: string) => s.replace(/^\uFEFF/, '').trim();
+
 // Function to get all data with validation
 const getAllData = () => {
   const customers = getCustomers();
@@ -354,7 +357,7 @@ export const restoreFromEnhancedBackup = async (backupFilePath: string) => {
         // It might be a file that was uploaded - try to read it
         // If it's a blob URL or file object, we need to handle it differently
         // For now, assume it's already JSON content
-        backupContent = backupFilePath;
+        backupContent = stripBomAndTrim(backupFilePath);
       }
     } else {
       // For mobile, use Filesystem API
@@ -379,8 +382,6 @@ export const restoreFromEnhancedBackup = async (backupFilePath: string) => {
           return false;
         }
       };
-
-      const stripBomAndTrim = (s: string) => s.replace(/^\uFEFF/, '').trim();
 
       let candidate = stripBomAndTrim(rawContent);
 
