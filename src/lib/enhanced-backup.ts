@@ -140,7 +140,7 @@ export const createEnhancedBackup = async () => {
   try {
     // Get and validate all data
     const allData = getAllData();
-    
+
     // Create backup object with all data
     const backup: EnhancedBackupData = {
       version: '2.0.0',
@@ -169,17 +169,17 @@ export const createEnhancedBackup = async () => {
 
     // Handle web platform differently
     const isWeb = Capacitor.getPlatform() === 'web';
-    
+
     if (isWeb) {
       // For web platform, store in localStorage and create download blob
       try {
         const storageKey = `${WEB_BACKUP_PREFIX}${fileName}`;
         localStorage.setItem(storageKey, backupJson);
-        
+
         // Create blob URL for download
         const blob = new Blob([backupJson], { type: 'application/json' });
         uri = URL.createObjectURL(blob);
-        
+
         // Trigger download
         const link = document.createElement('a');
         link.href = uri;
@@ -187,9 +187,9 @@ export const createEnhancedBackup = async () => {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-        
+
         // Clean up old web backups
-          cleanupOldBackups();
+        cleanupOldBackups();
       } catch (webError) {
         console.error('Web backup storage failed:', webError);
         // Still try to provide download even if localStorage fails

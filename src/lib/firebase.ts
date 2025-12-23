@@ -13,7 +13,7 @@ let services: FirebaseServices | null = null;
 
 export const initFirebase = (): FirebaseServices | null => {
   if (services) return services;
-  
+
   // Use the main Firebase config
   const config = {
     apiKey: "AIzaSyCD-kUBQCrz7kuNYHewynw1-8blwZsQb4w",
@@ -24,20 +24,25 @@ export const initFirebase = (): FirebaseServices | null => {
     appId: "1:491579424292:android:93a7e573e3498a6cdee2b1"
   };
 
-  const app = getApps().length ? getApps()[0] : initializeApp(config);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
-  const googleProvider = new GoogleAuthProvider();
-  
-  // Configure Google provider for better compatibility
-  googleProvider.addScope('email');
-  googleProvider.addScope('profile');
-  googleProvider.setCustomParameters({
-    prompt: 'select_account'
-  });
-  
-  services = { app, auth, db, googleProvider };
-  return services;
+  try {
+    const app = getApps().length ? getApps()[0] : initializeApp(config);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const googleProvider = new GoogleAuthProvider();
+
+    // Configure Google provider for better compatibility
+    googleProvider.addScope('email');
+    googleProvider.addScope('profile');
+    googleProvider.setCustomParameters({
+      prompt: 'select_account'
+    });
+
+    services = { app, auth, db, googleProvider };
+    return services;
+  } catch (error) {
+    console.error('Firebase initialization failed:', error);
+    return null;
+  }
 };
 
 export const firebaseSignInWithGoogle = async (): Promise<User> => {
