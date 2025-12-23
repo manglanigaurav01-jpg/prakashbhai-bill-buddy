@@ -7,12 +7,6 @@ import { Capacitor } from '@capacitor/core';
 const app = getApps().length ? getApps()[0] : initializeApp(FIREBASE_CONFIG);
 const auth = getAuth(app);
 
-// Clear any existing auth state on initialization to prevent session conflicts
-if (typeof window !== 'undefined') {
-  // Clear Firebase auth persistence issues
-  auth.signOut().catch(() => {});
-}
-
 export const signInWithGoogle = async () => {
   try {
     if (Capacitor.isNativePlatform()) {
