@@ -12,21 +12,32 @@ export const createSimpleBackup = async () => {
       version: '1.0.0'
     };
 
+    console.log('Backup data:', data); // Debug log
+
     const backupJson = JSON.stringify(data, null, 2);
     const fileName = `billbuddy_backup_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`;
+
+    console.log('Backup JSON length:', backupJson.length); // Debug log
 
     // Create download link for web
     const blob = new Blob([backupJson], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
 
+    console.log('Blob URL created:', url); // Debug log
+
     const link = document.createElement('a');
     link.href = url;
     link.download = fileName;
+    link.style.display = 'none';
     document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
 
-    URL.revokeObjectURL(url);
+    // Use setTimeout to ensure DOM is ready
+    setTimeout(() => {
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      console.log('Download triggered for file:', fileName); // Debug log
+    }, 100);
 
     return {
       success: true,
@@ -34,6 +45,7 @@ export const createSimpleBackup = async () => {
       fileName
     };
   } catch (error) {
+    console.error('Backup creation error:', error); // Debug log
     return {
       success: false,
       message: 'Failed to create backup',
