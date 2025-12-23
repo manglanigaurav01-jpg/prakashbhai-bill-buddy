@@ -1,5 +1,5 @@
 // Unit tests for backup and restore functions
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createEnhancedBackup, restoreFromEnhancedBackup } from '../lib/enhanced-backup';
 import * as storage from '../lib/storage';
 
