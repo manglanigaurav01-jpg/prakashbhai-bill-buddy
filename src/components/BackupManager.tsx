@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { createSimpleBackup, restoreSimpleBackup } from '@/lib/simple-backup';
+import { createSimpleBackup, createComprehensiveBackup, createFolderBasedBackup, restoreSimpleBackup } from '@/lib/simple-backup';
 import { useToast } from '@/components/ui/use-toast';
-import { Download, Upload, RefreshCw } from 'lucide-react';
+import { Download, Upload, RefreshCw, FileText, Users, Receipt, CreditCard, Folder } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
+import { Badge } from '@/components/ui/badge';
 
 export const BackupManager = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -97,6 +98,30 @@ export const BackupManager = () => {
     }
   };
 
+  const handleCreateComprehensiveBackup = async () => {
+    setIsLoading(true);
+    try {
+      const result = await createComprehensiveBackup();
+      if (result.success) {
+        toast({
+          title: "Comprehensive Backup Created",
+          description: result.message || "Complete backup with all customer data, bills, payments, and balance PDFs has been created."
+        });
+        setLastBackup(new Date().toISOString());
+      } else {
+        throw new Error(result.message || 'Failed to create comprehensive backup');
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Comprehensive Backup Failed",
+        description: error instanceof Error ? error.message : "Failed to create comprehensive backup"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
 
 
   return (
@@ -107,12 +132,12 @@ export const BackupManager = () => {
           <CardDescription>Create backups and restore your data from JSON files</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div className="flex justify-between items-center">
               <div>
                 <h3 className="text-sm font-medium">Last Backup</h3>
                 <p className="text-sm text-muted-foreground">
-                  {lastBackup 
+                  {lastBackup
                     ? new Date(lastBackup).toLocaleString()
                     : "No backups available"}
                 </p>
@@ -122,23 +147,136 @@ export const BackupManager = () => {
                   </p>
                 )}
               </div>
-              <Button 
-                onClick={handleCreateBackup} 
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <Download className="h-4 w-4 mr-2" />
-                )}
-                Create Backup
-              </Button>
             </div>
 
-            <div className="flex gap-4">
+            {/* Backup Options */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-medium">Choose Backup Type</h4>
+
+              {/* Simple Backup */}
+              <div className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <FileText className="h-5 w-5 text-blue-500" />
+                    <div>
+                      <h5 className="font-medium">Simple Backup</h5>
+                      <p className="text-sm text-muted-foreground">Basic data backup (customers, bills, payments, items)</p>
+                    </div>
+                  </div>
+                  <Badge variant="secondary">Fast</Badge>
+                </div>
+                <Button
+                  onClick={handleCreateBackup}
+                  disabled={isLoading}
+                  className="w-full"
+                  variant="outline"
+                >
+                  {isLoading ? (
+                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-2" />
+                  )}
+                  Create Simple Backup
+                </Button>
+              </div>
+
+              {/* Comprehensive Backup */}
+              <div className="border rounded-lg p-4 space-y-3 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex gap-1">
+                      <Users className="h-4 w-4 text-green-600" />
+                      <Receipt className="h-4 w-4 text-blue-600" />
+                      <CreditCard className="h-4 w-4 text-purple-600" />
+                      <FileText className="h-4 w-4 text-orange-600" />
+                    </div>
+                    <div>
+                      <h5 className="font-medium">Comprehensive Backup</h5>
+                      <p className="text-sm text-muted-foreground">Complete backup with customer details, bills, payments, and balance PDFs</p>
+                    </div>
+                  </div>
+                  <Badge variant="default">Complete</Badge>
+                </div>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-3 w-3" />
+                    <span>All customer names and details</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Receipt className="h-3 w-3" />
+                    <span>Bills with item names, dates, totals, and quantities</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="h-3 w-3" />
+                    <span>Payment amounts and dates for all customers</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-3 w-3" />
+                    <span>Last balance PDFs for all customers</span>
+                  </div>
+                </div>
+                <Button
+                  onClick={handleCreateComprehensiveBackup}
+                  disabled={isLoading}
+                  className="w-full"
+                >
+                  {isLoading ? (
+                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-2" />
+                  )}
+                  Create Comprehensive Backup
+                </Button>
+              </div>
+
+              {/* Folder-Based Backup */}
+              <div className="border rounded-lg p-4 space-y-3 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Folder className="h-5 w-5 text-purple-600" />
+                    <div>
+                      <h5 className="font-medium">Folder-Based Backup</h5>
+                      <p className="text-sm text-muted-foreground">Organized backup with customer folders containing individual bill PDFs</p>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="border-purple-300 text-purple-700">Organized</Badge>
+                </div>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Folder className="h-3 w-3" />
+                    <span>Main backup folder in "My Files"</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Users className="h-3 w-3" />
+                    <span>Customer-named subfolders</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-3 w-3" />
+                    <span>Individual bill PDFs inside each customer folder</span>
+                  </div>
+                </div>
+                <Button
+                  onClick={handleCreateFolderBasedBackup}
+                  disabled={isLoading}
+                  className="w-full"
+                  variant="outline"
+                >
+                  {isLoading ? (
+                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Folder className="h-4 w-4 mr-2" />
+                  )}
+                  Create Folder-Based Backup
+                </Button>
+              </div>
+            </div>
+
+            {/* Restore Section */}
+            <div className="border-t pt-4">
+              <h4 className="text-sm font-medium mb-3">Restore Data</h4>
               <Button variant="outline" onClick={handleUploadBackup} disabled={isLoading}>
                 <Upload className="h-4 w-4 mr-2" />
-                {isLoading ? 'Uploading...' : 'Upload Backup'}
+                {isLoading ? 'Uploading...' : 'Upload & Restore Backup'}
               </Button>
             </div>
           </div>
