@@ -17,19 +17,19 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   // Menu items are defined inline in the JSX below
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-soft to-accent-soft p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-primary-soft to-accent-soft p-3 sm:p-4 md:p-6 lg:p-8">
       <div className="max-w-sm sm:max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-6xl mx-auto">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 gap-4">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 lg:mb-8 gap-3 sm:gap-4">
           <div className="text-center sm:text-left flex-1">
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-2">Prakashbhai</h1>
-            <p className="text-business-gray text-base sm:text-lg">Bill Manager</p>
+            <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-foreground mb-1 sm:mb-2">Prakashbhai</h1>
+            <p className="text-business-gray text-sm sm:text-base md:text-lg">Bill Manager</p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto justify-center sm:justify-end">
             <Button
               variant="outline"
               size="sm"
               onClick={() => setShowGlobalSearch(true)}
-              className="transition-all duration-200 hover:scale-105 flex-1 sm:flex-none"
+              className="transition-all duration-200 hover:scale-105 flex-1 sm:flex-none px-3 sm:px-4"
             >
               <Search className="w-4 h-4" />
               <span className="hidden sm:inline ml-2">Search</span>
@@ -38,7 +38,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               variant="outline"
               size="sm"
               onClick={toggleTheme}
-              className="transition-all duration-200 hover:scale-105 flex-1 sm:flex-none"
+              className="transition-all duration-200 hover:scale-105 flex-1 sm:flex-none px-3 sm:px-4"
             >
               {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               <span className="hidden sm:inline ml-2">{isDarkMode ? 'Light' : 'Dark'}</span>
@@ -47,7 +47,7 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
               variant="outline"
               size="sm"
               onClick={() => onNavigate('settings')}
-              className="flex-1 sm:flex-none"
+              className="flex-1 sm:flex-none px-3 sm:px-4"
             >
               <SettingsIcon className="w-4 h-4 sm:mr-2" />
               <span className="hidden sm:inline">Settings</span>

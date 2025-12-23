@@ -301,24 +301,25 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-soft via-background to-accent-soft p-4 md:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-primary-soft via-background to-accent-soft p-3 sm:p-4 md:p-6">
       <div className="max-w-4xl mx-auto">
         {/* Enhanced Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-6 sm:mb-8">
+          <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
             <Button
               variant="ghost"
-              size="icon"
+              size="sm"
               onClick={() => onNavigate('dashboard')}
               className="rounded-full hover:bg-primary/10"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              <span className="hidden sm:inline">Back</span>
             </Button>
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            <div className="flex-1 sm:flex-none">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                 Settings
               </h1>
-              <p className="text-sm text-muted-foreground mt-1">Manage your app preferences and data</p>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">Manage your app preferences and data</p>
             </div>
           </div>
           <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-card/50 backdrop-blur-sm rounded-full border">
@@ -327,7 +328,7 @@ export const Settings = ({ onNavigate }: SettingsProps) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
           {/* Left Column - Main Settings */}
           <div className="lg:col-span-2 space-y-6">
             {/* Appearance Settings */}

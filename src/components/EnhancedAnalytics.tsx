@@ -308,15 +308,15 @@ export const EnhancedAnalytics: React.FC<EnhancedAnalyticsProps> = ({ onNavigate
   };
 
   return (
-    <div className="p-4">
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" onClick={() => onNavigate('dashboard')}>
+    <div className="p-3 sm:p-4 md:p-6">
+      <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
+          <Button variant="ghost" onClick={() => onNavigate('dashboard')} size="sm">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
+            <span className="hidden sm:inline">Back</span>
           </Button>
           <Select value={timeRange} onValueChange={(value: any) => setTimeRange(value)}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="Select time range" />
             </SelectTrigger>
             <SelectContent>
@@ -327,9 +327,10 @@ export const EnhancedAnalytics: React.FC<EnhancedAnalyticsProps> = ({ onNavigate
             </SelectContent>
           </Select>
         </div>
-        <Button onClick={exportToExcel}>
+        <Button onClick={exportToExcel} size="sm" className="w-full sm:w-auto">
           <Download className="h-4 w-4 mr-2" />
-          Export to Excel
+          <span className="hidden sm:inline">Export to Excel</span>
+          <span className="sm:hidden">Export</span>
         </Button>
       </div>
 

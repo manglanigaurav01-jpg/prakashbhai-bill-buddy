@@ -272,42 +272,45 @@ export const ItemMaster: React.FC<ItemMasterProps> = ({ onNavigate }) => {
   }
 
   return (
-    <div className="min-h-screen bg-background p-4">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="min-h-screen bg-background p-3 sm:p-4 md:p-6">
+      <div className="max-w-6xl mx-auto space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              size="sm" 
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto">
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => onNavigate('dashboard')}
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
+              <span className="hidden sm:inline">Back</span>
             </Button>
-            <div>
-              <h1 className="text-2xl font-bold">Item Master</h1>
-              <p className="text-muted-foreground">Manage your inventory items and pricing</p>
+            <div className="flex-1 sm:flex-none">
+              <h1 className="text-xl sm:text-2xl font-bold">Item Master</h1>
+              <p className="text-sm sm:text-base text-muted-foreground">Manage your inventory items and pricing</p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button 
-              variant="outline" 
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button
+              variant="outline"
               onClick={() => setShowAnalytics(true)}
+              size="sm"
+              className="flex-1 sm:flex-none"
             >
               <BarChart3 className="w-4 h-4 mr-2" />
-              Analytics
+              <span className="hidden sm:inline">Analytics</span>
             </Button>
-            <Button onClick={() => setShowAddForm(true)}>
+            <Button onClick={() => setShowAddForm(true)} size="sm" className="flex-1 sm:flex-none">
               <Plus className="w-4 h-4 mr-2" />
-              Add Item
+              <span className="hidden sm:inline">Add Item</span>
+              <span className="sm:hidden">Add</span>
             </Button>
           </div>
         </div>
 
         {/* Search and Stats */}
-        <div className="flex items-center gap-4">
-          <div className="relative flex-1 max-w-md">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+          <div className="relative flex-1 w-full sm:max-w-md">
             <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search items..."
@@ -316,7 +319,7 @@ export const ItemMaster: React.FC<ItemMasterProps> = ({ onNavigate }) => {
               className="pl-9"
             />
           </div>
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-muted-foreground w-full sm:w-auto text-center sm:text-left">
             {filteredItems.length} items
           </div>
         </div>
