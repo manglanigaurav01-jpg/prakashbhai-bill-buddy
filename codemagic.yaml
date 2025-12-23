@@ -7,8 +7,8 @@ workflows:
       vars:
         PACKAGE_NAME: "com.prakashbhai.billbuddy"
         GOOGLE_SERVICES_JSON: Encrypted(...) # Add your encrypted Google Services JSON
-      node: 20
-      npm: 9
+      node: 22
+      npm: 10
       java: 17
       xcode: latest
     triggering:
@@ -139,8 +139,8 @@ workflows:
       vars:
         PACKAGE_NAME: "com.prakashbhai.billbuddy"
         GOOGLE_SERVICES_JSON: Encrypted(...) # Add your encrypted Google Services JSON
-      node: 20
-      npm: 9
+      node: 22
+      npm: 10
       java: 17
       xcode: latest
     triggering:
