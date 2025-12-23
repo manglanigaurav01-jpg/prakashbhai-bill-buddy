@@ -15,6 +15,7 @@ import {
 const DATA_DIR = 'DATA';
 const BACKUP_FOLDER = 'BillBuddyBackups';
 import { format } from 'date-fns';
+import pako from 'pako';
 
 // Web platform backup storage key prefix
 const WEB_BACKUP_PREFIX = 'prakash_web_backup_';
@@ -468,7 +469,7 @@ export const restoreFromEnhancedBackup = async (backupFilePath: string) => {
       message: 'Backup restored successfully',
       metadata: backup.metadata
     };
-  } catch (error) {
+      } else {
     console.error('Backup restoration failed:', error);
     return {
       success: false,
@@ -476,29 +477,75 @@ export const restoreFromEnhancedBackup = async (backupFilePath: string) => {
       error: error instanceof Error ? error.message : String(error)
     };
   }
-};
+          try {
+            // Convert base64 to Uint8Array
+            const binStr = atob(base64Candidate);
+            const len = binStr.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) bytes[i] = binStr.charCodeAt(i);
 
-// Function to clean up old web backups (localStorage)
-const cleanupOldWebBackups = () => {
-  try {
-    const backupKeys: string[] = [];
-    
-    // Find all backup keys in localStorage
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith(WEB_BACKUP_PREFIX)) {
-        backupKeys.push(key);
-      }
-    }
+            // Detect gzip (0x1f,0x8b)
+            if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
+              try {
+                const inflated = pako.inflate(bytes);
+                const text = new TextDecoder('utf-8').decode(inflated);
+                if (tryParseJson(text)) {
+                  backupContent = text;
+                  return backupContent;
+                }
+              } catch (gzErr) {
+                console.warn('Gzip inflate failed during restore detection:', gzErr);
+              }
+            }
 
-    // Sort by key name (which includes timestamp) - newest first
-    backupKeys.sort((a, b) => b.localeCompare(a));
+            // Detect BOM for UTF-16 (LE/BE)
+            if (bytes.length >= 2) {
+              if (bytes[0] === 0xff && bytes[1] === 0xfe) {
+                // UTF-16 LE
+                try {
+                  const text = new TextDecoder('utf-16le').decode(bytes);
+                  if (tryParseJson(text)) {
+                    backupContent = text;
+                    return backupContent;
+                  }
+                } catch (utf16Err) {
+                  console.warn('UTF-16LE decode failed:', utf16Err);
+                }
+              } else if (bytes[0] === 0xfe && bytes[1] === 0xff) {
+                // UTF-16 BE
+                try {
+                  const text = new TextDecoder('utf-16be').decode(bytes);
+                  if (tryParseJson(text)) {
+                    backupContent = text;
+                    return backupContent;
+                  }
+                } catch (utf16Err) {
+                  console.warn('UTF-16BE decode failed:', utf16Err);
+                }
+              }
+            }
 
-    // Remove excess backups
-    for (let i = MAX_LOCAL_BACKUPS; i < backupKeys.length; i++) {
-      localStorage.removeItem(backupKeys[i]);
-    }
-  } catch (error) {
+            // Fallback: try UTF-8 decode from bytes
+            try {
+              const textUtf8 = new TextDecoder('utf-8').decode(bytes);
+              if (tryParseJson(textUtf8)) {
+                backupContent = textUtf8;
+                return backupContent;
+              }
+            } catch (utf8Err) {
+              console.warn('UTF-8 decode from bytes failed:', utf8Err);
+            }
+
+            // Last fallback: treat atob result as string and try parsing
+            const decodedStr = binStr;
+            if (tryParseJson(decodedStr)) {
+              backupContent = decodedStr;
+            } else {
+              throw new Error('Decoded base64 is not valid JSON');
+            }
+          } catch (e) {
+            throw new Error('The selected backup file is not in a supported format. Please select a valid Bill Buddy backup file.');
+          }
     console.error('Cleanup of old web backups failed:', error);
   }
 };
