@@ -37,9 +37,12 @@ vi.mock('@capacitor/share', () => ({
 }));
 
 // Mock PDF generation
-vi.mock('../lib/pdf', () => ({
+vi.mock('../lib/pdf', async () => ({
   generateBillPDF: vi.fn(),
 }));
+
+// Import the mocked function
+let generateBillPDF: Mock;
 
 describe('Folder-Based Backup', () => {
   const mockCustomers = [
@@ -53,8 +56,12 @@ describe('Folder-Based Backup', () => {
     { id: 'b3', customerId: '2', date: '2024-01-18', grandTotal: 200, items: [], createdAt: new Date().toISOString() },
   ];
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetAllMocks();
+
+    // Import the mocked function
+    const pdfModule = await import('../lib/pdf');
+    generateBillPDF = pdfModule.generateBillPDF as Mock;
 
     // Setup mock return values
     (storage.getCustomers as Mock).mockReturnValue(mockCustomers);
@@ -66,7 +73,7 @@ describe('Folder-Based Backup', () => {
     });
 
     // Mock PDF generation to succeed
-    (generateBillPDF as Mock).mockResolvedValue({ success: true, message: 'PDF generated' });
+    generateBillPDF.mockResolvedValue({ success: true, message: 'PDF generated' });
   });
 
   it('should create folder-based backup successfully', async () => {

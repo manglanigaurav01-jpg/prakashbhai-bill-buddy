@@ -122,6 +122,30 @@ export const BackupManager = () => {
     }
   };
 
+  const handleCreateFolderBasedBackup = async () => {
+    setIsLoading(true);
+    try {
+      const result = await createFolderBasedBackup();
+      if (result.success) {
+        toast({
+          title: "Folder-Based Backup Created",
+          description: result.message || "Organized backup with customer folders and bill PDFs has been created."
+        });
+        setLastBackup(new Date().toISOString());
+      } else {
+        throw new Error(result.message || 'Failed to create folder-based backup');
+      }
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Folder-Based Backup Failed",
+        description: error instanceof Error ? error.message : "Failed to create folder-based backup"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
 
 
   return (

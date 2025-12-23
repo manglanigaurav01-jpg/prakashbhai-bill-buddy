@@ -9,7 +9,6 @@ import { Share } from '@capacitor/share';
 export const createFolderBasedBackup = async () => {
   try {
     const customers = getCustomers();
-    const bills = getBills();
 
     console.log('Starting folder-based backup for', customers.length, 'customers');
 
@@ -181,10 +180,10 @@ export const createComprehensiveBackup = async () => {
         name: customer.name,
         createdAt: customer.createdAt,
         // Include all bills for this customer with detailed item information
-        bills: bills.filter(bill => bill.customerId === customer.id).map(bill => ({
+        bills: bills.filter((bill: any) => bill.customerId === customer.id).map((bill: any) => ({
           id: bill.id,
           date: bill.date,
-          items: bill.items.map(item => ({
+          items: bill.items.map((item: any) => ({
             itemName: item.itemName,
             quantity: item.quantity,
             rate: item.rate,
