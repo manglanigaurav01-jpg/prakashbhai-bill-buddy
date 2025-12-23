@@ -362,22 +362,83 @@ export const restoreFromEnhancedBackup = async (backupFilePath: string) => {
         directory: DATA_DIR
       });
 
-      // Capacitor can return either plain JSON string or base64 data depending on
-      // how the file was originally written. Older backups that were shared via
-      // the FILESYSTEM API may be base64 when you pick them again from "My Files".
-      // Try to parse as JSON first; if that fails, fall back to base64 decoding.
-      const rawContent = data.toString();
-      try {
-        JSON.parse(rawContent);
-        backupContent = rawContent;
-      } catch {
+      // Capacitor may return different encodings depending on how the file
+      // was created and where it was picked from. Accept the following:
+      // - Plain JSON text
+      // - Base64 of UTF-8 encoded JSON (common when file was written with base64)
+      // - data: URI with base64 payload
+      // Be tolerant of BOM, whitespace and line endings.
+      const rawContent = (data || '').toString();
+
+      const tryParseJson = (s: string) => {
         try {
-          // Decode base64 → UTF-8 string
-          const decoded = decodeURIComponent(escape(atob(rawContent)));
-          // Ensure the decoded string is valid JSON
-          JSON.parse(decoded);
-          backupContent = decoded;
+          JSON.parse(s);
+          return true;
         } catch {
+          return false;
+        }
+      };
+
+      const stripBomAndTrim = (s: string) => s.replace(/^\uFEFF/, '').trim();
+
+      let candidate = stripBomAndTrim(rawContent);
+
+      // If it's a data URI like data:application/json;base64,AAAA
+      const dataUriMatch = candidate.match(/^data:\w+\/[\w+.-]+;base64,(.+)$/i);
+      if (dataUriMatch && dataUriMatch[1]) {
+        candidate = dataUriMatch[1];
+      }
+
+      // If candidate looks like plain JSON, accept it immediately
+      if (candidate.startsWith('{') || candidate.startsWith('[')) {
+        if (tryParseJson(candidate)) {
+          backupContent = candidate;
+        } else {
+          // Might still be base64-encoded JSON that starts with printable characters
+          try {
+            const decoded = decodeURIComponent(escape(atob(candidate)));
+            if (tryParseJson(decoded)) {
+              backupContent = decoded;
+            } else {
+              throw new Error('Invalid JSON');
+            }
+          } catch (e) {
+            throw new Error('The selected backup file is not in a supported format. Please select a valid Bill Buddy backup file.');
+          }
+        }
+      } else {
+        // Not starting with JSON punctuation — treat as base64 or garbage.
+        // Remove any whitespace/newlines from base64 candidate
+        const base64Candidate = candidate.replace(/\s+/g, '');
+        // Basic base64 detection: only base64 chars and length mod 4
+        const isProbablyBase64 = /^[A-Za-z0-9+/=]+$/.test(base64Candidate) && (base64Candidate.length % 4 === 0);
+
+        if (isProbablyBase64) {
+          try {
+            const decoded = atob(base64Candidate);
+            // atob returns a binary string; try decodeURIComponent trick for UTF-8
+            try {
+              const utf8 = decodeURIComponent(escape(decoded));
+              if (tryParseJson(utf8)) {
+                backupContent = utf8;
+              } else if (tryParseJson(decoded)) {
+                backupContent = decoded;
+              } else {
+                throw new Error('Decoded base64 is not valid JSON');
+              }
+            } catch (e) {
+              // If UTF-8 decode failed, but decoded string itself is JSON, accept it
+              if (tryParseJson(decoded)) {
+                backupContent = decoded;
+              } else {
+                throw e;
+              }
+            }
+          } catch (e) {
+            throw new Error('The selected backup file is not in a supported format. Please select a valid Bill Buddy backup file.');
+          }
+        } else {
+          // Not JSON nor base64 — give helpful error
           throw new Error('The selected backup file is not in a supported format. Please select a valid Bill Buddy backup file.');
         }
       }
