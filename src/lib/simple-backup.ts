@@ -264,31 +264,34 @@ export const createComprehensiveBackup = async () => {
         URL.revokeObjectURL(url);
       }, 1000);
     } else {
-      // For mobile platforms, save to documents and share
+      // For mobile platforms, save to cache and share (like PDFs)
       try {
         const base64Data = btoa(unescape(encodeURIComponent(backupJson)));
-        const timestamp = new Date().getTime();
-        const uniqueFileName = `backup_${timestamp}_${fileName}`;
 
         await Filesystem.writeFile({
-          path: uniqueFileName,
+          path: fileName,
           data: base64Data,
-          directory: 'DOCUMENTS' as Directory
+          directory: 'CACHE'
         });
 
-        const fileInfo = await Filesystem.getUri({
-          path: uniqueFileName,
-          directory: 'DOCUMENTS' as Directory
+        const fileUri = await Filesystem.getUri({
+          directory: 'CACHE',
+          path: fileName
         });
 
-        if (fileInfo.uri) {
-          await Share.share({
-            title: 'Bill Buddy Comprehensive Backup',
-            text: `Complete backup with ${customers.length} customers, ${bills.length} bills, ${payments.length} payments, and ${pdfResults.filter(p => p.pdfData).length} balance PDFs`,
-            url: fileInfo.uri,
-            dialogTitle: 'Share Comprehensive Backup'
-          });
-        }
+        await Share.share({
+          title: 'Bill Buddy Comprehensive Backup',
+          text: `Complete backup with ${customers.length} customers, ${bills.length} bills, ${payments.length} payments, and ${pdfResults.filter(p => p.pdfData).length} balance PDFs`,
+          url: fileUri.uri,
+          dialogTitle: 'Save or Share Backup'
+        });
+
+        return {
+          success: true,
+          message: 'Backup ready - choose where to save it!',
+          fileName,
+          summary: data.summary
+        };
       } catch (mobileError) {
         console.error('Mobile backup creation failed:', mobileError);
         // Fallback to web-style download
@@ -365,40 +368,90 @@ export const createSimpleBackup = async () => {
     console.log('Backup JSON length:', backupJson.length); // Debug log
     console.log('Backup contains data for:', data.summary); // Debug log
 
-    // Create download link for web
-    const blob = new Blob([backupJson], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
+    // Handle platform-specific backup creation
+    if (Capacitor.getPlatform() === 'web') {
+      // Create download link for web
+      const blob = new Blob([backupJson], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
 
-    console.log('Blob URL created:', url); // Debug log
-    console.log('File name:', fileName); // Debug log
+      console.log('Blob URL created:', url); // Debug log
+      console.log('File name:', fileName); // Debug log
 
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = fileName;
-    link.style.display = 'none';
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.style.display = 'none';
 
-    // Try multiple approaches to trigger download
-    try {
-      // Method 1: Direct click
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      console.log('Download triggered via direct click'); // Debug log
-    } catch (error) {
-      console.error('Direct click failed, trying alternative method:', error);
-      // Method 2: Use window.open as fallback
+      // Try multiple approaches to trigger download
       try {
-        window.open(url, '_blank');
-        console.log('Download triggered via window.open'); // Debug log
-      } catch (fallbackError) {
-        console.error('Fallback method also failed:', fallbackError);
+        // Method 1: Direct click
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        console.log('Download triggered via direct click'); // Debug log
+      } catch (error) {
+        console.error('Direct click failed, trying alternative method:', error);
+        // Method 2: Use window.open as fallback
+        try {
+          window.open(url, '_blank');
+          console.log('Download triggered via window.open'); // Debug log
+        } catch (fallbackError) {
+          console.error('Fallback method also failed:', fallbackError);
+        }
+      }
+
+      // Clean up
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 1000);
+
+      return {
+        success: true,
+        message: 'Backup created and downloaded successfully!',
+        fileName
+      };
+    } else {
+      // For mobile platforms, save to cache and share (like PDFs)
+      try {
+        const base64Data = btoa(unescape(encodeURIComponent(backupJson)));
+
+        await Filesystem.writeFile({
+          path: fileName,
+          data: base64Data,
+          directory: 'CACHE'
+        });
+
+        const fileUri = await Filesystem.getUri({
+          directory: 'CACHE',
+          path: fileName
+        });
+
+        await Share.share({
+          title: 'Bill Buddy Simple Backup',
+          text: `Backup with ${customers.length} customers, ${bills.length} bills, ${payments.length} payments, and ${items.length} items`,
+          url: fileUri.uri,
+          dialogTitle: 'Save or Share Backup'
+        });
+
+        return {
+          success: true,
+          message: 'Backup ready - choose where to save it!',
+          fileName
+        };
+      } catch (mobileError) {
+        console.error('Mobile backup creation failed:', mobileError);
+        // Fallback to web-style download
+        const blob = new Blob([backupJson], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
     }
-
-    // Clean up
-    setTimeout(() => {
-      URL.revokeObjectURL(url);
-    }, 1000);
 
     return {
       success: true,

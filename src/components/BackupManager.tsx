@@ -36,14 +36,14 @@ export const BackupManager = () => {
           try {
             const content = event.target?.result as string;
             const result = await restoreSimpleBackup(content);
-            if (result.success) {
+            if (result && result.success) {
               toast({
                 title: 'Backup Restored',
                 description: 'Your backup has been successfully restored.',
               });
               loadBackups();
             } else {
-              throw new Error(result.error);
+              throw new Error(result?.error || 'Failed to restore backup');
             }
           } catch (error) {
             toast({
