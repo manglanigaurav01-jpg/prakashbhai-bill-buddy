@@ -45,11 +45,17 @@ const CLOUD_STORE_PREFIX = 'mock_cloud_store_v1';
 const cloudKey = (user: CloudUser) => `${CLOUD_STORE_PREFIX}:${user.provider}:${user.userId}`;
 
 export const fetchCloudSnapshot = async (user: CloudUser): Promise<any | null> => {
-  if (user.provider === 'google') {
-    return await readUserSnapshot(user.userId);
+  try {
+    if (user.provider === 'google') {
+      return await readUserSnapshot(user.userId);
+    }
+    // For Microsoft or other providers, use localStorage as fallback
+    const raw = localStorage.getItem(cloudKey(user));
+    return raw ? JSON.parse(raw) : null;
+  } catch (error) {
+    console.error('Failed to fetch cloud snapshot:', error);
+    throw new Error('Failed to retrieve data from cloud');
   }
-  const raw = localStorage.getItem(cloudKey(user));
-  return raw ? JSON.parse(raw) : null;
 };
 
 export const pushCloudSnapshot = async (user: CloudUser, snapshot: any): Promise<void> => {

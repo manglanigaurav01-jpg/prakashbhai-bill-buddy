@@ -39,9 +39,20 @@ interface SyncResult {
 
 export const checkNetworkStatus = async (): Promise<boolean> => {
   try {
-    const response = await fetch('https://www.google.com/generate_204');
-    return response.status === 204;
-  } catch {
+    // Use a more reliable endpoint for network checking
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+    await fetch('https://www.google.com/favicon.ico', {
+      method: 'HEAD',
+      mode: 'no-cors',
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+    return true; // If we get here, network is working
+  } catch (error) {
+    console.warn('Network check failed:', error);
     return false;
   }
 };
