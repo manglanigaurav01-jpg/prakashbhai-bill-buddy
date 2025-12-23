@@ -226,41 +226,92 @@ export const createEnhancedBackup = async () => {
         // Convert JSON string to base64 for Filesystem API
         const base64Data = btoa(unescape(encodeURIComponent(backupJson)));
 
-        await Filesystem.writeFile({
-          path: documentsPath,
-          data: base64Data,
-          directory: 'DOCUMENTS' as Directory
-        });
+        // Primary attempt: write to Documents and share that file
+        let wroteToDocuments = false;
+        try {
+          await Filesystem.writeFile({
+            path: documentsPath,
+            data: base64Data,
+            directory: 'DOCUMENTS' as Directory
+          });
+          wroteToDocuments = true;
+        } catch (writeErr) {
+          console.warn('Failed to write backup to Documents:', writeErr);
+          wroteToDocuments = false;
+        }
 
-        // Also save to DATA directory for internal listing/restore
-        await Filesystem.writeFile({
-          path: fileName,
-          data: backupJson,
-          directory: DATA_DIR
-        });
+        // Always persist a copy into app data for restore listing (use plain JSON)
+        try {
+          await Filesystem.writeFile({
+            path: fileName,
+            data: backupJson,
+            directory: DATA_DIR
+          });
+        } catch (dataWriteErr) {
+          console.warn('Failed to write backup to DATA directory (non-fatal):', dataWriteErr);
+        }
 
-        // Get file URI for sharing (points into BillBuddyBackups folder)
-        const fileInfo = await Filesystem.getUri({
-          path: documentsPath,
-          directory: 'DOCUMENTS' as Directory
-        });
+        // Try to get a URI to share. Prefer the documents file if we wrote it, otherwise fall back to DATA_DIR file
+        let fileInfo: any | undefined;
+        if (wroteToDocuments) {
+          try {
+            fileInfo = await Filesystem.getUri({ path: documentsPath, directory: 'DOCUMENTS' as Directory });
+          } catch (getUriErr) {
+            console.warn('Could not get URI for Documents file, will try DATA_DIR file:', getUriErr);
+            fileInfo = undefined;
+          }
+        }
 
-        if (!fileInfo.uri) {
-          throw new Error('Could not get file URI');
+        if (!fileInfo) {
+          try {
+            fileInfo = await Filesystem.getUri({ path: fileName, directory: DATA_DIR });
+          } catch (getUriErr) {
+            console.warn('Could not get URI for DATA_DIR file:', getUriErr);
+            fileInfo = undefined;
+          }
+        }
+
+        if (!fileInfo || !fileInfo.uri) {
+          // As a last resort, attempt to create a temporary file in DOCUMENTS with plain JSON (some platforms prefer non-base64)
+          try {
+            const fallbackPath = `${BACKUP_FOLDER}/fallback_${uniqueFileName}`;
+            await Filesystem.writeFile({ path: fallbackPath, data: backupJson, directory: 'DOCUMENTS' as Directory });
+            const info = await Filesystem.getUri({ path: fallbackPath, directory: 'DOCUMENTS' as Directory });
+            if (info && info.uri) {
+              fileInfo = info;
+            }
+          } catch (fallbackErr) {
+            console.warn('Fallback write to Documents failed:', fallbackErr);
+            fileInfo = undefined;
+          }
+        }
+
+        if (!fileInfo || !fileInfo.uri) {
+          // If we still don't have a shareable URI, fail gracefully but keep the DATA_DIR copy online for restores
+          throw new Error('Could not get a shareable URI for the backup file on this device. A local copy was saved for restore within the app.');
         }
 
         // Share the backup file (forces user to save it to an accessible location)
-        await Share.share({
-          title: 'Bill Buddy Backup',
-          text: `Backup file created on ${format(new Date(), 'dd/MM/yyyy HH:mm')}`,
-          url: fileInfo.uri,
-          dialogTitle: 'Share Backup File'
-        });
-
-        uri = fileInfo.uri;
+        try {
+          await Share.share({
+            title: 'Bill Buddy Backup',
+            text: `Backup file created on ${format(new Date(), 'dd/MM/yyyy HH:mm')}`,
+            url: fileInfo.uri,
+            dialogTitle: 'Share Backup File'
+          });
+          uri = fileInfo.uri;
+        } catch (shareErr) {
+          // Sharing may fail on some devices; log and surface a helpful message
+          console.warn('Sharing backup file failed:', shareErr);
+          throw new Error(`Sharing failed: ${shareErr instanceof Error ? shareErr.message : String(shareErr)}`);
+        }
 
         // Clean up old backups
-        await cleanupOldBackups();
+        try {
+          await cleanupOldBackups();
+        } catch (cleanupErr) {
+          console.warn('Cleanup of old backups failed (non-fatal):', cleanupErr);
+        }
       } catch (fsError) {
         throw new Error(`Filesystem error: ${fsError instanceof Error ? fsError.message : String(fsError)}`);
       }
