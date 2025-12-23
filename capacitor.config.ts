@@ -15,6 +15,7 @@ const config: CapacitorConfig = {
       showSpinner: true,
       spinnerColor: '#ffffff'
     },
+    App: {},
     Filesystem: {
       iosStorageLocation: 'Documents',
       androidStorageLocation: 'Documents'
