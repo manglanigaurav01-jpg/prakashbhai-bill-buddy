@@ -37,7 +37,7 @@ export function useMobileNavigation(setCurrentView: (view: View) => void) {
         // This prevents the app from closing unexpectedly
         App.exitApp();
       }
-    }).then((handle) => {
+    }).then((handle: any) => {
       listenerHandle = handle;
     });
 

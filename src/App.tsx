@@ -68,7 +68,7 @@ const App = () => {
   }, []);
 
   const handleNavigate = (view: string) => {
-    navigateTo(view);
+    navigateTo(view as View);
   };
 
   const renderView = () => {

@@ -15,7 +15,6 @@ import {
 const DATA_DIR = 'DATA';
 const BACKUP_FOLDER = 'BillBuddyBackups';
 import { format } from 'date-fns';
-import pako from 'pako';
 
 // Web platform backup storage key prefix
 const WEB_BACKUP_PREFIX = 'prakash_web_backup_';
