@@ -187,7 +187,7 @@ export const createEnhancedBackup = async () => {
         document.body.removeChild(link);
         
         // Clean up old web backups
-        cleanupOldWebBackups();
+          cleanupOldBackups();
       } catch (webError) {
         console.error('Web backup storage failed:', webError);
         // Still try to provide download even if localStorage fails
@@ -339,7 +339,7 @@ export const createEnhancedBackup = async () => {
 export const restoreFromEnhancedBackup = async (backupFilePath: string) => {
   try {
     const isWeb = Capacitor.getPlatform() === 'web';
-    let backupContent: string;
+    let backupContent: string = '';
 
     if (isWeb) {
       // For web, check if it's a localStorage key or a file upload
@@ -416,23 +416,69 @@ export const restoreFromEnhancedBackup = async (backupFilePath: string) => {
 
         if (isProbablyBase64) {
           try {
-            const decoded = atob(base64Candidate);
-            // atob returns a binary string; try decodeURIComponent trick for UTF-8
-            try {
-              const utf8 = decodeURIComponent(escape(decoded));
-              if (tryParseJson(utf8)) {
-                backupContent = utf8;
-              } else if (tryParseJson(decoded)) {
-                backupContent = decoded;
+            // Convert base64 to Uint8Array
+            const binStr = atob(base64Candidate);
+            const len = binStr.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) bytes[i] = binStr.charCodeAt(i);
+
+            // Detect gzip (0x1f,0x8b)
+            if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
+              try {
+                const inflated = pako.inflate(bytes);
+                const text = new TextDecoder('utf-8').decode(inflated);
+                if (tryParseJson(text)) {
+                  backupContent = text;
+                }
+              } catch (gzErr) {
+                console.warn('Gzip inflate failed during restore detection:', gzErr);
+              }
+            }
+
+            // Detect BOM for UTF-16 (LE/BE)
+            if (!backupContent && bytes.length >= 2) {
+              if (bytes[0] === 0xff && bytes[1] === 0xfe) {
+                // UTF-16 LE
+                try {
+                  const text = new TextDecoder('utf-16le').decode(bytes);
+                  if (tryParseJson(text)) {
+                    backupContent = text;
+                  }
+                } catch (utf16Err) {
+                  console.warn('UTF-16LE decode failed:', utf16Err);
+                }
+              } else if (bytes[0] === 0xfe && bytes[1] === 0xff) {
+                // UTF-16 BE
+                try {
+                  const text = new TextDecoder('utf-16be').decode(bytes);
+                  if (tryParseJson(text)) {
+                    backupContent = text;
+                  }
+                } catch (utf16Err) {
+                  console.warn('UTF-16BE decode failed:', utf16Err);
+                }
+              }
+            }
+
+            // Fallback: try UTF-8 decode from bytes
+            if (!backupContent) {
+              try {
+                const textUtf8 = new TextDecoder('utf-8').decode(bytes);
+                if (tryParseJson(textUtf8)) {
+                  backupContent = textUtf8;
+                }
+              } catch (utf8Err) {
+                console.warn('UTF-8 decode from bytes failed:', utf8Err);
+              }
+            }
+
+            // Last fallback: treat atob result as string and try parsing
+            if (!backupContent) {
+              const decodedStr = binStr;
+              if (tryParseJson(decodedStr)) {
+                backupContent = decodedStr;
               } else {
                 throw new Error('Decoded base64 is not valid JSON');
-              }
-            } catch (e) {
-              // If UTF-8 decode failed, but decoded string itself is JSON, accept it
-              if (tryParseJson(decoded)) {
-                backupContent = decoded;
-              } else {
-                throw e;
               }
             }
           } catch (e) {
@@ -469,84 +515,13 @@ export const restoreFromEnhancedBackup = async (backupFilePath: string) => {
       message: 'Backup restored successfully',
       metadata: backup.metadata
     };
-      } else {
+  } catch (error) {
     console.error('Backup restoration failed:', error);
     return {
       success: false,
       message: 'Failed to restore backup',
       error: error instanceof Error ? error.message : String(error)
     };
-  }
-          try {
-            // Convert base64 to Uint8Array
-            const binStr = atob(base64Candidate);
-            const len = binStr.length;
-            const bytes = new Uint8Array(len);
-            for (let i = 0; i < len; i++) bytes[i] = binStr.charCodeAt(i);
-
-            // Detect gzip (0x1f,0x8b)
-            if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
-              try {
-                const inflated = pako.inflate(bytes);
-                const text = new TextDecoder('utf-8').decode(inflated);
-                if (tryParseJson(text)) {
-                  backupContent = text;
-                  return backupContent;
-                }
-              } catch (gzErr) {
-                console.warn('Gzip inflate failed during restore detection:', gzErr);
-              }
-            }
-
-            // Detect BOM for UTF-16 (LE/BE)
-            if (bytes.length >= 2) {
-              if (bytes[0] === 0xff && bytes[1] === 0xfe) {
-                // UTF-16 LE
-                try {
-                  const text = new TextDecoder('utf-16le').decode(bytes);
-                  if (tryParseJson(text)) {
-                    backupContent = text;
-                    return backupContent;
-                  }
-                } catch (utf16Err) {
-                  console.warn('UTF-16LE decode failed:', utf16Err);
-                }
-              } else if (bytes[0] === 0xfe && bytes[1] === 0xff) {
-                // UTF-16 BE
-                try {
-                  const text = new TextDecoder('utf-16be').decode(bytes);
-                  if (tryParseJson(text)) {
-                    backupContent = text;
-                    return backupContent;
-                  }
-                } catch (utf16Err) {
-                  console.warn('UTF-16BE decode failed:', utf16Err);
-                }
-              }
-            }
-
-            // Fallback: try UTF-8 decode from bytes
-            try {
-              const textUtf8 = new TextDecoder('utf-8').decode(bytes);
-              if (tryParseJson(textUtf8)) {
-                backupContent = textUtf8;
-                return backupContent;
-              }
-            } catch (utf8Err) {
-              console.warn('UTF-8 decode from bytes failed:', utf8Err);
-            }
-
-            // Last fallback: treat atob result as string and try parsing
-            const decodedStr = binStr;
-            if (tryParseJson(decodedStr)) {
-              backupContent = decodedStr;
-            } else {
-              throw new Error('Decoded base64 is not valid JSON');
-            }
-          } catch (e) {
-            throw new Error('The selected backup file is not in a supported format. Please select a valid Bill Buddy backup file.');
-          }
-    console.error('Cleanup of old web backups failed:', error);
   }
 };
 
