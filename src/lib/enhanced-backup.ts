@@ -64,7 +64,7 @@ const calculateChecksum = (data: string): string => {
   for (let i = 0; i < data.length; i++) {
     const char = data.charCodeAt(i);
     hash = ((hash << 5) - hash) + char;
-    hash = hash & hash;
+    hash |= 0; // Convert to 32bit integer
   }
   return hash.toString(16);
 };
