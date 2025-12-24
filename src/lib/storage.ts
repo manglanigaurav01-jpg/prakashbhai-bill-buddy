@@ -1,4 +1,4 @@
-import { Customer, Bill, Payment, CustomerBalance, ItemMaster, ItemRateHistory, ItemUsage } from '@/types';
+  import { Customer, Bill, Payment, CustomerBalance, ItemMaster, ItemRateHistory, ItemUsage } from '@/types';
 import { format } from 'date-fns';
 
 export interface BusinessAnalytics {
@@ -47,14 +47,50 @@ const STORAGE_KEYS = {
 
 // Customer management
 export const getCustomers = (): Customer[] => {
-  const data = localStorage.getItem(STORAGE_KEYS.CUSTOMERS);
-  return data ? JSON.parse(data) : [];
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.CUSTOMERS);
+    if (!data) return [];
+
+    const parsed = JSON.parse(data);
+    // Validate data structure
+    if (!Array.isArray(parsed)) {
+      console.warn('Invalid customers data structure, resetting to empty array');
+      return [];
+    }
+    return parsed;
+  } catch (error) {
+    console.error('Error reading customers from localStorage:', error);
+    // Try to clear corrupted data
+    try {
+      localStorage.removeItem(STORAGE_KEYS.CUSTOMERS);
+    } catch (clearError) {
+      console.error('Failed to clear corrupted customers data:', clearError);
+    }
+    return [];
+  }
 };
 
 // Payment management
 export const getPayments = (): Payment[] => {
-  const data = localStorage.getItem(STORAGE_KEYS.PAYMENTS);
-  return data ? JSON.parse(data) : [];
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.PAYMENTS);
+    if (!data) return [];
+
+    const parsed = JSON.parse(data);
+    if (!Array.isArray(parsed)) {
+      console.warn('Invalid payments data structure, resetting to empty array');
+      return [];
+    }
+    return parsed;
+  } catch (error) {
+    console.error('Error reading payments from localStorage:', error);
+    try {
+      localStorage.removeItem(STORAGE_KEYS.PAYMENTS);
+    } catch (clearError) {
+      console.error('Failed to clear corrupted payments data:', clearError);
+    }
+    return [];
+  }
 };
 
 // Normalize customer name: trim, remove extra spaces, normalize casing
@@ -109,8 +145,25 @@ export const deleteCustomer = (customerId: string): void => {
 
 // Bill management
 export const getBills = (): Bill[] => {
-  const data = localStorage.getItem(STORAGE_KEYS.BILLS);
-  return data ? JSON.parse(data) : [];
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.BILLS);
+    if (!data) return [];
+
+    const parsed = JSON.parse(data);
+    if (!Array.isArray(parsed)) {
+      console.warn('Invalid bills data structure, resetting to empty array');
+      return [];
+    }
+    return parsed;
+  } catch (error) {
+    console.error('Error reading bills from localStorage:', error);
+    try {
+      localStorage.removeItem(STORAGE_KEYS.BILLS);
+    } catch (clearError) {
+      console.error('Failed to clear corrupted bills data:', clearError);
+    }
+    return [];
+  }
 };
 
 // Business Intelligence Functions
@@ -380,8 +433,25 @@ export const getAllCustomerBalances = (): CustomerBalance[] => {
 
 // Item Master management
 export const getItems = (): ItemMaster[] => {
-  const data = localStorage.getItem(STORAGE_KEYS.ITEMS);
-  return data ? JSON.parse(data) : [];
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.ITEMS);
+    if (!data) return [];
+
+    const parsed = JSON.parse(data);
+    if (!Array.isArray(parsed)) {
+      console.warn('Invalid items data structure, resetting to empty array');
+      return [];
+    }
+    return parsed;
+  } catch (error) {
+    console.error('Error reading items from localStorage:', error);
+    try {
+      localStorage.removeItem(STORAGE_KEYS.ITEMS);
+    } catch (clearError) {
+      console.error('Failed to clear corrupted items data:', clearError);
+    }
+    return [];
+  }
 };
 
 export const saveItem = (item: Omit<ItemMaster, 'id' | 'createdAt' | 'updatedAt'>): ItemMaster => {
@@ -450,8 +520,25 @@ export const getItemById = (itemId: string): ItemMaster | null => {
 
 // Item rate history
 export const getRateHistory = (): ItemRateHistory[] => {
-  const data = localStorage.getItem(STORAGE_KEYS.ITEM_RATE_HISTORY);
-  return data ? JSON.parse(data) : [];
+  try {
+    const data = localStorage.getItem(STORAGE_KEYS.ITEM_RATE_HISTORY);
+    if (!data) return [];
+
+    const parsed = JSON.parse(data);
+    if (!Array.isArray(parsed)) {
+      console.warn('Invalid rate history data structure, resetting to empty array');
+      return [];
+    }
+    return parsed;
+  } catch (error) {
+    console.error('Error reading rate history from localStorage:', error);
+    try {
+      localStorage.removeItem(STORAGE_KEYS.ITEM_RATE_HISTORY);
+    } catch (clearError) {
+      console.error('Failed to clear corrupted rate history data:', clearError);
+    }
+    return [];
+  }
 };
 
 export const saveRateHistory = (history: Omit<ItemRateHistory, 'id' | 'changedAt'>): ItemRateHistory => {
