@@ -4,13 +4,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertTriangle, Download, Upload, Database, FileText, Calendar, Users, Receipt, CreditCard, TrendingUp, CheckCircle, Share } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { createComprehensiveBackup, restoreComprehensiveBackup, parseBackupFile, getBackupStatistics, type ComprehensiveBackupData } from "@/lib/comprehensive-backup";
+import { createComprehensiveBackup, restoreComprehensiveBackup, parseBackupFile, getBackupStatistics } from "@/lib/comprehensive-backup";
 
 export const BackupManager = () => {
   const [isCreatingBackup, setIsCreatingBackup] = useState(false);
   const [isRestoringBackup, setIsRestoringBackup] = useState(false);
   const [showRestoreDialog, setShowRestoreDialog] = useState(false);
-  const [selectedBackupData, setSelectedBackupData] = useState<ComprehensiveBackupData | null>(null);
+
   const [selectedBackupContent, setSelectedBackupContent] = useState<string | null>(null);
   const [backupStats, setBackupStats] = useState<any>(null);
   const { toast } = useToast();
@@ -62,7 +62,6 @@ export const BackupManager = () => {
       }
 
       const stats = getBackupStatistics(backupData);
-      setSelectedBackupData(backupData);
       setSelectedBackupContent(content);
       setBackupStats(stats);
       setShowRestoreDialog(true);
@@ -92,7 +91,6 @@ export const BackupManager = () => {
           description: result.message,
         });
         setShowRestoreDialog(false);
-        setSelectedBackupData(null);
         setSelectedBackupContent(null);
         setBackupStats(null);
 
@@ -310,7 +308,6 @@ export const BackupManager = () => {
               variant="outline"
               onClick={() => {
                 setShowRestoreDialog(false);
-                setSelectedBackupData(null);
                 setBackupStats(null);
               }}
               className="flex-1"

@@ -151,7 +151,7 @@ export const savePayment = (payment: Omit<Payment, 'id' | 'createdAt'>): Payment
   invalidateIndexes();
   
   // Create backup after significant changes
-  createLocalBackup().catch(console.error);
+  createLocalBackup();
   
   return newPayment;
 };
