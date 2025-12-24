@@ -113,8 +113,23 @@ export const createComprehensiveBackup = async (): Promise<BackupResult> => {
     if (Capacitor.isNativePlatform()) {
       // Mobile: Save to device storage and share
       try {
+        // Ensure the backup directory exists
+        const backupDir = 'BillBuddy_Backups';
+        try {
+          await Filesystem.mkdir({
+            path: backupDir,
+            directory: 'DOCUMENTS' as Directory,
+            recursive: true
+          });
+        } catch (mkdirError) {
+          // Directory might already exist, continue
+          console.log('Backup directory creation attempted:', mkdirError);
+        }
+
+        const fullPath = `${backupDir}/${fileName}`;
+
         const result = await Filesystem.writeFile({
-          path: fileName,
+          path: fullPath,
           data: btoa(jsonString), // Base64 encode for mobile
           directory: 'DOCUMENTS' as Directory
         });
@@ -135,11 +150,37 @@ export const createComprehensiveBackup = async (): Promise<BackupResult> => {
         };
       } catch (mobileError) {
         console.error('Mobile backup error:', mobileError);
-        return {
-          success: false,
-          message: 'Failed to save backup on mobile device',
-          error: mobileError
-        };
+
+        // Try fallback to CACHE directory if DOCUMENTS fails
+        try {
+          console.log('Attempting fallback to CACHE directory...');
+          const result = await Filesystem.writeFile({
+            path: fileName,
+            data: btoa(jsonString),
+            directory: 'CACHE' as Directory
+          });
+
+          await Share.share({
+            title: 'Bill Buddy Backup',
+            text: 'Comprehensive backup of all business data',
+            url: result.uri,
+            dialogTitle: 'Share Backup File'
+          });
+
+          return {
+            success: true,
+            message: `Backup created and shared successfully (using cache). File: ${fileName}`,
+            fileName,
+            data: backupData
+          };
+        } catch (fallbackError) {
+          console.error('Fallback backup also failed:', fallbackError);
+          return {
+            success: false,
+            message: 'Failed to save backup on mobile device. Please check storage permissions.',
+            error: mobileError
+          };
+        }
       }
     } else {
       // Web: Trigger download
