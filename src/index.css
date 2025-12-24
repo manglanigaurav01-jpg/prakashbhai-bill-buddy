@@ -56,6 +56,9 @@
     /* Mobile optimizations */
     --touch-target: 44px;
     --mobile-padding: 16px;
+    
+    /* Better mobile spacing */
+    --mobile-gap: 12px;
 
     --radius: 0.5rem;
 
@@ -140,5 +143,33 @@
 
   body {
     @apply bg-background text-foreground;
+  }
+  
+  /* Mobile touch optimizations */
+  @media (max-width: 768px) {
+    button,
+    a,
+    input[type="button"],
+    input[type="submit"],
+    [role="button"] {
+      min-height: 44px;
+      min-width: 44px;
+    }
+    
+    input,
+    textarea,
+    select {
+      font-size: 16px; /* Prevents zoom on iOS */
+    }
+  }
+  
+  /* Better mobile spacing */
+  .mobile-padding {
+    padding: var(--mobile-padding);
+  }
+  
+  /* Improved scroll on mobile */
+  * {
+    -webkit-overflow-scrolling: touch;
   }
 }

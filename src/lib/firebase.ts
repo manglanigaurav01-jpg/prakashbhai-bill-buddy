@@ -1,13 +1,10 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import {
   getAuth,
-  initializeAuth,
-  browserLocalPersistence,
   indexedDBLocalPersistence,
   setPersistence,
   GoogleAuthProvider,
   signInWithPopup,
-  signInWithRedirect,
   getRedirectResult,
   signOut as fbSignOut,
   type Auth,
@@ -31,17 +28,9 @@ export const initFirebase = (): FirebaseServices | null => {
 
   try {
     const app = getApps().length ? getApps()[0] : initializeApp(FIREBASE_CONFIG);
-
-    // Ensure auth persistence works across mobile webviews where sessionStorage can be cleared.
-    const auth = (() => {
-      if (Capacitor.isNativePlatform()) {
-        return initializeAuth(app, { persistence: indexedDBLocalPersistence });
-      }
-      const webAuth = getAuth(app);
-      // Persist to local storage to avoid "missing initial state" on redirect.
-      setPersistence(webAuth, browserLocalPersistence).catch(() => {});
-      return webAuth;
-    })();
+    const auth = getAuth(app);
+    // Use durable persistence to survive webview reloads; ignore failures silently.
+    setPersistence(auth, indexedDBLocalPersistence).catch(() => {});
 
     const db = getFirestore(app);
     const googleProvider = new GoogleAuthProvider();
@@ -83,9 +72,6 @@ export const firebaseSignInWithGoogle = async (): Promise<User> => {
       setTimeout(() => reject(new Error('Sign-in timeout. Please check your internet connection and try again.')), 45000); // 45 second timeout
     });
 
-    // Check if we're on mobile platform
-    const isMobile = Capacitor.isNativePlatform() || (typeof window !== 'undefined' && window.innerWidth < 768);
-    
     // First, check if there's a redirect result (user returning from Google sign-in)
     try {
       const redirectResult = await getRedirectResult(services.auth);
@@ -104,35 +90,9 @@ export const firebaseSignInWithGoogle = async (): Promise<User> => {
       console.log('No redirect result found, proceeding with sign-in');
     }
 
-    // Perform sign-in: prefer popup to avoid redirect state loss; fallback to redirect only if required.
-    let result: any;
-    const tryPopup = async () => {
-      const signInPromise = signInWithPopup(services.auth, services.googleProvider);
-      return await Promise.race([signInPromise, timeoutPromise]) as any;
-    };
-
-    const tryRedirect = async () => {
-      await signInWithRedirect(services.auth, services.googleProvider);
-      throw new Error('Redirecting to Google sign-in...');
-    };
-
-    if (!isMobile) {
-      result = await tryPopup();
-    } else {
-      try {
-        result = await tryPopup();
-      } catch (popupError: any) {
-        // Fall back to redirect only when popup is blocked or not supported.
-        if (
-          popupError?.code === 'auth/popup-blocked' ||
-          popupError?.code === 'auth/operation-not-supported-in-this-environment' ||
-          popupError?.code === 'auth/auth-domain-config-required'
-        ) {
-          await tryRedirect();
-        }
-        throw popupError;
-      }
-    }
+    // Single, consistent sign-in flow using popup across platforms.
+    const signInPromise = signInWithPopup(services.auth, services.googleProvider);
+    const result = await Promise.race([signInPromise, timeoutPromise]) as any;
 
     if (!result?.user) {
       throw new Error('No user data received from Google');

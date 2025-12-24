@@ -3,14 +3,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { createSimpleBackup, createComprehensiveBackup, createFolderBasedBackup, restoreSimpleBackup } from '@/lib/simple-backup';
+import { restoreFromEnhancedBackup } from '@/lib/enhanced-backup';
 import { useToast } from '@/components/ui/use-toast';
 import { Download, Upload, RefreshCw, FileText, Users, Receipt, CreditCard, Folder } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Badge } from '@/components/ui/badge';
+import { DataImportValidator } from '@/components/DataImportValidator';
 
 export const BackupManager = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [lastBackup, setLastBackup] = useState<string | null>(null);
+  const [importData, setImportData] = useState<{ content: string; isValid: boolean } | null>(null);
   const { toast } = useToast();
 
   const loadBackups = async () => {
@@ -58,26 +61,18 @@ export const BackupManager = () => {
                 if (!content || content.trim().length === 0) {
                   throw new Error('File is empty or could not be read');
                 }
-                const result = await restoreSimpleBackup(content);
-                if (result && result.success) {
-                  toast({
-                    title: 'Backup Restored',
-                    description: 'Your backup has been successfully restored.',
-                  });
-                  loadBackups();
-                } else {
-                  throw new Error(result?.error || 'Failed to restore backup');
-                }
+                // Show validation dialog instead of directly importing
+                setImportData({ content, isValid: false });
+                setIsLoading(false);
               } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : 'Failed to restore backup';
                 toast({
-                  title: 'Restore Failed',
+                  title: 'File Read Failed',
                   description: errorMessage.includes('JSON') || errorMessage.includes('parse') 
                     ? 'Invalid backup file format. Please ensure the file is a valid JSON backup.'
                     : errorMessage,
                   variant: 'destructive'
                 });
-              } finally {
                 setIsLoading(false);
               }
             };
@@ -142,26 +137,18 @@ export const BackupManager = () => {
               if (!content || content.trim().length === 0) {
                 throw new Error('File is empty or could not be read');
               }
-              const result = await restoreSimpleBackup(content);
-              if (result && result.success) {
-                toast({
-                  title: 'Backup Restored',
-                  description: 'Your backup has been successfully restored.',
-                });
-                loadBackups();
-              } else {
-                throw new Error(result?.error || 'Failed to restore backup');
-              }
+              // Show validation dialog instead of directly importing
+              setImportData({ content, isValid: false });
+              setIsLoading(false);
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : 'Failed to restore backup';
               toast({
-                title: 'Restore Failed',
+                title: 'File Read Failed',
                 description: errorMessage.includes('JSON') || errorMessage.includes('parse')
                   ? 'Invalid backup file format. Please ensure the file is a valid JSON backup.'
                   : errorMessage,
                 variant: 'destructive'
               });
-            } finally {
               setIsLoading(false);
             }
           };
@@ -267,6 +254,36 @@ export const BackupManager = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleValidatedImport = async (data: any) => {
+    try {
+      // Try enhanced backup restore first, fallback to simple backup
+      let result;
+      try {
+        result = await restoreFromEnhancedBackup(JSON.stringify(data));
+      } catch (e) {
+        // If enhanced backup fails, try simple backup restore
+        result = await restoreSimpleBackup(JSON.stringify(data));
+      }
+      
+      if (result && result.success) {
+        toast({
+          title: 'Backup Restored',
+          description: 'Your backup has been successfully restored.',
+        });
+        loadBackups();
+        setImportData(null);
+      } else {
+        throw new Error(result?.error || result?.message || 'Failed to restore backup');
+      }
+    } catch (error) {
+      toast({
+        title: 'Restore Failed',
+        description: error instanceof Error ? error.message : 'Failed to restore backup',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -439,6 +456,15 @@ export const BackupManager = () => {
           Each backup maintains the relationships between all data for accurate restoration.
         </AlertDescription>
       </Alert>
+
+      {importData && (
+        <DataImportValidator
+          fileContent={importData.content}
+          onValidate={(isValid) => setImportData({ ...importData, isValid })}
+          onImport={handleValidatedImport}
+          onCancel={() => setImportData(null)}
+        />
+      )}
     </div>
   );
 };
