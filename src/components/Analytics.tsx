@@ -202,15 +202,9 @@ export const Analytics: React.FC<AnalyticsProps> = ({ onNavigate }) => {
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-5xl mx-auto space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => onNavigate('dashboard')}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Business Analytics</h1>
-            <p className="text-muted-foreground">Insights into your business performance</p>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold">Business Analytics</h1>
+          <p className="text-muted-foreground">Insights into your business performance</p>
         </div>
 
         <div className="flex justify-end items-center gap-2">

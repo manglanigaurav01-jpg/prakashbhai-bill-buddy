@@ -8,10 +8,10 @@
 - [x] Add floating back button at bottom-left corner in ItemMaster.tsx
 
 ## Analytics Back Button Repositioning
-- [ ] Remove back button from Analytics.tsx header
-- [ ] Add floating back button at bottom-left corner in Analytics.tsx
+- [x] Remove back button from Analytics.tsx header
+- [x] Add floating back button at bottom-left corner in Analytics.tsx
 
 ## Testing
-- [ ] Test dashboard centering on different screen sizes
-- [ ] Verify floating back buttons are easier to click and functional
-- [ ] Ensure no navigation issues
+- [x] Test dashboard centering on different screen sizes
+- [x] Verify floating back buttons are easier to click and functional
+- [x] Ensure no navigation issues
