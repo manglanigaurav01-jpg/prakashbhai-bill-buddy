@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { createComprehensiveBackup, createFolderBasedBackup } from '@/lib/simple-backup';
+import { createComprehensiveBackup } from '@/lib/simple-backup';
 import { restoreFromEnhancedBackup } from '@/lib/enhanced-backup';
 import { useToast } from '@/components/ui/use-toast';
-import { Download, Upload, RefreshCw, FileText, Users, Receipt, CreditCard, Folder } from 'lucide-react';
+import { Download, Upload, RefreshCw, FileText, Users, Receipt, CreditCard } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Badge } from '@/components/ui/badge';
 import { DataImportValidator } from '@/components/DataImportValidator';
@@ -211,29 +211,7 @@ export const BackupManager = () => {
     }
   };
 
-  const handleCreateFolderBasedBackup = async () => {
-    setIsLoading(true);
-    try {
-      const result = await createFolderBasedBackup();
-      if (result.success) {
-        toast({
-          title: "Folder-Based Backup Created",
-          description: result.message || "Organized backup with customer folders and bill PDFs has been created."
-        });
-        setLastBackup(new Date().toISOString());
-      } else {
-        throw new Error(result.message || 'Failed to create folder-based backup');
-      }
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Folder-Based Backup Failed",
-        description: error instanceof Error ? error.message : "Failed to create folder-based backup"
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+
 
   const handleValidatedImport = async (data: any) => {
     try {
