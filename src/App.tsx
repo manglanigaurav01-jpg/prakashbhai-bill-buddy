@@ -28,7 +28,7 @@ type View =
   | 'statistics';
 
 // Lazy load components for code splitting
-const Dashboard = lazy(() => import("@/components/Dashboard").then(m => ({ default: m.Dashboard })));
+const Dashboard = lazy(() => import("@/components/Dashboard").then(m => ({ default: m.Dashboard }))) as React.ComponentType<import("@/components/Dashboard").DashboardProps>;
 const EnhancedCreateBill = lazy(() => import("@/components/EnhancedCreateBill").then(m => ({ default: m.EnhancedCreateBill })));
 const Customers = lazy(() => import("@/components/Customers").then(m => ({ default: m.Customers })));
 const BalanceTracker = lazy(() => import("@/components/BalanceTracker").then(m => ({ default: m.BalanceTracker })));

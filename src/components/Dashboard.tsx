@@ -5,7 +5,7 @@ import { useState } from "react";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { useTheme } from "@/lib/theme-manager";
 
-interface DashboardProps {
+export interface DashboardProps {
   onNavigate: (view: string) => void;
 }
 
