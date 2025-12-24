@@ -19,12 +19,13 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-soft to-accent-soft p-3 sm:p-4 md:p-6 lg:p-8">
       <div className="max-w-sm sm:max-w-md md:max-w-2xl lg:max-w-4xl xl:max-w-6xl mx-auto">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 lg:mb-8 gap-3 sm:gap-4">
-          <div className="text-center sm:text-left flex-1">
+        <div className="flex justify-between items-center mb-4 sm:mb-6 lg:mb-8">
+          <div className="flex-1"></div>
+          <div className="text-center flex-1">
             <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-foreground mb-1 sm:mb-2">Prakashbhai</h1>
             <p className="text-business-gray text-sm sm:text-base md:text-lg">Bill Manager</p>
           </div>
-          <div className="flex gap-2 w-full sm:w-auto justify-center sm:justify-end">
+          <div className="flex gap-2 flex-1 justify-end">
             <Button
               variant="outline"
               size="sm"
