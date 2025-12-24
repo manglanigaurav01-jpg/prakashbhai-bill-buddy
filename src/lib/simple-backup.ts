@@ -5,6 +5,20 @@ import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 
+// Helper: Blob download (works on web and inside Capacitor webview)
+const downloadJsonAsFile = (backupJson: string, fileName: string) => {
+  const blob = new Blob([backupJson], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.style.display = 'none';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
 // Folder-based backup system that creates customer folders with bill PDFs
 export const createFolderBasedBackup = async () => {
   try {
@@ -239,103 +253,36 @@ export const createComprehensiveBackup = async () => {
     console.log('Backup contains data for:', data.summary); // Debug log
 
     // Handle platform-specific backup creation
-    if (Capacitor.getPlatform() === 'web') {
-      // Create download link for web
-      const blob = new Blob([backupJson], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-
-      console.log('Blob URL created:', url); // Debug log
-      console.log('File name:', fileName); // Debug log
-
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      link.style.display = 'none';
-
-      // Try multiple approaches to trigger download
-      try {
-        // Method 1: Direct click
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        console.log('Download triggered via direct click'); // Debug log
-      } catch (error) {
-        console.error('Direct click failed, trying alternative method:', error);
-        // Method 2: Use window.open as fallback
+    try {
+      if (Capacitor.getPlatform() === 'web') {
+        // Web: blob download
+        downloadJsonAsFile(backupJson, fileName);
+      } else {
+        // Native: try Filesystem + Share, fall back to blob download if plugin missing
         try {
-          window.open(url, '_blank');
-          console.log('Download triggered via window.open'); // Debug log
-        } catch (fallbackError) {
-          console.error('Fallback method also failed:', fallbackError);
-        }
-      }
+          const backupDir = 'BillBuddyBackups';
+          try {
+            await Filesystem.mkdir({
+              path: backupDir,
+              directory: 'DOCUMENTS' as Directory,
+              recursive: true
+            });
+          } catch (mkdirErr) {
+            console.log('Backup directory check:', mkdirErr);
+          }
 
-      // Clean up
-      setTimeout(() => {
-        URL.revokeObjectURL(url);
-      }, 1000);
-    } else {
-      // For mobile platforms, save to DOCUMENTS directory and share
-      try {
-        // Ensure backup directory exists
-        const backupDir = 'BillBuddyBackups';
-        try {
-          await Filesystem.mkdir({
-            path: backupDir,
-            directory: 'DOCUMENTS' as Directory,
-            recursive: true
-          });
-        } catch (mkdirErr) {
-          // Directory might already exist, continue
-          console.log('Backup directory check:', mkdirErr);
-        }
-
-        // Convert JSON to base64 for storage
-        const base64Data = btoa(unescape(encodeURIComponent(backupJson)));
-        const filePath = `${backupDir}/${fileName}`;
-
-        // Write to DOCUMENTS directory (visible in file manager)
-        await Filesystem.writeFile({
-          path: filePath,
-          data: base64Data,
-          directory: 'DOCUMENTS' as Directory
-        });
-
-        // Get URI for sharing
-        const fileUri = await Filesystem.getUri({
-          directory: 'DOCUMENTS' as Directory,
-          path: filePath
-        });
-
-        // Share the file
-        await Share.share({
-          title: 'Bill Buddy Comprehensive Backup',
-          text: `Complete backup with ${customers.length} customers, ${bills.length} bills, ${payments.length} payments, and ${pdfResults.filter(p => p.pdfData).length} balance PDFs`,
-          url: fileUri.uri,
-          dialogTitle: 'Save or Share Backup'
-        });
-
-        return {
-          success: true,
-          message: 'Comprehensive backup created successfully! Choose where to save it.',
-          fileName,
-          summary: data.summary
-        };
-      } catch (mobileError: any) {
-        console.error('Mobile comprehensive backup creation failed:', mobileError);
-        
-        // Try fallback: save to CACHE and share
-        try {
           const base64Data = btoa(unescape(encodeURIComponent(backupJson)));
+          const filePath = `${backupDir}/${fileName}`;
+
           await Filesystem.writeFile({
-            path: fileName,
+            path: filePath,
             data: base64Data,
-            directory: 'CACHE'
+            directory: 'DOCUMENTS' as Directory
           });
 
           const fileUri = await Filesystem.getUri({
-            directory: 'CACHE',
-            path: fileName
+            directory: 'DOCUMENTS' as Directory,
+            path: filePath
           });
 
           await Share.share({
@@ -344,30 +291,26 @@ export const createComprehensiveBackup = async () => {
             url: fileUri.uri,
             dialogTitle: 'Save or Share Backup'
           });
-
-          return {
-            success: true,
-            message: 'Comprehensive backup created successfully! Choose where to save it.',
-            fileName,
-            summary: data.summary
-          };
-        } catch (fallbackError) {
-          console.error('Fallback comprehensive backup creation also failed:', fallbackError);
-          return {
-            success: false,
-            message: `Failed to create comprehensive backup: ${mobileError?.message || 'Unknown error'}. Please check file permissions.`,
-            error: mobileError?.message || String(mobileError)
-          };
+        } catch (nativeError) {
+          console.warn('Native comprehensive backup failed, falling back to blob download:', nativeError);
+          downloadJsonAsFile(backupJson, fileName);
         }
       }
-    }
 
-    return {
-      success: true,
-      message: `Comprehensive backup created successfully! Included ${customers.length} customers, ${bills.length} bills, ${payments.length} payments, and ${pdfResults.filter(p => p.pdfData).length} balance PDFs.`,
-      fileName,
-      summary: data.summary
-    };
+      return {
+        success: true,
+        message: `Comprehensive backup created successfully! Included ${customers.length} customers, ${bills.length} bills, ${payments.length} payments, and ${pdfResults.filter(p => p.pdfData).length} balance PDFs.`,
+        fileName,
+        summary: data.summary
+      };
+    } catch (error: any) {
+      console.error('Comprehensive backup creation error:', error);
+      return {
+        success: false,
+        message: `Failed to create comprehensive backup: ${error?.message || 'Unknown error'}.`,
+        error: error?.message || String(error)
+      };
+    }
   } catch (error) {
     console.error('Comprehensive backup creation error:', error); // Debug log
     return {
@@ -424,108 +367,35 @@ export const createSimpleBackup = async () => {
     console.log('Backup contains data for:', data.summary); // Debug log
 
     // Handle platform-specific backup creation
-    if (Capacitor.getPlatform() === 'web') {
-      // Create download link for web
-      const blob = new Blob([backupJson], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-
-      console.log('Blob URL created:', url); // Debug log
-      console.log('File name:', fileName); // Debug log
-
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      link.style.display = 'none';
-
-      // Try multiple approaches to trigger download
-      try {
-        // Method 1: Direct click
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        console.log('Download triggered via direct click'); // Debug log
-      } catch (error) {
-        console.error('Direct click failed, trying alternative method:', error);
-        // Method 2: Use window.open as fallback
+    try {
+      if (Capacitor.getPlatform() === 'web') {
+        downloadJsonAsFile(backupJson, fileName);
+      } else {
+        // Native: try Filesystem + Share, fall back to blob download
         try {
-          window.open(url, '_blank');
-          console.log('Download triggered via window.open'); // Debug log
-        } catch (fallbackError) {
-          console.error('Fallback method also failed:', fallbackError);
-        }
-      }
+          const backupDir = 'BillBuddyBackups';
+          try {
+            await Filesystem.mkdir({
+              path: backupDir,
+              directory: 'DOCUMENTS' as Directory,
+              recursive: true
+            });
+          } catch (mkdirErr) {
+            console.log('Backup directory check:', mkdirErr);
+          }
 
-      // Clean up
-      setTimeout(() => {
-        URL.revokeObjectURL(url);
-      }, 1000);
-
-      return {
-        success: true,
-        message: 'Backup created and downloaded successfully!',
-        fileName
-      };
-    } else {
-      // For mobile platforms, save to DOCUMENTS directory and share
-      try {
-        // Ensure backup directory exists
-        const backupDir = 'BillBuddyBackups';
-        try {
-          await Filesystem.mkdir({
-            path: backupDir,
-            directory: 'DOCUMENTS' as Directory,
-            recursive: true
-          });
-        } catch (mkdirErr) {
-          // Directory might already exist, continue
-          console.log('Backup directory check:', mkdirErr);
-        }
-
-        // Convert JSON to base64 for storage
-        const base64Data = btoa(unescape(encodeURIComponent(backupJson)));
-        const filePath = `${backupDir}/${fileName}`;
-
-        // Write to DOCUMENTS directory (visible in file manager)
-        await Filesystem.writeFile({
-          path: filePath,
-          data: base64Data,
-          directory: 'DOCUMENTS' as Directory
-        });
-
-        // Get URI for sharing
-        const fileUri = await Filesystem.getUri({
-          directory: 'DOCUMENTS' as Directory,
-          path: filePath
-        });
-
-        // Share the file
-        await Share.share({
-          title: 'Bill Buddy Simple Backup',
-          text: `Backup with ${customers.length} customers, ${bills.length} bills, ${payments.length} payments, and ${items.length} items`,
-          url: fileUri.uri,
-          dialogTitle: 'Save or Share Backup'
-        });
-
-        return {
-          success: true,
-          message: 'Backup created successfully! Choose where to save it.',
-          fileName
-        };
-      } catch (mobileError: any) {
-        console.error('Mobile backup creation failed:', mobileError);
-        
-        // Try fallback: save to CACHE and share
-        try {
           const base64Data = btoa(unescape(encodeURIComponent(backupJson)));
+          const filePath = `${backupDir}/${fileName}`;
+
           await Filesystem.writeFile({
-            path: fileName,
+            path: filePath,
             data: base64Data,
-            directory: 'CACHE'
+            directory: 'DOCUMENTS' as Directory
           });
 
           const fileUri = await Filesystem.getUri({
-            directory: 'CACHE',
-            path: fileName
+            directory: 'DOCUMENTS' as Directory,
+            path: filePath
           });
 
           await Share.share({
@@ -534,28 +404,25 @@ export const createSimpleBackup = async () => {
             url: fileUri.uri,
             dialogTitle: 'Save or Share Backup'
           });
-
-          return {
-            success: true,
-            message: 'Backup created successfully! Choose where to save it.',
-            fileName
-          };
-        } catch (fallbackError) {
-          console.error('Fallback backup creation also failed:', fallbackError);
-          return {
-            success: false,
-            message: `Failed to create backup: ${mobileError?.message || 'Unknown error'}. Please check file permissions.`,
-            error: mobileError?.message || String(mobileError)
-          };
+        } catch (nativeError) {
+          console.warn('Native simple backup failed, falling back to blob download:', nativeError);
+          downloadJsonAsFile(backupJson, fileName);
         }
       }
-    }
 
-    return {
-      success: true,
-      message: 'Backup created and downloaded successfully!',
-      fileName
-    };
+      return {
+        success: true,
+        message: 'Backup created and downloaded successfully!',
+        fileName
+      };
+    } catch (error: any) {
+      console.error('Backup creation error:', error);
+      return {
+        success: false,
+        message: `Failed to create backup: ${error?.message || 'Unknown error'}.`,
+        error: error?.message || String(error)
+      };
+    }
   } catch (error) {
     console.error('Backup creation error:', error); // Debug log
     return {
