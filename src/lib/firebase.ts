@@ -11,7 +11,6 @@ import {
   type User,
 } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, type Firestore } from 'firebase/firestore';
-import { Capacitor } from '@capacitor/core';
 import { FIREBASE_CONFIG } from './firebase.config';
 
 export interface FirebaseServices {
