@@ -23,11 +23,8 @@ export const BackupManager = () => {
     try {
       // Check if we're on mobile platform
       if (Capacitor.getPlatform() !== 'web') {
-        // For mobile, use Capacitor Filesystem to pick file
+        // For mobile, use a file picker dialog (via hidden input)
         try {
-          const { Filesystem } = await import('@capacitor/filesystem');
-          // On mobile, we'll use a file picker dialog
-          // Since Capacitor doesn't have a built-in file picker, we'll use a workaround
           // Create a hidden input element that works better on mobile
           const input = document.createElement('input');
           input.type = 'file';
