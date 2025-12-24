@@ -246,8 +246,8 @@ export const GlobalSearch = ({ open, onOpenChange, onNavigate }: GlobalSearchPro
             <Button
               type="button"
               variant={selectedTags.includes('high-value') ? 'default' : 'outline'}
-              size="xs"
-              className="h-6 text-xs"
+              size="sm"
+              className="h-7 text-xs"
               onClick={() => toggleTag('high-value')}
             >
               High value (₹50k+)
@@ -255,8 +255,8 @@ export const GlobalSearch = ({ open, onOpenChange, onNavigate }: GlobalSearchPro
             <Button
               type="button"
               variant={selectedTags.includes('recent') ? 'default' : 'outline'}
-              size="xs"
-              className="h-6 text-xs"
+              size="sm"
+              className="h-7 text-xs"
               onClick={() => toggleTag('recent')}
             >
               Recent (7 days)

@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, TrendingUp, TrendingDown, DollarSign, Users, FileText, CreditCard, BarChart3, RefreshCw } from 'lucide-react';
 import { getBills, getPayments, getCustomers, getAllCustomerBalances, getBusinessGoals, saveBusinessGoals, type BusinessGoals } from '@/lib/storage';
 import { format, subDays } from 'date-fns';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 
@@ -213,8 +213,6 @@ export const StatisticsDashboard = ({ onNavigate }: DashboardProps) => {
       color: 'text-indigo-600 dark:text-indigo-400'
     }
   ];
-
-  const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#8dd1e1', '#d084d0', '#ffb347', '#87ceeb'];
 
   return (
     <div className="min-h-screen bg-background p-3 sm:p-4 md:p-6">
