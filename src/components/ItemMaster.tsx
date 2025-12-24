@@ -18,10 +18,7 @@ import {
 } from '@/lib/storage';
 import { ItemMaster as ItemMasterType, ItemUsage } from '@/types';
 
-interface ItemMasterProps {
-}
-
-export const ItemMaster: React.FC<ItemMasterProps> = () => {
+export const ItemMaster: React.FC = () => {
   const [items, setItems] = useState<ItemMasterType[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
