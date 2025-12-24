@@ -1,6 +1,7 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut as fbSignOut, type Auth, type User } from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, type Firestore } from 'firebase/firestore';
+import { Capacitor } from '@capacitor/core';
 
 export interface FirebaseServices {
   app: FirebaseApp;
@@ -67,47 +68,42 @@ export const firebaseSignInWithGoogle = async (): Promise<User> => {
       setTimeout(() => reject(new Error('Sign-in timeout. Please check your internet connection and try again.')), 45000); // 45 second timeout
     });
 
-    // Try popup first, fallback to redirect for mobile
-    let signInPromise: Promise<any>;
-
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      // Mobile: use redirect flow
-      signInPromise = signInWithRedirect(services.auth, services.googleProvider);
-      // For redirect, we need to handle the result separately
-      return new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Sign-in timeout. Please try again.'));
-        }, 45000);
-
-        // Listen for redirect result
-        getRedirectResult(services.auth)
-          .then((result) => {
-            clearTimeout(timeout);
-            if (result?.user) {
-              // Store auth state in localStorage for persistence
-              localStorage.setItem('auth_user', JSON.stringify({
-                uid: result.user.uid,
-                email: result.user.email,
-                displayName: result.user.displayName,
-                timestamp: Date.now()
-              }));
-              resolve(result.user);
-            } else {
-              reject(new Error('No user data received from Google'));
-            }
-          })
-          .catch((error) => {
-            clearTimeout(timeout);
-            reject(error);
-          });
-      });
-    } else {
-      // Desktop: use popup
-      signInPromise = signInWithPopup(services.auth, services.googleProvider);
+    // Check if we're on mobile platform
+    const isMobile = Capacitor.isNativePlatform() || (typeof window !== 'undefined' && window.innerWidth < 768);
+    
+    // First, check if there's a redirect result (user returning from Google sign-in)
+    try {
+      const redirectResult = await getRedirectResult(services.auth);
+      if (redirectResult?.user) {
+        // User just completed redirect sign-in
+        localStorage.setItem('auth_user', JSON.stringify({
+          uid: redirectResult.user.uid,
+          email: redirectResult.user.email,
+          displayName: redirectResult.user.displayName,
+          timestamp: Date.now()
+        }));
+        return redirectResult.user;
+      }
+    } catch (redirectCheckError) {
+      // No redirect result, continue with normal sign-in flow
+      console.log('No redirect result found, proceeding with sign-in');
     }
 
-    // Race between sign-in and timeout
-    const result = await Promise.race([signInPromise, timeoutPromise]) as any;
+    // Perform sign-in based on platform
+    let result: any;
+    
+    if (isMobile) {
+      // Mobile: use redirect flow (more reliable on mobile)
+      // Initiate redirect - page will reload after user signs in
+      await signInWithRedirect(services.auth, services.googleProvider);
+      // This will cause a page reload, so we won't reach here
+      // The redirect result will be handled above on next page load
+      throw new Error('Redirecting to Google sign-in...');
+    } else {
+      // Desktop: use popup
+      const signInPromise = signInWithPopup(services.auth, services.googleProvider);
+      result = await Promise.race([signInPromise, timeoutPromise]) as any;
+    }
 
     if (!result?.user) {
       throw new Error('No user data received from Google');

@@ -33,9 +33,10 @@ export function useMobileNavigation(setCurrentView: (view: View) => void) {
         const previousView = navigationStack.current[navigationStack.current.length - 1];
         setCurrentView(previousView);
       } else {
-        // If we're at the root (dashboard), let the app close naturally
-        // This prevents the app from closing unexpectedly
-        App.exitApp();
+        // Always navigate to dashboard instead of closing app
+        // Reset stack to only contain dashboard
+        navigationStack.current = ['dashboard'];
+        setCurrentView('dashboard');
       }
     }).then((handle: any) => {
       listenerHandle = handle;

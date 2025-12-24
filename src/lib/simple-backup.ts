@@ -41,6 +41,17 @@ export const createFolderBasedBackup = async () => {
 
         // Create customer folder
         try {
+          // First ensure main backup folder exists
+          try {
+            await Filesystem.mkdir({
+              path: mainFolderName,
+              directory: 'DOCUMENTS' as Directory,
+              recursive: true,
+            });
+          } catch (mainFolderError) {
+            console.log('Main folder check:', mainFolderError);
+          }
+
           await Filesystem.mkdir({
             path: customerFolderPath,
             directory: 'DOCUMENTS' as Directory,
@@ -264,21 +275,39 @@ export const createComprehensiveBackup = async () => {
         URL.revokeObjectURL(url);
       }, 1000);
     } else {
-      // For mobile platforms, save to cache and share (like PDFs)
+      // For mobile platforms, save to DOCUMENTS directory and share
       try {
+        // Ensure backup directory exists
+        const backupDir = 'BillBuddyBackups';
+        try {
+          await Filesystem.mkdir({
+            path: backupDir,
+            directory: 'DOCUMENTS' as Directory,
+            recursive: true
+          });
+        } catch (mkdirErr) {
+          // Directory might already exist, continue
+          console.log('Backup directory check:', mkdirErr);
+        }
+
+        // Convert JSON to base64 for storage
         const base64Data = btoa(unescape(encodeURIComponent(backupJson)));
+        const filePath = `${backupDir}/${fileName}`;
 
+        // Write to DOCUMENTS directory (visible in file manager)
         await Filesystem.writeFile({
-          path: fileName,
+          path: filePath,
           data: base64Data,
-          directory: 'CACHE'
+          directory: 'DOCUMENTS' as Directory
         });
 
+        // Get URI for sharing
         const fileUri = await Filesystem.getUri({
-          directory: 'CACHE',
-          path: fileName
+          directory: 'DOCUMENTS' as Directory,
+          path: filePath
         });
 
+        // Share the file
         await Share.share({
           title: 'Bill Buddy Comprehensive Backup',
           text: `Complete backup with ${customers.length} customers, ${bills.length} bills, ${payments.length} payments, and ${pdfResults.filter(p => p.pdfData).length} balance PDFs`,
@@ -288,22 +317,48 @@ export const createComprehensiveBackup = async () => {
 
         return {
           success: true,
-          message: 'Backup ready - choose where to save it!',
+          message: 'Comprehensive backup created successfully! Choose where to save it.',
           fileName,
           summary: data.summary
         };
-      } catch (mobileError) {
-        console.error('Mobile backup creation failed:', mobileError);
-        // Fallback to web-style download
-        const blob = new Blob([backupJson], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } catch (mobileError: any) {
+        console.error('Mobile comprehensive backup creation failed:', mobileError);
+        
+        // Try fallback: save to CACHE and share
+        try {
+          const base64Data = btoa(unescape(encodeURIComponent(backupJson)));
+          await Filesystem.writeFile({
+            path: fileName,
+            data: base64Data,
+            directory: 'CACHE'
+          });
+
+          const fileUri = await Filesystem.getUri({
+            directory: 'CACHE',
+            path: fileName
+          });
+
+          await Share.share({
+            title: 'Bill Buddy Comprehensive Backup',
+            text: `Complete backup with ${customers.length} customers, ${bills.length} bills, ${payments.length} payments, and ${pdfResults.filter(p => p.pdfData).length} balance PDFs`,
+            url: fileUri.uri,
+            dialogTitle: 'Save or Share Backup'
+          });
+
+          return {
+            success: true,
+            message: 'Comprehensive backup created successfully! Choose where to save it.',
+            fileName,
+            summary: data.summary
+          };
+        } catch (fallbackError) {
+          console.error('Fallback comprehensive backup creation also failed:', fallbackError);
+          return {
+            success: false,
+            message: `Failed to create comprehensive backup: ${mobileError?.message || 'Unknown error'}. Please check file permissions.`,
+            error: mobileError?.message || String(mobileError)
+          };
+        }
       }
     }
 
@@ -411,21 +466,39 @@ export const createSimpleBackup = async () => {
         fileName
       };
     } else {
-      // For mobile platforms, save to cache and share (like PDFs)
+      // For mobile platforms, save to DOCUMENTS directory and share
       try {
+        // Ensure backup directory exists
+        const backupDir = 'BillBuddyBackups';
+        try {
+          await Filesystem.mkdir({
+            path: backupDir,
+            directory: 'DOCUMENTS' as Directory,
+            recursive: true
+          });
+        } catch (mkdirErr) {
+          // Directory might already exist, continue
+          console.log('Backup directory check:', mkdirErr);
+        }
+
+        // Convert JSON to base64 for storage
         const base64Data = btoa(unescape(encodeURIComponent(backupJson)));
+        const filePath = `${backupDir}/${fileName}`;
 
+        // Write to DOCUMENTS directory (visible in file manager)
         await Filesystem.writeFile({
-          path: fileName,
+          path: filePath,
           data: base64Data,
-          directory: 'CACHE'
+          directory: 'DOCUMENTS' as Directory
         });
 
+        // Get URI for sharing
         const fileUri = await Filesystem.getUri({
-          directory: 'CACHE',
-          path: fileName
+          directory: 'DOCUMENTS' as Directory,
+          path: filePath
         });
 
+        // Share the file
         await Share.share({
           title: 'Bill Buddy Simple Backup',
           text: `Backup with ${customers.length} customers, ${bills.length} bills, ${payments.length} payments, and ${items.length} items`,
@@ -435,21 +508,46 @@ export const createSimpleBackup = async () => {
 
         return {
           success: true,
-          message: 'Backup ready - choose where to save it!',
+          message: 'Backup created successfully! Choose where to save it.',
           fileName
         };
-      } catch (mobileError) {
+      } catch (mobileError: any) {
         console.error('Mobile backup creation failed:', mobileError);
-        // Fallback to web-style download
-        const blob = new Blob([backupJson], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        
+        // Try fallback: save to CACHE and share
+        try {
+          const base64Data = btoa(unescape(encodeURIComponent(backupJson)));
+          await Filesystem.writeFile({
+            path: fileName,
+            data: base64Data,
+            directory: 'CACHE'
+          });
+
+          const fileUri = await Filesystem.getUri({
+            directory: 'CACHE',
+            path: fileName
+          });
+
+          await Share.share({
+            title: 'Bill Buddy Simple Backup',
+            text: `Backup with ${customers.length} customers, ${bills.length} bills, ${payments.length} payments, and ${items.length} items`,
+            url: fileUri.uri,
+            dialogTitle: 'Save or Share Backup'
+          });
+
+          return {
+            success: true,
+            message: 'Backup created successfully! Choose where to save it.',
+            fileName
+          };
+        } catch (fallbackError) {
+          console.error('Fallback backup creation also failed:', fallbackError);
+          return {
+            success: false,
+            message: `Failed to create backup: ${mobileError?.message || 'Unknown error'}. Please check file permissions.`,
+            error: mobileError?.message || String(mobileError)
+          };
+        }
       }
     }
 

@@ -65,6 +65,21 @@ const App = () => {
     // Set up global error handling
     setupGlobalErrorHandler();
     initErrorLogging();
+
+    // Check for Firebase redirect result on app load (for mobile sign-in)
+    const checkRedirectResult = async () => {
+      try {
+        const { firebaseHandleRedirectResult } = await import('@/lib/firebase');
+        const user = await firebaseHandleRedirectResult();
+        if (user) {
+          console.log('User signed in via redirect:', user.email);
+        }
+      } catch (error) {
+        // Silently fail - user might not be signing in
+        console.log('No redirect result found');
+      }
+    };
+    checkRedirectResult();
   }, []);
 
   const handleNavigate = (view: string) => {

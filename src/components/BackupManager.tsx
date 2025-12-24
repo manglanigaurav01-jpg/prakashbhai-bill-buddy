@@ -21,49 +21,176 @@ export const BackupManager = () => {
 
   const handleUploadBackup = async () => {
     try {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.json';
-
-      input.onchange = async (e) => {
-        const file = (e.target as HTMLInputElement).files?.[0];
-        if (!file) return;
-
-        setIsLoading(true);
-        const reader = new FileReader();
-
-        reader.onload = async (event) => {
-          try {
-            const content = event.target?.result as string;
-            const result = await restoreSimpleBackup(content);
-            if (result && result.success) {
-              toast({
-                title: 'Backup Restored',
-                description: 'Your backup has been successfully restored.',
-              });
-              loadBackups();
-            } else {
-              throw new Error(result?.error || 'Failed to restore backup');
+      // Check if we're on mobile platform
+      if (Capacitor.getPlatform() !== 'web') {
+        // For mobile, use Capacitor Filesystem to pick file
+        try {
+          const { Filesystem } = await import('@capacitor/filesystem');
+          // On mobile, we'll use a file picker dialog
+          // Since Capacitor doesn't have a built-in file picker, we'll use a workaround
+          // Create a hidden input element that works better on mobile
+          const input = document.createElement('input');
+          input.type = 'file';
+          input.accept = 'application/json,.json,text/json';
+          input.style.display = 'none';
+          
+          input.onchange = async (e) => {
+            const file = (e.target as HTMLInputElement).files?.[0];
+            if (!file) {
+              setIsLoading(false);
+              return;
             }
-          } catch (error) {
+
+            // Validate file type
+            if (!file.name.toLowerCase().endsWith('.json') && !file.type.includes('json')) {
+              toast({
+                title: 'Invalid File Format',
+                description: 'Please select a valid JSON backup file (.json)',
+                variant: 'destructive'
+              });
+              setIsLoading(false);
+              return;
+            }
+
+            setIsLoading(true);
+            const reader = new FileReader();
+
+            reader.onload = async (event) => {
+              try {
+                const content = event.target?.result as string;
+                if (!content || content.trim().length === 0) {
+                  throw new Error('File is empty or could not be read');
+                }
+                const result = await restoreSimpleBackup(content);
+                if (result && result.success) {
+                  toast({
+                    title: 'Backup Restored',
+                    description: 'Your backup has been successfully restored.',
+                  });
+                  loadBackups();
+                } else {
+                  throw new Error(result?.error || 'Failed to restore backup');
+                }
+              } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : 'Failed to restore backup';
+                toast({
+                  title: 'Restore Failed',
+                  description: errorMessage.includes('JSON') || errorMessage.includes('parse') 
+                    ? 'Invalid backup file format. Please ensure the file is a valid JSON backup.'
+                    : errorMessage,
+                  variant: 'destructive'
+                });
+              } finally {
+                setIsLoading(false);
+              }
+            };
+
+            reader.onerror = () => {
+              toast({
+                title: 'File Read Error',
+                description: 'Failed to read the backup file. Please try again.',
+                variant: 'destructive'
+              });
+              setIsLoading(false);
+            };
+
+            reader.readAsText(file);
+          };
+
+          document.body.appendChild(input);
+          input.click();
+          // Clean up after a delay
+          setTimeout(() => {
+            document.body.removeChild(input);
+          }, 1000);
+        } catch (mobileError) {
+          toast({
+            title: 'File Selection Failed',
+            description: 'Please ensure you have file access permissions enabled.',
+            variant: 'destructive'
+          });
+          setIsLoading(false);
+        }
+      } else {
+        // Web platform - use standard file input
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'application/json,.json,text/json';
+        input.style.display = 'none';
+
+        input.onchange = async (e) => {
+          const file = (e.target as HTMLInputElement).files?.[0];
+          if (!file) {
+            setIsLoading(false);
+            return;
+          }
+
+          // Validate file type
+          if (!file.name.toLowerCase().endsWith('.json') && !file.type.includes('json')) {
             toast({
-              title: 'Restore Failed',
-              description: error instanceof Error ? error.message : 'Failed to restore backup',
+              title: 'Invalid File Format',
+              description: 'Please select a valid JSON backup file (.json)',
               variant: 'destructive'
             });
-          } finally {
             setIsLoading(false);
+            return;
           }
+
+          setIsLoading(true);
+          const reader = new FileReader();
+
+          reader.onload = async (event) => {
+            try {
+              const content = event.target?.result as string;
+              if (!content || content.trim().length === 0) {
+                throw new Error('File is empty or could not be read');
+              }
+              const result = await restoreSimpleBackup(content);
+              if (result && result.success) {
+                toast({
+                  title: 'Backup Restored',
+                  description: 'Your backup has been successfully restored.',
+                });
+                loadBackups();
+              } else {
+                throw new Error(result?.error || 'Failed to restore backup');
+              }
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : 'Failed to restore backup';
+              toast({
+                title: 'Restore Failed',
+                description: errorMessage.includes('JSON') || errorMessage.includes('parse')
+                  ? 'Invalid backup file format. Please ensure the file is a valid JSON backup.'
+                  : errorMessage,
+                variant: 'destructive'
+              });
+            } finally {
+              setIsLoading(false);
+            }
+          };
+
+          reader.onerror = () => {
+            toast({
+              title: 'File Read Error',
+              description: 'Failed to read the backup file. Please try again.',
+              variant: 'destructive'
+            });
+            setIsLoading(false);
+          };
+
+          reader.readAsText(file);
         };
 
-        reader.readAsText(file);
-      };
-
-      input.click();
+        document.body.appendChild(input);
+        input.click();
+        setTimeout(() => {
+          document.body.removeChild(input);
+        }, 1000);
+      }
     } catch (error) {
       toast({
         title: 'Upload Failed',
-        description: 'Failed to upload backup file',
+        description: error instanceof Error ? error.message : 'Failed to upload backup file',
         variant: 'destructive'
       });
       setIsLoading(false);

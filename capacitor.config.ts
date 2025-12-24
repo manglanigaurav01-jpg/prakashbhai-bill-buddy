@@ -22,7 +22,7 @@ const config: CapacitorConfig = {
     },
     GoogleAuth: {
       scopes: ['profile', 'email'],
-      serverClientId: '491579424292-96mf2l65h34g6ld29qngoc3sf2qe2v73.apps.googleusercontent.com', // Web client ID from Firebase
+      serverClientId: '491579424292-96mflt0oeh6m50pvdgokapi718puocuh.apps.googleusercontent.com', // Web client ID from Firebase
       forceCodeForRefreshToken: true
     }
   }
