@@ -19,10 +19,9 @@ import {
 import { ItemMaster as ItemMasterType, ItemUsage } from '@/types';
 
 interface ItemMasterProps {
-  onNavigate: (view: string) => void;
 }
 
-export const ItemMaster: React.FC<ItemMasterProps> = ({ onNavigate }) => {
+export const ItemMaster: React.FC<ItemMasterProps> = () => {
   const [items, setItems] = useState<ItemMasterType[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
