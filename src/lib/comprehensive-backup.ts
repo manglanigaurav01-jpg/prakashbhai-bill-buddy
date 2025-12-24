@@ -184,13 +184,14 @@ export const createComprehensiveBackup = async (): Promise<BackupResult> => {
 /**
  * Restores data from a comprehensive backup
  */
-export const restoreComprehensiveBackup = async (backupData: ComprehensiveBackupData): Promise<BackupResult> => {
+export const restoreComprehensiveBackup = async (backupContent: string): Promise<BackupResult> => {
   try {
-    // Validate backup format
-    if (!backupData.version || !backupData.timestamp || !backupData.customers) {
+    // Parse the backup content
+    const backupData = parseBackupFile(backupContent);
+    if (!backupData) {
       return {
         success: false,
-        message: 'Invalid backup file format'
+        message: 'Backup file is not in a valid JSON format'
       };
     }
 

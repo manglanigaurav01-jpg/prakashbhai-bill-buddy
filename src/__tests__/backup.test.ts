@@ -1,6 +1,6 @@
 // Unit tests for backup and restore functions
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
-import { createEnhancedBackup, restoreFromEnhancedBackup } from '../lib/enhanced-backup';
+import { createComprehensiveBackup, restoreComprehensiveBackup } from '../lib/comprehensive-backup';
 import * as storage from '../lib/storage';
 
 // Mock the storage functions
@@ -57,9 +57,9 @@ describe('Backup and Restore', () => {
   });
 
   it('should create a valid backup', async () => {
-    const backupResult = await createEnhancedBackup();
+    const backupResult = await createComprehensiveBackup();
     expect(backupResult.success).toBe(true);
-    expect(backupResult.metadata).toBeDefined();
+    expect(backupResult.data?.metadata).toBeDefined();
 
     // The backup creation on web triggers a download, so we can't easily get the content here.
     // Instead, we trust the implementation that was fixed.
@@ -113,7 +113,7 @@ describe('Backup and Restore', () => {
     const backupContent = JSON.stringify(backupData);
 
     // 2. Restore from the backup
-    const restoreResult = await restoreFromEnhancedBackup(backupContent);
+    const restoreResult = await restoreComprehensiveBackup(backupContent);
 
     // 3. Assertions
     expect(restoreResult.success).toBe(true);
@@ -126,7 +126,7 @@ describe('Backup and Restore', () => {
 
   it('should fail to restore with invalid JSON', async () => {
     const invalidContent = 'this is not json';
-    const result = await restoreFromEnhancedBackup(invalidContent);
+    const result = await restoreComprehensiveBackup(invalidContent);
     expect(result.success).toBe(false);
     expect(result.message).toContain('not in a valid JSON format');
   });
@@ -139,7 +139,7 @@ describe('Backup and Restore', () => {
         metadata: { checksum: 'wrong-checksum' },
       };
     const backupContent = JSON.stringify(backupData);
-    const result = await restoreFromEnhancedBackup(backupContent);
+    const result = await restoreComprehensiveBackup(backupContent);
     expect(result.success).toBe(false);
     expect(result.message).toContain('Backup checksum validation failed');
   });
