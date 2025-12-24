@@ -9,7 +9,7 @@ export interface DashboardProps {
   onNavigate: (view: string) => void;
 }
 
-const Dashboard = ({ onNavigate }: DashboardProps) => {
+const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   const { effectiveTheme, toggleTheme } = useTheme();
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const isDarkMode = effectiveTheme === 'dark';
