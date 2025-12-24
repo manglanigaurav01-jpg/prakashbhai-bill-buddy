@@ -11,6 +11,7 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { ArrowLeft, Plus, Trash2, FileDown, Save, Edit3 } from "lucide-react";
 import { getCustomers, saveBill, saveCustomer } from "@/lib/storage";
 import { generateBillPDF } from "@/lib/pdf";
+import { createFolderBasedBackup } from "@/lib/simple-backup";
 import { Customer, BillItem } from "@/types";
 import { useToast } from "@/hooks/use-toast";
 import { validateCustomerName, validateItemName, validateItemRate, validateItemQuantity, validateBillDate, validateForm, validateRequired } from "@/lib/validation";
@@ -312,6 +313,14 @@ export const CreateBill = ({ onNavigate }: CreateBillProps) => {
       const pdfResult = await generateBillPDF(bill);
 
       if (pdfResult.success) {
+        // Automatically create folder-based backup after successful bill save
+        try {
+          await createFolderBasedBackup();
+        } catch (backupError) {
+          console.warn('Automatic folder-based backup failed:', backupError);
+          // Don't show error to user as it's automatic and shouldn't interrupt the flow
+        }
+
         toast({
           title: "✅ Bill Saved Successfully!",
           description: pdfResult.message,

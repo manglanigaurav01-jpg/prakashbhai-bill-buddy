@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { createSimpleBackup, createComprehensiveBackup, createFolderBasedBackup, restoreSimpleBackup } from '@/lib/simple-backup';
+import { createComprehensiveBackup, createFolderBasedBackup } from '@/lib/simple-backup';
 import { restoreFromEnhancedBackup } from '@/lib/enhanced-backup';
 import { useToast } from '@/components/ui/use-toast';
 import { Download, Upload, RefreshCw, FileText, Users, Receipt, CreditCard, Folder } from 'lucide-react';
@@ -185,29 +185,7 @@ export const BackupManager = () => {
     loadBackups();
   }, []);
 
-  const handleCreateBackup = async () => {
-    setIsLoading(true);
-    try {
-      const result = await createSimpleBackup();
-      if (result.success) {
-        toast({
-          title: "Backup Created",
-          description: "Backup file has been downloaded to your device. Save it in a safe location."
-        });
-        setLastBackup(new Date().toISOString());
-      } else {
-        throw new Error(result.message || 'Failed to create backup');
-      }
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Backup Failed",
-        description: error instanceof Error ? error.message : "Failed to create backup"
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+
 
   const handleCreateComprehensiveBackup = async () => {
     setIsLoading(true);
@@ -259,15 +237,9 @@ export const BackupManager = () => {
 
   const handleValidatedImport = async (data: any) => {
     try {
-      // Try enhanced backup restore first, fallback to simple backup
-      let result;
-      try {
-        result = await restoreFromEnhancedBackup(JSON.stringify(data));
-      } catch (e) {
-        // If enhanced backup fails, try simple backup restore
-        result = await restoreSimpleBackup(JSON.stringify(data));
-      }
-      
+      // Try enhanced backup restore
+      const result = await restoreFromEnhancedBackup(JSON.stringify(data));
+
       if (result && result.success) {
         toast({
           title: 'Backup Restored',
@@ -318,32 +290,7 @@ export const BackupManager = () => {
             <div className="space-y-4">
               <h4 className="text-sm font-medium">Choose Backup Type</h4>
 
-              {/* Simple Backup */}
-              <div className="border rounded-lg p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <FileText className="h-5 w-5 text-blue-500" />
-                    <div>
-                      <h5 className="font-medium">Simple Backup</h5>
-                      <p className="text-sm text-muted-foreground">Basic data backup (customers, bills, payments, items)</p>
-                    </div>
-                  </div>
-                  <Badge variant="secondary">Fast</Badge>
-                </div>
-                <Button
-                  onClick={handleCreateBackup}
-                  disabled={isLoading}
-                  className="w-full"
-                  variant="outline"
-                >
-                  {isLoading ? (
-                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <Download className="h-4 w-4 mr-2" />
-                  )}
-                  Create Simple Backup
-                </Button>
-              </div>
+
 
               {/* Comprehensive Backup */}
               <div className="border rounded-lg p-4 space-y-3 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20">
@@ -394,46 +341,7 @@ export const BackupManager = () => {
                 </Button>
               </div>
 
-              {/* Folder-Based Backup */}
-              <div className="border rounded-lg p-4 space-y-3 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Folder className="h-5 w-5 text-purple-600" />
-                    <div>
-                      <h5 className="font-medium">Folder-Based Backup</h5>
-                      <p className="text-sm text-muted-foreground">Organized backup with customer folders containing individual bill PDFs</p>
-                    </div>
-                  </div>
-                  <Badge variant="outline" className="border-purple-300 text-purple-700">Organized</Badge>
-                </div>
-                <div className="text-xs text-muted-foreground space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Folder className="h-3 w-3" />
-                    <span>Main backup folder in "My Files"</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Users className="h-3 w-3" />
-                    <span>Customer-named subfolders</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-3 w-3" />
-                    <span>Individual bill PDFs inside each customer folder</span>
-                  </div>
-                </div>
-                <Button
-                  onClick={handleCreateFolderBasedBackup}
-                  disabled={isLoading}
-                  className="w-full"
-                  variant="outline"
-                >
-                  {isLoading ? (
-                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <Folder className="h-4 w-4 mr-2" />
-                  )}
-                  Create Folder-Based Backup
-                </Button>
-              </div>
+
             </div>
 
             {/* Restore Section */}
