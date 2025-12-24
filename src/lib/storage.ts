@@ -22,6 +22,11 @@ export interface BusinessAnalytics {
   };
 }
 
+export interface BusinessGoals {
+  monthlyRevenueTarget: number;
+  collectionEfficiencyTarget: number;
+}
+
 // Add version tracking for data structures
 const DATA_VERSION = '1.0.0';
 
@@ -36,7 +41,8 @@ const STORAGE_KEYS = {
   ANALYSIS_CACHE: 'prakash_analysis_cache',
   BUSINESS_ANALYTICS: 'prakash_business_analytics',
   LAST_SYNC: 'prakash_last_sync',
-  SYNC_CONFLICTS: 'prakash_sync_conflicts'
+  SYNC_CONFLICTS: 'prakash_sync_conflicts',
+  GOALS: 'prakash_business_goals',
 };
 
 // Customer management
@@ -177,6 +183,42 @@ export const updateBusinessAnalytics = async () => {
 
   localStorage.setItem(STORAGE_KEYS.BUSINESS_ANALYTICS, JSON.stringify(analytics));
   return analytics;
+};
+
+export const getBusinessGoals = (): BusinessGoals => {
+  const data = localStorage.getItem(STORAGE_KEYS.GOALS);
+  if (!data) {
+    const defaults: BusinessGoals = {
+      monthlyRevenueTarget: 0,
+      collectionEfficiencyTarget: 90,
+    };
+    localStorage.setItem(STORAGE_KEYS.GOALS, JSON.stringify(defaults));
+    return defaults;
+  }
+  try {
+    const parsed = JSON.parse(data) as BusinessGoals;
+    return {
+      monthlyRevenueTarget: parsed.monthlyRevenueTarget ?? 0,
+      collectionEfficiencyTarget: parsed.collectionEfficiencyTarget ?? 90,
+    };
+  } catch {
+    const defaults: BusinessGoals = {
+      monthlyRevenueTarget: 0,
+      collectionEfficiencyTarget: 90,
+    };
+    localStorage.setItem(STORAGE_KEYS.GOALS, JSON.stringify(defaults));
+    return defaults;
+  }
+};
+
+export const saveBusinessGoals = (updates: Partial<BusinessGoals>): BusinessGoals => {
+  const current = getBusinessGoals();
+  const merged: BusinessGoals = {
+    monthlyRevenueTarget: updates.monthlyRevenueTarget ?? current.monthlyRevenueTarget,
+    collectionEfficiencyTarget: updates.collectionEfficiencyTarget ?? current.collectionEfficiencyTarget,
+  };
+  localStorage.setItem(STORAGE_KEYS.GOALS, JSON.stringify(merged));
+  return merged;
 };
 
 export const saveBill = (bill: Omit<Bill, 'id' | 'createdAt'>): Bill => {

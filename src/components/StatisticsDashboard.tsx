@@ -3,9 +3,13 @@
 import { useState, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, TrendingUp, TrendingDown, DollarSign, Users, FileText, CreditCard, BarChart3, RefreshCw } from 'lucide-react';
-import { getBills, getPayments, getCustomers, getAllCustomerBalances } from '@/lib/storage';
+import { getBills, getPayments, getCustomers, getAllCustomerBalances, getBusinessGoals, saveBusinessGoals, type BusinessGoals } from '@/lib/storage';
 import { format, subDays } from 'date-fns';
+import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
 
 interface DashboardProps {
   onNavigate: (view: string) => void;
@@ -25,6 +29,11 @@ export const StatisticsDashboard = ({ onNavigate }: DashboardProps) => {
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [goals, setGoals] = useState<BusinessGoals>(() => getBusinessGoals());
+  const [goalInputs, setGoalInputs] = useState({
+    monthlyRevenueTarget: goals.monthlyRevenueTarget ? goals.monthlyRevenueTarget.toString() : '',
+    collectionEfficiencyTarget: goals.collectionEfficiencyTarget ? goals.collectionEfficiencyTarget.toString() : '90',
+  });
 
   const stats = useMemo(() => {
     setIsLoading(true);
@@ -81,6 +90,38 @@ export const StatisticsDashboard = ({ onNavigate }: DashboardProps) => {
     const avgBillAmount = billCount > 0 ? totalRevenue / billCount : 0;
     const avgPaymentAmount = paymentCount > 0 ? totalPaid / paymentCount : 0;
 
+    // Customer lifetime values
+    const customerLifetimeValues = customers.map(customer => {
+      const customerBills = filteredBills.filter(b => b.customerId === customer.id);
+      const customerPayments = filteredPayments.filter(p => p.customerId === customer.id);
+      const totalRevenue = customerBills.reduce((sum, b) => sum + b.grandTotal, 0);
+      const totalPaid = customerPayments.reduce((sum, p) => sum + p.amount, 0);
+      return {
+        name: customer.name.length > 15 ? customer.name.substring(0, 15) + '...' : customer.name,
+        fullName: customer.name,
+        totalRevenue,
+        totalPaid,
+        pending: totalRevenue - totalPaid,
+        billCount: customerBills.length
+      };
+    }).sort((a, b) => b.totalRevenue - a.totalRevenue).slice(0, 10);
+
+    // Monthly revenue trends
+    const monthlyRevenue = filteredBills.reduce((acc: { [key: string]: number }, bill) => {
+      const month = format(new Date(bill.date), 'MMM yyyy');
+      acc[month] = (acc[month] || 0) + bill.grandTotal;
+      return acc;
+    }, {});
+    const monthlyData = Object.entries(monthlyRevenue)
+      .map(([month, revenue]) => ({ month, revenue }))
+      .sort((a, b) => new Date(a.month).getTime() - new Date(b.month).getTime())
+      .slice(-12);
+
+    // Payment collection efficiency
+    const collectionEfficiency = totalRevenue > 0 
+      ? parseFloat(((totalPaid / totalRevenue) * 100).toFixed(1))
+      : 0;
+
     setIsLoading(false);
     setLastUpdated(new Date());
 
@@ -95,9 +136,36 @@ export const StatisticsDashboard = ({ onNavigate }: DashboardProps) => {
       customersWithPending,
       avgBillAmount,
       avgPaymentAmount,
-      revenueChange
+      revenueChange,
+      customerLifetimeValues,
+      monthlyData,
+      collectionEfficiency
     };
   }, [timeRange]);
+
+  const currentMonthRevenue = stats.monthlyData.length
+    ? stats.monthlyData[stats.monthlyData.length - 1]?.revenue ?? 0
+    : stats.totalRevenue;
+
+  const revenueGoalProgress =
+    goals.monthlyRevenueTarget > 0
+      ? Math.min(100, Math.round((currentMonthRevenue / goals.monthlyRevenueTarget) * 100))
+      : 0;
+
+  const collectionGoalProgress =
+    goals.collectionEfficiencyTarget > 0
+      ? Math.min(100, Math.round((stats.collectionEfficiency / goals.collectionEfficiencyTarget) * 100))
+      : 0;
+
+  const handleGoalsSave = () => {
+    const monthlyRevenueTarget = parseFloat(goalInputs.monthlyRevenueTarget || '0');
+    const collectionEfficiencyTarget = parseFloat(goalInputs.collectionEfficiencyTarget || '0');
+    const updated = saveBusinessGoals({
+      monthlyRevenueTarget: isNaN(monthlyRevenueTarget) ? 0 : monthlyRevenueTarget,
+      collectionEfficiencyTarget: isNaN(collectionEfficiencyTarget) ? 0 : collectionEfficiencyTarget,
+    });
+    setGoals(updated);
+  };
 
   const widgets: StatWidget[] = [
     {
@@ -146,73 +214,67 @@ export const StatisticsDashboard = ({ onNavigate }: DashboardProps) => {
     }
   ];
 
+  const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#ff7c7c', '#8dd1e1', '#d084d0', '#ffb347', '#87ceeb'];
+
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => onNavigate('dashboard')}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
+    <div className="min-h-screen bg-background p-3 sm:p-4 md:p-6">
+      <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
+        {/* Header - Mobile Optimized */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => onNavigate('dashboard')}
+              className="h-10 w-10 p-0 sm:h-auto sm:w-auto sm:px-3"
+            >
+              <ArrowLeft className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Back</span>
             </Button>
             <div>
-              <h1 className="text-3xl font-bold">Statistics Dashboard</h1>
-              <p className="text-muted-foreground">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">Statistics Dashboard</h1>
+              <p className="text-xs sm:text-sm text-muted-foreground">
                 Last updated: {format(lastUpdated, 'HH:mm:ss')}
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant={timeRange === '7d' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setTimeRange('7d')}
-            >
-              7 Days
-            </Button>
-            <Button
-              variant={timeRange === '30d' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setTimeRange('30d')}
-            >
-              30 Days
-            </Button>
-            <Button
-              variant={timeRange === '90d' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setTimeRange('90d')}
-            >
-              90 Days
-            </Button>
-            <Button
-              variant={timeRange === 'all' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setTimeRange('all')}
-            >
-              All Time
-            </Button>
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+            {(['7d', '30d', '90d', 'all'] as const).map((range) => (
+              <Button
+                key={range}
+                variant={timeRange === range ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setTimeRange(range)}
+                className="flex-1 sm:flex-none min-w-[70px]"
+              >
+                {range === 'all' ? 'All' : range.toUpperCase()}
+              </Button>
+            ))}
             <Button
               variant="outline"
               size="sm"
               onClick={() => setTimeRange(timeRange)}
               disabled={isLoading}
+              className="w-10 sm:w-auto"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline ml-2">Refresh</span>
             </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Stats Grid - Mobile Optimized */}
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4">
           {widgets.map((widget) => {
             const Icon = widget.icon;
             return (
               <Card key={widget.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">{widget.title}</CardTitle>
-                  <Icon className={`h-4 w-4 ${widget.color}`} />
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 sm:p-6">
+                  <CardTitle className="text-xs sm:text-sm font-medium">{widget.title}</CardTitle>
+                  <Icon className={`h-4 w-4 sm:h-5 sm:w-5 ${widget.color}`} />
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{widget.value}</div>
+                <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+                  <div className="text-lg sm:text-2xl font-bold">{widget.value}</div>
                   {widget.change !== undefined && (
                     <p className={`text-xs mt-1 ${widget.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       {widget.change >= 0 ? <TrendingUp className="inline w-3 h-3" /> : <TrendingDown className="inline w-3 h-3" />}
@@ -226,36 +288,177 @@ export const StatisticsDashboard = ({ onNavigate }: DashboardProps) => {
           })}
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Insights</CardTitle>
-            <CardDescription>Key metrics at a glance</CardDescription>
-          </CardHeader>
-          <CardContent>
+        {/* Advanced Analytics Tabs */}
+        <Tabs defaultValue="trends" className="w-full">
+          <TabsList className="grid w-full grid-cols-3 lg:grid-cols-4">
+            <TabsTrigger value="trends">Trends</TabsTrigger>
+            <TabsTrigger value="customers">Customers</TabsTrigger>
+            <TabsTrigger value="revenue">Revenue</TabsTrigger>
+            <TabsTrigger value="insights" className="hidden lg:block">Insights</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="trends" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Monthly Revenue Trend</CardTitle>
+                <CardDescription>Revenue over time</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={stats.monthlyData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line type="monotone" dataKey="revenue" stroke="#8884d8" name="Revenue (₹)" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="customers" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Top Customers by Lifetime Value</CardTitle>
+                <CardDescription>Customers ranked by total revenue</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={400}>
+                  <BarChart data={stats.customerLifetimeValues}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="totalRevenue" fill="#8884d8" name="Total Revenue (₹)" />
+                    <Bar dataKey="totalPaid" fill="#82ca9d" name="Total Paid (₹)" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="revenue" className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Payment Rate</p>
-                <p className="text-2xl font-bold">
-                  {stats.totalRevenue > 0 
-                    ? ((stats.totalPaid / stats.totalRevenue) * 100).toFixed(1)
-                    : 0}%
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {stats.totalPaid.toLocaleString('en-IN')} paid of {stats.totalRevenue.toLocaleString('en-IN')} billed
-                </p>
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Average Payment</p>
-                <p className="text-2xl font-bold">
-                  ₹{stats.avgPaymentAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Based on {stats.paymentCount} payments
-                </p>
-              </div>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Collection Efficiency</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-4xl font-bold">{stats.collectionEfficiency}%</div>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    {stats.totalPaid.toLocaleString('en-IN')} paid of {stats.totalRevenue.toLocaleString('en-IN')} billed
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle>Average Metrics</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Avg Bill Amount</p>
+                    <p className="text-2xl font-bold">₹{stats.avgBillAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Avg Payment Amount</p>
+                    <p className="text-2xl font-bold">₹{stats.avgPaymentAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
+          </TabsContent>
+
+          <TabsContent value="insights" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Quick Insights</CardTitle>
+                <CardDescription>Key metrics at a glance</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Payment Rate</p>
+                    <p className="text-2xl font-bold">
+                      {stats.totalRevenue > 0 
+                        ? ((stats.totalPaid / stats.totalRevenue) * 100).toFixed(1)
+                        : 0}%
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {stats.totalPaid.toLocaleString('en-IN')} paid of {stats.totalRevenue.toLocaleString('en-IN')} billed
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Customers with Pending</p>
+                    <p className="text-2xl font-bold">{stats.customersWithPending}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Out of {stats.customerCount} total customers
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Business Goals & Progress</CardTitle>
+                <CardDescription>Track your targets and see how close you are</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Monthly Revenue Target (₹)</p>
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      value={goalInputs.monthlyRevenueTarget}
+                      onChange={(e) =>
+                        setGoalInputs((prev) => ({ ...prev, monthlyRevenueTarget: e.target.value }))
+                      }
+                      placeholder="Enter target revenue"
+                    />
+                    <div className="mt-2 space-y-1">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>
+                          Current month: ₹{currentMonthRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                        </span>
+                        <span>{revenueGoalProgress}%</span>
+                      </div>
+                      <Progress value={revenueGoalProgress} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Collection Efficiency Target (%)</p>
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      value={goalInputs.collectionEfficiencyTarget}
+                      onChange={(e) =>
+                        setGoalInputs((prev) => ({ ...prev, collectionEfficiencyTarget: e.target.value }))
+                      }
+                      placeholder="e.g. 95"
+                    />
+                    <div className="mt-2 space-y-1">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Current: {stats.collectionEfficiency}%</span>
+                        <span>{collectionGoalProgress}%</span>
+                      </div>
+                      <Progress value={collectionGoalProgress} />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Button size="sm" onClick={handleGoalsSave}>
+                    Save Goals
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
