@@ -130,7 +130,7 @@ export const createComprehensiveBackup = async (): Promise<BackupResult> => {
 
         const result = await Filesystem.writeFile({
           path: fullPath,
-          data: btoa(jsonString), // Base64 encode for mobile
+          data: jsonString, // Pass JSON string directly for text data
           directory: 'DOCUMENTS' as Directory
         });
 
@@ -156,7 +156,7 @@ export const createComprehensiveBackup = async (): Promise<BackupResult> => {
           console.log('Attempting fallback to CACHE directory...');
           const result = await Filesystem.writeFile({
             path: fileName,
-            data: btoa(jsonString),
+            data: jsonString, // Pass JSON string directly for text data
             directory: 'CACHE' as Directory
           });
 
