@@ -1,0 +1,270 @@
+import { Customer, Bill, Payment, CustomerBalance } from '@/types';
+import { getCustomers, getBills, getPayments, getAllCustomerBalances, getItems } from './storage';
+import { Capacitor } from '@capacitor/core';
+import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
+
+export interface ComprehensiveBackupData {
+  version: string;
+  timestamp: string;
+  customers: Customer[];
+  bills: Bill[];
+  payments: Payment[];
+  balances: CustomerBalance[];
+  items: any[]; // Item master data
+  metadata: {
+    totalCustomers: number;
+    totalBills: number;
+    totalPayments: number;
+    totalItems: number;
+    totalRevenue: number;
+    totalPaid: number;
+    totalPending: number;
+  };
+}
+
+export interface BackupResult {
+  success: boolean;
+  message: string;
+  fileName?: string;
+  data?: ComprehensiveBackupData;
+  error?: any;
+}
+
+/**
+ * Creates a comprehensive backup containing all business data
+ * - Customer names
+ * - All bills (latest edited versions only)
+ * - All payments (latest edited versions only)
+ * - Last balance of all customers
+ */
+export const createComprehensiveBackup = async (): Promise<BackupResult> => {
+  try {
+    // Get all data from storage
+    const customers = getCustomers();
+    const allBills = getBills();
+    const allPayments = getPayments();
+    const balances = getAllCustomerBalances();
+    const items = getItems();
+
+    if (customers.length === 0) {
+      return {
+        success: false,
+        message: 'No customers found to backup',
+        error: 'NO_CUSTOMERS'
+      };
+    }
+
+    // Group bills and payments by customer to get latest versions
+    const latestBillsMap = new Map<string, Bill>();
+    const latestPaymentsMap = new Map<string, Payment>();
+
+    // Process bills - keep only the latest edited version for each bill ID
+    allBills.forEach(bill => {
+      const existing = latestBillsMap.get(bill.id);
+      if (!existing || new Date(bill.createdAt) > new Date(existing.createdAt)) {
+        latestBillsMap.set(bill.id, bill);
+      }
+    });
+
+    // Process payments - keep only the latest edited version for each payment ID
+    allPayments.forEach(payment => {
+      const existing = latestPaymentsMap.get(payment.id);
+      if (!existing || new Date(payment.createdAt) > new Date(existing.createdAt)) {
+        latestPaymentsMap.set(payment.id, payment);
+      }
+    });
+
+    const latestBills = Array.from(latestBillsMap.values());
+    const latestPayments = Array.from(latestPaymentsMap.values());
+
+    // Calculate totals for metadata
+    const totalRevenue = balances.reduce((sum, balance) => sum + balance.totalSales, 0);
+    const totalPaid = balances.reduce((sum, balance) => sum + balance.totalPaid, 0);
+    const totalPending = balances.reduce((sum, balance) => sum + balance.pending, 0);
+
+    // Create backup data structure
+    const backupData: ComprehensiveBackupData = {
+      version: '1.0.0',
+      timestamp: new Date().toISOString(),
+      customers,
+      bills: latestBills,
+      payments: latestPayments,
+      balances,
+      items,
+      metadata: {
+        totalCustomers: customers.length,
+        totalBills: latestBills.length,
+        totalPayments: latestPayments.length,
+        totalItems: items.length,
+        totalRevenue,
+        totalPaid,
+        totalPending
+      }
+    };
+
+    // Generate filename with timestamp
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    const fileName = `BillBuddy_Comprehensive_Backup_${timestamp}.json`;
+
+    // Convert to JSON string
+    const jsonString = JSON.stringify(backupData, null, 2);
+
+    if (Capacitor.isNativePlatform()) {
+      // Mobile: Save to device storage and share
+      try {
+        const result = await Filesystem.writeFile({
+          path: fileName,
+          data: btoa(jsonString), // Base64 encode for mobile
+          directory: 'DOCUMENTS' as Directory
+        });
+
+        // Share the file
+        await Share.share({
+          title: 'Bill Buddy Backup',
+          text: 'Comprehensive backup of all business data',
+          url: result.uri,
+          dialogTitle: 'Share Backup File'
+        });
+
+        return {
+          success: true,
+          message: `Backup created and shared successfully. File: ${fileName}`,
+          fileName,
+          data: backupData
+        };
+      } catch (mobileError) {
+        console.error('Mobile backup error:', mobileError);
+        return {
+          success: false,
+          message: 'Failed to save backup on mobile device',
+          error: mobileError
+        };
+      }
+    } else {
+      // Web: Trigger download
+      try {
+        const blob = new Blob([jsonString], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        URL.revokeObjectURL(url);
+
+        return {
+          success: true,
+          message: `Backup downloaded successfully. File: ${fileName}`,
+          fileName,
+          data: backupData
+        };
+      } catch (webError) {
+        console.error('Web backup error:', webError);
+        return {
+          success: false,
+          message: 'Failed to download backup file',
+          error: webError
+        };
+      }
+    }
+  } catch (error) {
+    console.error('Comprehensive backup creation error:', error);
+    return {
+      success: false,
+      message: 'Failed to create comprehensive backup',
+      error
+    };
+  }
+};
+
+/**
+ * Restores data from a comprehensive backup
+ */
+export const restoreComprehensiveBackup = async (backupData: ComprehensiveBackupData): Promise<BackupResult> => {
+  try {
+    // Validate backup format
+    if (!backupData.version || !backupData.timestamp || !backupData.customers) {
+      return {
+        success: false,
+        message: 'Invalid backup file format'
+      };
+    }
+
+    // Validate version compatibility
+    if (backupData.version !== '1.0.0') {
+      return {
+        success: false,
+        message: `Incompatible backup version: ${backupData.version}. Expected: 1.0.0`
+      };
+    }
+
+    // Clear existing data (optional - could add confirmation)
+    localStorage.removeItem('prakash_customers');
+    localStorage.removeItem('prakash_bills');
+    localStorage.removeItem('prakash_payments');
+    localStorage.removeItem('prakash_items');
+
+    // Restore data
+    localStorage.setItem('prakash_customers', JSON.stringify(backupData.customers));
+    localStorage.setItem('prakash_bills', JSON.stringify(backupData.bills));
+    localStorage.setItem('prakash_payments', JSON.stringify(backupData.payments));
+    if (backupData.items) {
+      localStorage.setItem('prakash_items', JSON.stringify(backupData.items));
+    }
+
+    // Trigger storage event to update UI
+    window.dispatchEvent(new Event('storage'));
+
+    return {
+      success: true,
+      message: `Successfully restored backup from ${new Date(backupData.timestamp).toLocaleString()}. Restored ${backupData.metadata.totalCustomers} customers, ${backupData.metadata.totalBills} bills, and ${backupData.metadata.totalPayments} payments.`
+    };
+  } catch (error) {
+    console.error('Backup restoration error:', error);
+    return {
+      success: false,
+      message: 'Failed to restore backup data',
+      error
+    };
+  }
+};
+
+/**
+ * Parses a backup file content and returns the data
+ */
+export const parseBackupFile = (fileContent: string): ComprehensiveBackupData | null => {
+  try {
+    const data = JSON.parse(fileContent) as ComprehensiveBackupData;
+
+    // Basic validation
+    if (!data.version || !data.timestamp || !Array.isArray(data.customers)) {
+      throw new Error('Invalid backup file structure');
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Failed to parse backup file:', error);
+    return null;
+  }
+};
+
+/**
+ * Gets backup statistics for display
+ */
+export const getBackupStatistics = (backupData: ComprehensiveBackupData) => {
+  return {
+    createdAt: new Date(backupData.timestamp).toLocaleString(),
+    version: backupData.version,
+    customers: backupData.customers.length,
+    bills: backupData.bills.length,
+    payments: backupData.payments.length,
+    totalItems: backupData.metadata.totalItems,
+    totalRevenue: backupData.metadata.totalRevenue,
+    totalPaid: backupData.metadata.totalPaid,
+    totalPending: backupData.metadata.totalPending
+  };
+};
