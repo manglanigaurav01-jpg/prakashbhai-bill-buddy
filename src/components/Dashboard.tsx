@@ -9,7 +9,7 @@ export interface DashboardProps {
   onNavigate: (view: string) => void;
 }
 
-export const Dashboard = ({ onNavigate }: DashboardProps) => {
+const Dashboard = ({ onNavigate }: DashboardProps) => {
   const { effectiveTheme, toggleTheme } = useTheme();
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const isDarkMode = effectiveTheme === 'dark';
@@ -171,3 +171,5 @@ export const Dashboard = ({ onNavigate }: DashboardProps) => {
     </div>
   );
 };
+
+export default Dashboard;

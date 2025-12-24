@@ -8,6 +8,7 @@ import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { initTheme } from "@/lib/theme-manager";
 import { setupGlobalErrorHandler, initErrorLogging } from "@/lib/error-logger";
 import { useMobileNavigation } from "@/hooks/use-mobile-navigation";
+import type { DashboardProps } from "@/components/Dashboard";
 
 // Define view types
 type View =
@@ -28,7 +29,7 @@ type View =
   | 'statistics';
 
 // Lazy load components for code splitting
-const Dashboard = lazy(() => import("@/components/Dashboard").then(m => ({ default: m.Dashboard }))) as React.ComponentType<import("@/components/Dashboard").DashboardProps>;
+const Dashboard = lazy<React.ComponentType<DashboardProps>>(() => import("@/components/Dashboard"));
 const EnhancedCreateBill = lazy(() => import("@/components/EnhancedCreateBill").then(m => ({ default: m.EnhancedCreateBill })));
 const Customers = lazy(() => import("@/components/Customers").then(m => ({ default: m.Customers })));
 const BalanceTracker = lazy(() => import("@/components/BalanceTracker").then(m => ({ default: m.BalanceTracker })));
