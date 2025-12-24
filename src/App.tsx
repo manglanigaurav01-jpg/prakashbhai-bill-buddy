@@ -8,7 +8,7 @@ import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { initTheme } from "@/lib/theme-manager";
 import { setupGlobalErrorHandler, initErrorLogging } from "@/lib/error-logger";
 import { useMobileNavigation } from "@/hooks/use-mobile-navigation";
-import type { DashboardProps } from "@/components/Dashboard";
+import Dashboard from "@/components/Dashboard";
 
 // Define view types
 type View =
@@ -29,7 +29,6 @@ type View =
   | 'statistics';
 
 // Lazy load components for code splitting
-const Dashboard = lazy(() => import("@/components/Dashboard"));
 const EnhancedCreateBill = lazy(() => import("@/components/EnhancedCreateBill").then(m => ({ default: m.EnhancedCreateBill })));
 const Customers = lazy(() => import("@/components/Customers").then(m => ({ default: m.Customers })));
 const BalanceTracker = lazy(() => import("@/components/BalanceTracker").then(m => ({ default: m.BalanceTracker })));
@@ -120,7 +119,7 @@ const App = () => {
       case 'statistics':
         return <Suspense fallback={<LoadingFallback />}><StatisticsDashboard {...viewProps} /></Suspense>;
       default:
-        return <Suspense fallback={<LoadingFallback />}><Dashboard {...viewProps} /></Suspense>;
+        return <Dashboard {...viewProps} />;
     }
   };
 

@@ -11,6 +11,7 @@ export const BackupManager = () => {
   const [isRestoringBackup, setIsRestoringBackup] = useState(false);
   const [showRestoreDialog, setShowRestoreDialog] = useState(false);
   const [selectedBackupData, setSelectedBackupData] = useState<ComprehensiveBackupData | null>(null);
+  const [selectedBackupContent, setSelectedBackupContent] = useState<string | null>(null);
   const [backupStats, setBackupStats] = useState<any>(null);
   const { toast } = useToast();
 
@@ -62,6 +63,7 @@ export const BackupManager = () => {
 
       const stats = getBackupStatistics(backupData);
       setSelectedBackupData(backupData);
+      setSelectedBackupContent(content);
       setBackupStats(stats);
       setShowRestoreDialog(true);
     } catch (error) {
@@ -78,11 +80,11 @@ export const BackupManager = () => {
   };
 
   const handleRestoreBackup = async () => {
-    if (!selectedBackupData) return;
+    if (!selectedBackupContent) return;
 
     setIsRestoringBackup(true);
     try {
-      const result = await restoreComprehensiveBackup(selectedBackupData);
+      const result = await restoreComprehensiveBackup(selectedBackupContent);
 
       if (result.success) {
         toast({
@@ -91,6 +93,7 @@ export const BackupManager = () => {
         });
         setShowRestoreDialog(false);
         setSelectedBackupData(null);
+        setSelectedBackupContent(null);
         setBackupStats(null);
 
         // Refresh the page to update all components with restored data

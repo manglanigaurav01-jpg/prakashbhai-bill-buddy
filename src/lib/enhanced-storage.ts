@@ -63,10 +63,10 @@ export const saveCustomer = (customer: Omit<Customer, 'id' | 'createdAt'>): Cust
   safeStore(STORAGE_KEYS.CUSTOMERS, customers);
   cachedCustomers = customers;
   invalidateIndexes();
-  
+
   // Create backup after significant changes
-  createLocalBackup().catch(console.error);
-  
+  createLocalBackup();
+
   return newCustomer;
 };
 
@@ -106,10 +106,10 @@ export const saveBill = (bill: Omit<Bill, 'id' | 'createdAt'>): Bill => {
   safeStore(STORAGE_KEYS.BILLS, bills);
   cachedBills = bills;
   invalidateIndexes();
-  
+
   // Create backup after significant changes
-  createLocalBackup().catch(console.error);
-  
+  createLocalBackup();
+
   return newBill;
 };
 
@@ -193,10 +193,10 @@ export const saveItem = (item: Omit<ItemMaster, 'id' | 'createdAt'>): ItemMaster
   safeStore(STORAGE_KEYS.ITEMS, items);
   cachedItems = items;
   invalidateIndexes();
-  
+
   // Create backup after significant changes
-  createLocalBackup().catch(console.error);
-  
+  createLocalBackup();
+
   return newItem;
 };
 
