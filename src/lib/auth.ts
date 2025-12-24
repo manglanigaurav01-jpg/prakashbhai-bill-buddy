@@ -1,38 +1,10 @@
-import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
-import { initializeApp, getApps } from 'firebase/app';
-import { FIREBASE_CONFIG } from './firebase.config';
 import { Capacitor } from '@capacitor/core';
-
-// Initialize Firebase - ensure only one instance
-const app = getApps().length ? getApps()[0] : initializeApp(FIREBASE_CONFIG);
-const auth = getAuth(app);
+import { firebaseSignInWithGoogle, firebaseSignOut, initFirebase } from './firebase';
 
 export const signInWithGoogle = async () => {
   try {
-    // For now, use Firebase popup for both web and mobile platforms
-    // The native plugin can be added later when dependency conflicts are resolved
-    const provider = new GoogleAuthProvider();
-
-    // Configure provider for better mobile experience
-    provider.setCustomParameters({
-      prompt: 'select_account'
-    });
-
-    // Add timeout to prevent infinite loading
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Sign-in timeout. Please try again.')), 60000); // 60 second timeout
-    });
-
-    const signInPromise = signInWithPopup(auth, provider);
-
-    // Race between sign-in and timeout
-    const result = await Promise.race([signInPromise, timeoutPromise]) as any;
-
-    if (result?.user) {
-      return { success: true, user: result.user };
-    } else {
-      throw new Error('No user data received from sign-in');
-    }
+    const user = await firebaseSignInWithGoogle();
+    return { success: true, user };
   } catch (error: any) {
     console.error('Google sign-in error:', error);
 
@@ -58,7 +30,7 @@ export const signInWithGoogle = async () => {
 
 export const signOutUser = async () => {
   try {
-    await signOut(auth);
+    await firebaseSignOut();
     if (Capacitor.isNativePlatform()) {
       try {
         const mod = await import('@codetrix-studio/capacitor-google-auth');
@@ -77,17 +49,20 @@ export const signOutUser = async () => {
 };
 
 export const getCurrentUser = () => {
-  return auth.currentUser;
+  const svc = initFirebase();
+  return svc?.auth.currentUser ?? null;
 };
 
 export const onAuthStateChanged = (callback: (user: any) => void) => {
-  return auth.onAuthStateChanged(callback);
+  const svc = initFirebase();
+  if (!svc) return () => {};
+  return svc.auth.onAuthStateChanged(callback);
 };
 
 export const clearAuthSessionState = async () => {
   try {
     // Clear any existing auth state to prevent session conflicts
-    await signOut(auth);
+    await firebaseSignOut();
 
     // Clear any stored auth state
     localStorage.removeItem('auth_user');

@@ -1,7 +1,21 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut as fbSignOut, type Auth, type User } from 'firebase/auth';
+import {
+  getAuth,
+  initializeAuth,
+  browserLocalPersistence,
+  indexedDBLocalPersistence,
+  setPersistence,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  signOut as fbSignOut,
+  type Auth,
+  type User,
+} from 'firebase/auth';
 import { getFirestore, doc, getDoc, setDoc, type Firestore } from 'firebase/firestore';
 import { Capacitor } from '@capacitor/core';
+import { FIREBASE_CONFIG } from './firebase.config';
 
 export interface FirebaseServices {
   app: FirebaseApp;
@@ -15,19 +29,20 @@ let services: FirebaseServices | null = null;
 export const initFirebase = (): FirebaseServices | null => {
   if (services) return services;
 
-  // Use the main Firebase config
-  const config = {
-    apiKey: "AIzaSyCD-kUBQCrz7kuNYHewynw1-8blwZsQb4w",
-    authDomain: "prakashbhai-bill-buddy-85123.firebaseapp.com",
-    projectId: "prakashbhai-bill-buddy-85123",
-    storageBucket: "prakashbhai-bill-buddy-85123.firebasestorage.app",
-    messagingSenderId: "491579424292",
-    appId: "1:491579424292:android:93a7e573e3498a6cdee2b1"
-  };
-
   try {
-    const app = getApps().length ? getApps()[0] : initializeApp(config);
-    const auth = getAuth(app);
+    const app = getApps().length ? getApps()[0] : initializeApp(FIREBASE_CONFIG);
+
+    // Ensure auth persistence works across mobile webviews where sessionStorage can be cleared.
+    const auth = (() => {
+      if (Capacitor.isNativePlatform()) {
+        return initializeAuth(app, { persistence: indexedDBLocalPersistence });
+      }
+      const webAuth = getAuth(app);
+      // Persist to local storage to avoid "missing initial state" on redirect.
+      setPersistence(webAuth, browserLocalPersistence).catch(() => {});
+      return webAuth;
+    })();
+
     const db = getFirestore(app);
     const googleProvider = new GoogleAuthProvider();
 
@@ -89,20 +104,34 @@ export const firebaseSignInWithGoogle = async (): Promise<User> => {
       console.log('No redirect result found, proceeding with sign-in');
     }
 
-    // Perform sign-in based on platform
+    // Perform sign-in: prefer popup to avoid redirect state loss; fallback to redirect only if required.
     let result: any;
-    
-    if (isMobile) {
-      // Mobile: use redirect flow (more reliable on mobile)
-      // Initiate redirect - page will reload after user signs in
-      await signInWithRedirect(services.auth, services.googleProvider);
-      // This will cause a page reload, so we won't reach here
-      // The redirect result will be handled above on next page load
-      throw new Error('Redirecting to Google sign-in...');
-    } else {
-      // Desktop: use popup
+    const tryPopup = async () => {
       const signInPromise = signInWithPopup(services.auth, services.googleProvider);
-      result = await Promise.race([signInPromise, timeoutPromise]) as any;
+      return await Promise.race([signInPromise, timeoutPromise]) as any;
+    };
+
+    const tryRedirect = async () => {
+      await signInWithRedirect(services.auth, services.googleProvider);
+      throw new Error('Redirecting to Google sign-in...');
+    };
+
+    if (!isMobile) {
+      result = await tryPopup();
+    } else {
+      try {
+        result = await tryPopup();
+      } catch (popupError: any) {
+        // Fall back to redirect only when popup is blocked or not supported.
+        if (
+          popupError?.code === 'auth/popup-blocked' ||
+          popupError?.code === 'auth/operation-not-supported-in-this-environment' ||
+          popupError?.code === 'auth/auth-domain-config-required'
+        ) {
+          await tryRedirect();
+        }
+        throw popupError;
+      }
     }
 
     if (!result?.user) {
