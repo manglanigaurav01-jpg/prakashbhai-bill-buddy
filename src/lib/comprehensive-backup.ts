@@ -154,10 +154,10 @@ export const createComprehensiveBackup = async (): Promise<BackupResult> => {
         let backupDir: string;
 
         if (platform === 'android') {
-          // On Android 11+, use DATA directory which doesn't require permissions
-          storageDirectory = 'DATA' as Directory;
+          // On Android, use DOCUMENTS directory which works without special permissions
+          storageDirectory = 'DOCUMENTS' as Directory;
           backupDir = 'BillBuddy_Backups';
-          console.log('Android detected - using DATA directory for backup');
+          console.log('Android detected - using DOCUMENTS directory for backup');
         } else {
           // iOS can use DOCUMENTS directory
           storageDirectory = 'DOCUMENTS' as Directory;
@@ -218,26 +218,29 @@ export const createComprehensiveBackup = async (): Promise<BackupResult> => {
         } catch (shareError) {
           console.error('Direct sharing also failed:', shareError);
 
-          // Final fallback: Trigger download
-          console.log('All sharing methods failed, triggering download...');
-          const blob = new Blob([jsonString], { type: 'application/json' });
-          const url = URL.createObjectURL(blob);
+          // Final fallback: Save to localStorage for in-app access
+          console.log('All external methods failed, saving to localStorage...');
+          try {
+            localStorage.setItem('billbuddy_last_backup', jsonString);
+            localStorage.setItem('billbuddy_last_backup_filename', fileName);
+            localStorage.setItem('billbuddy_last_backup_timestamp', new Date().toISOString());
 
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = fileName;
-          link.style.display = 'none';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
+            return {
+              success: true,
+              message: `Backup saved to app storage. Access it from Settings → Backup Data. File: ${fileName}`,
+              fileName,
+              data: backupData
+            };
+          } catch (storageError) {
+            console.error('Even localStorage failed:', storageError);
 
-          return {
-            success: true,
-            message: `Backup downloaded successfully. File: ${fileName}`,
-            fileName,
-            data: backupData
-          };
+            // Don't fall back to web download on mobile - it won't work
+            return {
+              success: false,
+              message: 'Failed to save backup. Please check device storage permissions and try again.',
+              error: storageError
+            };
+          }
         }
       }
     } else {
