@@ -3,6 +3,7 @@ import { getCustomers, getBills, getPayments, getAllCustomerBalances, getItems }
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+import { checkStoragePermissions } from './permissions';
 
 export interface ComprehensiveBackupData {
   version: string;
@@ -32,17 +33,34 @@ export interface BackupResult {
 }
 
 /**
- * Check if we can proceed with file operations on mobile
- * Note: On Android 11+, MANAGE_EXTERNAL_STORAGE requires manual user approval
+ * Request storage permissions on mobile devices
+ * For Capacitor v8, permissions are handled through native platform settings
  */
-const canProceedWithFileOperations = (): boolean => {
+const requestStoragePermissions = async (): Promise<boolean> => {
   if (!Capacitor.isNativePlatform()) {
-    return true; // Web doesn't need special permissions
+    return true; // Web doesn't need permissions
   }
 
-  // For mobile platforms, we'll attempt file operations and handle errors gracefully
-  // Android 11+ requires users to manually grant MANAGE_EXTERNAL_STORAGE in settings
-  return true;
+  try {
+    // For Capacitor v8, we can't programmatically request permissions
+    // We need to guide users to enable them manually in device settings
+    const platform = Capacitor.getPlatform();
+
+    if (platform === 'android') {
+      // On Android 11+, MANAGE_EXTERNAL_STORAGE must be granted manually in settings
+      console.log('Android detected - storage permissions must be granted manually in device settings');
+      return true; // We'll attempt the operation and handle errors gracefully
+    } else if (platform === 'ios') {
+      // iOS handles permissions through the app's plist configuration
+      console.log('iOS detected - permissions handled through app configuration');
+      return true;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error checking platform for permissions:', error);
+    return true; // Fallback: try to proceed anyway
+  }
 };
 
 /**
@@ -127,14 +145,8 @@ export const createComprehensiveBackup = async (): Promise<BackupResult> => {
     if (Capacitor.isNativePlatform()) {
       // Mobile: Save to device storage and share
       try {
-        // Check if we can proceed with file operations
-        if (!canProceedWithFileOperations()) {
-          return {
-            success: false,
-            message: 'Storage access is required to create backups. Please check your device settings.',
-            error: 'STORAGE_ACCESS_DENIED'
-          };
-        }
+        // Request storage permissions (will always return true for Capacitor v8)
+        await requestStoragePermissions();
         // Ensure the backup directory exists
         const backupDir = 'BillBuddy_Backups';
         const storageDirectory = Capacitor.getPlatform() === 'android' ? 'EXTERNAL' as Directory : 'DOCUMENTS' as Directory;
