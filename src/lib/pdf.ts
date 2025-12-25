@@ -2,10 +2,11 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Bill, CustomerBalance } from '@/types';
 import { Filesystem } from '@capacitor/filesystem';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, Directory } from '@capacitor/core';
 
 // Constants for Filesystem
-const FILESYSTEM_DIR = 'CACHE' as const;
+const FILESYSTEM_DIR: Directory = 'CACHE';
+const DOCUMENTS_DIR: Directory = 'DOCUMENTS';
 const BILLS_ROOT_FOLDER = 'BillBuddyBills';
 
 // Helper function for filesystem operations
@@ -62,9 +63,9 @@ const savePdfToCustomerFolder = async (
     try {
       await Filesystem.mkdir({
         path: customerFolderPath,
-        directory: 'DOCUMENTS' as any,
+        directory: DOCUMENTS_DIR,
         recursive: true,
-      } as any);
+      });
     } catch {
       // best-effort only
     }
@@ -72,8 +73,8 @@ const savePdfToCustomerFolder = async (
     await Filesystem.writeFile({
       path: `${customerFolderPath}/${fileName}`,
       data: base64Data,
-      directory: 'DOCUMENTS' as any,
-    } as any);
+      directory: DOCUMENTS_DIR,
+    });
   } catch (e) {
     // If this fails, we still want the normal share / save flow to work
     console.error('Failed to save PDF to customer folder:', e);
@@ -360,14 +361,14 @@ export const generateBillPDF = async (bill: Bill) => {
       await Filesystem.writeFile({
         path: fileName,
         data: base64Data,
-        directory: 'CACHE',
+        directory: FILESYSTEM_DIR,
       });
 
       // Also save a persistent copy into Documents/BillBuddyBills/<CustomerName>/
       await savePdfToCustomerFolder(bill.customerName, fileName, base64Data);
 
       const fileUri = await Filesystem.getUri({
-        directory: 'CACHE',
+        directory: FILESYSTEM_DIR,
         path: fileName
       });
 
