@@ -2,11 +2,11 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { Bill, CustomerBalance } from '@/types';
 import { Filesystem } from '@capacitor/filesystem';
-import { Capacitor, Directory } from '@capacitor/core';
+import { Capacitor } from '@capacitor/core';
 
 // Constants for Filesystem
-const FILESYSTEM_DIR: Directory = 'CACHE';
-const DOCUMENTS_DIR: Directory = 'DOCUMENTS';
+const FILESYSTEM_DIR = 'CACHE' as any;
+const DOCUMENTS_DIR = 'DOCUMENTS' as any;
 const BILLS_ROOT_FOLDER = 'BillBuddyBills';
 
 // Helper function for filesystem operations

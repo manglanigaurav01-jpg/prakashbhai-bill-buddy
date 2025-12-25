@@ -12,4 +12,4 @@
 - [x] Remove 'requestStoragePermissions' function from comprehensive-backup.ts.
 - [x] Update filesystem.d.ts: Remove custom Directory type, add 'recursive' to writeFile interface.
 - [x] Define local Directory enum in comprehensive-backup.ts since Capacitor doesn't export it.
-- [ ] Run `npx tsc --noEmit --project tsconfig.app.json` to verify fixes.
+- [x] Run `npx tsc --noEmit --project tsconfig.app.json` to verify fixes.

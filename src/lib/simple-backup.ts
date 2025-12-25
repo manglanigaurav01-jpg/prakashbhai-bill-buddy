@@ -43,7 +43,7 @@ export const createFolderBasedBackup = async (): Promise<FolderBackupResult> => 
         // Create main backup folder
         await Filesystem.mkdir({
           path: folderName,
-          directory: 'DOCUMENTS',
+          directory: 'DOCUMENTS' as any,
           recursive: true
         });
 
@@ -62,7 +62,7 @@ export const createFolderBasedBackup = async (): Promise<FolderBackupResult> => 
           const customerFolderPath = `${folderName}/${sanitizedCustomerName}`;
           await Filesystem.mkdir({
             path: customerFolderPath,
-            directory: 'DOCUMENTS',
+            directory: 'DOCUMENTS' as any,
             recursive: true
           });
 
