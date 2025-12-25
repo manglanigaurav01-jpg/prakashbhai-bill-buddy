@@ -142,128 +142,103 @@ export const createComprehensiveBackup = async (): Promise<BackupResult> => {
     const jsonString = JSON.stringify(backupData, null, 2);
 
     if (Capacitor.isNativePlatform()) {
-      // Mobile: Try direct sharing first (works without permissions), fallback to filesystem
+      // Mobile: Try filesystem first (create file, then share), fallback to direct sharing
       try {
-        console.log('Attempting direct sharing first...');
+        console.log('Attempting filesystem backup first...');
 
-        // Create a blob URL for sharing
-        const blob = new Blob([jsonString], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
+        // Request storage permissions (will always return true for Capacitor v8)
+        await requestStoragePermissions();
 
-        // Try to share directly first
+        const platform = Capacitor.getPlatform();
+        let storageDirectory: Directory;
+        let backupDir: string;
+
+        if (platform === 'android') {
+          // On Android 11+, use DATA directory which doesn't require permissions
+          storageDirectory = 'DATA' as Directory;
+          backupDir = 'BillBuddy_Backups';
+          console.log('Android detected - using DATA directory for backup');
+        } else {
+          // iOS can use DOCUMENTS directory
+          storageDirectory = 'DOCUMENTS' as Directory;
+          backupDir = 'BillBuddy_Backups';
+        }
+
+        try {
+          await Filesystem.mkdir({
+            path: backupDir,
+            directory: storageDirectory,
+            recursive: true
+          });
+        } catch (mkdirError) {
+          // Directory might already exist, continue
+          console.log('Backup directory creation attempted:', mkdirError);
+        }
+
+        const fullPath = `${backupDir}/${fileName}`;
+
+        const result = await Filesystem.writeFile({
+          path: fullPath,
+          data: jsonString, // Pass JSON string directly for text data
+          directory: storageDirectory
+        });
+
+        // Share the file
+        await Share.share({
+          title: 'Bill Buddy Backup',
+          text: 'Comprehensive backup of all business data',
+          url: result.uri,
+          dialogTitle: 'Share Backup File'
+        });
+
+        return {
+          success: true,
+          message: `Backup created and shared successfully. File: ${fileName}`,
+          fileName,
+          data: backupData
+        };
+      } catch (filesystemError) {
+        console.error('Filesystem backup failed:', filesystemError);
+        console.log('Trying direct sharing fallback...');
+
+        // Fallback: Try direct sharing with text content
         try {
           await Share.share({
             title: 'Bill Buddy Backup',
-            text: `Comprehensive backup of all business data\n\nCreated: ${new Date().toLocaleString()}\nCustomers: ${customers.length}\nBills: ${latestBills.length}\nPayments: ${latestPayments.length}`,
-            url: url,
+            text: `Comprehensive backup of all business data\n\nCreated: ${new Date().toLocaleString()}\nCustomers: ${customers.length}\nBills: ${latestBills.length}\nPayments: ${latestPayments.length}\n\nBackup Data:\n${jsonString}`,
             dialogTitle: 'Share Backup File'
           });
 
-          // Clean up
-          URL.revokeObjectURL(url);
-
           return {
             success: true,
-            message: `Backup shared successfully via direct sharing. File: ${fileName}`,
+            message: `Backup shared successfully via text sharing. File: ${fileName}`,
             fileName,
             data: backupData
           };
         } catch (shareError) {
-          console.log('Direct sharing failed, trying filesystem fallback...');
+          console.error('Direct sharing also failed:', shareError);
 
-          // Fallback: Try to save to filesystem
-          try {
-            // Request storage permissions (will always return true for Capacitor v8)
-            await requestStoragePermissions();
+          // Final fallback: Trigger download
+          console.log('All sharing methods failed, triggering download...');
+          const blob = new Blob([jsonString], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
 
-            const platform = Capacitor.getPlatform();
-            let storageDirectory: Directory;
-            let backupDir: string;
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName;
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          URL.revokeObjectURL(url);
 
-            if (platform === 'android') {
-              // On Android 11+, use DATA directory which doesn't require permissions
-              storageDirectory = 'DATA' as Directory;
-              backupDir = 'BillBuddy_Backups';
-              console.log('Android detected - using DATA directory for backup');
-            } else {
-              // iOS can use DOCUMENTS directory
-              storageDirectory = 'DOCUMENTS' as Directory;
-              backupDir = 'BillBuddy_Backups';
-            }
-
-            try {
-              await Filesystem.mkdir({
-                path: backupDir,
-                directory: storageDirectory,
-                recursive: true
-              });
-            } catch (mkdirError) {
-              // Directory might already exist, continue
-              console.log('Backup directory creation attempted:', mkdirError);
-            }
-
-            const fullPath = `${backupDir}/${fileName}`;
-
-            const result = await Filesystem.writeFile({
-              path: fullPath,
-              data: jsonString, // Pass JSON string directly for text data
-              directory: storageDirectory
-            });
-
-            // Share the file
-            await Share.share({
-              title: 'Bill Buddy Backup',
-              text: 'Comprehensive backup of all business data',
-              url: result.uri,
-              dialogTitle: 'Share Backup File'
-            });
-
-            return {
-              success: true,
-              message: `Backup created and shared successfully. File: ${fileName}`,
-              fileName,
-              data: backupData
-            };
-          } catch (filesystemError) {
-            console.error('Filesystem backup also failed:', filesystemError);
-
-            // Final fallback: Trigger download
-            console.log('All sharing methods failed, triggering download...');
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = fileName;
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-
-            return {
-              success: true,
-              message: `Backup downloaded successfully. File: ${fileName}`,
-              fileName,
-              data: backupData
-            };
-          }
+          return {
+            success: true,
+            message: `Backup downloaded successfully. File: ${fileName}`,
+            fileName,
+            data: backupData
+          };
         }
-      } catch (mobileError) {
-        console.error('All backup methods failed:', mobileError);
-
-        // Provide specific guidance for Android 11+
-        const platform = Capacitor.getPlatform();
-        let errorMessage = 'Failed to save backup on mobile device. ';
-
-        if (platform === 'android') {
-          errorMessage += 'On Android 11+, please go to Settings → Apps → Bill Buddy → Permissions and enable "All files access" or "Storage" permission.';
-        } else {
-          errorMessage += 'Please check storage permissions in your device settings.';
-        }
-
-        return {
-          success: false,
-          message: errorMessage,
-          error: mobileError
-        };
       }
     } else {
       // Web: Trigger download
