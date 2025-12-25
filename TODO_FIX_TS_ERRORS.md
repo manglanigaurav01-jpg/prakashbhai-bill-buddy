@@ -1,10 +1,15 @@
 # TODO: Fix TypeScript Errors
 
-## Tasks
-- [ ] Fix App.tsx: Update lazy import for Dashboard component to include proper typing to resolve TS2559 error
-- [ ] Fix BackupManager.tsx: Add selectedBackupContent state and modify handleRestoreBackup to pass string content instead of parsed data to resolve TS2345 error
-- [x] Fix enhanced-storage.ts: Remove .catch() calls from createLocalBackup() invocations in saveCustomer, saveBill, savePayment, and saveItem functions to resolve TS2339 errors
+## Errors to Fix
+1. **BackupManager.tsx**: Remove unused 'TrendingUp' import (line 5).
+2. **comprehensive-backup.ts**:
+   - Remove unused 'requestStoragePermissions' function (line 38).
+   - Fix 'Directory' usage: Ensure it's imported as enum, not type.
+3. **filesystem.d.ts**: Update custom types to match Capacitor's API (add 'recursive' to writeFile, remove conflicting Directory type).
 
-## Followup Steps
-- [ ] Run `npx tsc --noEmit --project tsconfig.app.json` to verify all errors are resolved
-- [ ] Test the application to ensure functionality is not broken
+## Steps
+- [x] Remove 'TrendingUp' from BackupManager.tsx import.
+- [x] Remove 'requestStoragePermissions' function from comprehensive-backup.ts.
+- [x] Update filesystem.d.ts: Remove custom Directory type, add 'recursive' to writeFile interface.
+- [x] Define local Directory enum in comprehensive-backup.ts since Capacitor doesn't export it.
+- [ ] Run `npx tsc --noEmit --project tsconfig.app.json` to verify fixes.

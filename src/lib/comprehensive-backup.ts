@@ -1,8 +1,17 @@
 import { Customer, Bill, Payment, CustomerBalance } from '@/types';
 import { getCustomers, getBills, getPayments, getAllCustomerBalances, getItems } from './storage';
 import { Capacitor } from '@capacitor/core';
-import { Filesystem, Directory } from '@capacitor/filesystem';
+import { Filesystem } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
+
+// Define Directory enum locally since it's not exported in this Capacitor version
+enum Directory {
+  Documents = 'DOCUMENTS',
+  Data = 'DATA',
+  Cache = 'CACHE',
+  External = 'EXTERNAL',
+  ExternalStorage = 'EXTERNAL_STORAGE'
+}
 
 export interface ComprehensiveBackupData {
   version: string;
@@ -31,36 +40,7 @@ export interface BackupResult {
   error?: any;
 }
 
-/**
- * Request storage permissions on mobile devices
- * For Capacitor v8, permissions are handled through native platform settings
- */
-const requestStoragePermissions = async (): Promise<boolean> => {
-  if (!Capacitor.isNativePlatform()) {
-    return true; // Web doesn't need permissions
-  }
 
-  try {
-    // For Capacitor v8, we can't programmatically request permissions
-    // We need to guide users to enable them manually in device settings
-    const platform = Capacitor.getPlatform();
-
-    if (platform === 'android') {
-      // On Android 11+, MANAGE_EXTERNAL_STORAGE must be granted manually in settings
-      console.log('Android detected - storage permissions must be granted manually in device settings');
-      return true; // We'll attempt the operation and handle errors gracefully
-    } else if (platform === 'ios') {
-      // iOS handles permissions through the app's plist configuration
-      console.log('iOS detected - permissions handled through app configuration');
-      return true;
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Error checking platform for permissions:', error);
-    return true; // Fallback: try to proceed anyway
-  }
-};
 
 /**
  * Creates a comprehensive backup of all business data and saves it to the device.

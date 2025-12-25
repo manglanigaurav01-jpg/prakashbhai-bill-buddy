@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { AlertTriangle, Download, Upload, Database, FileText, Calendar, Users, Receipt, CreditCard, TrendingUp, CheckCircle, Share } from "lucide-react";
+import { AlertTriangle, Download, Upload, Database, FileText, Calendar, Users, Receipt, CreditCard, CheckCircle, Share } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { createComprehensiveBackup, restoreComprehensiveBackup, parseBackupFile, getBackupStatistics, shareBackup, ComprehensiveBackupData } from "@/lib/comprehensive-backup";
 import { Capacitor } from "@capacitor/core";
