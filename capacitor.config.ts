@@ -18,7 +18,7 @@ const config: CapacitorConfig = {
     App: {},
     Filesystem: {
       iosStorageLocation: 'Documents',
-      androidStorageLocation: 'Documents'
+      androidStorageLocation: 'External'
     },
     GoogleAuth: {
       scopes: ['profile', 'email'],

@@ -32,6 +32,20 @@ export interface BackupResult {
 }
 
 /**
+ * Check if we can proceed with file operations on mobile
+ * Note: On Android 11+, MANAGE_EXTERNAL_STORAGE requires manual user approval
+ */
+const canProceedWithFileOperations = (): boolean => {
+  if (!Capacitor.isNativePlatform()) {
+    return true; // Web doesn't need special permissions
+  }
+
+  // For mobile platforms, we'll attempt file operations and handle errors gracefully
+  // Android 11+ requires users to manually grant MANAGE_EXTERNAL_STORAGE in settings
+  return true;
+};
+
+/**
  * Creates a comprehensive backup containing all business data
  * - Customer names
  * - All bills (latest edited versions only)
@@ -113,12 +127,22 @@ export const createComprehensiveBackup = async (): Promise<BackupResult> => {
     if (Capacitor.isNativePlatform()) {
       // Mobile: Save to device storage and share
       try {
+        // Check if we can proceed with file operations
+        if (!canProceedWithFileOperations()) {
+          return {
+            success: false,
+            message: 'Storage access is required to create backups. Please check your device settings.',
+            error: 'STORAGE_ACCESS_DENIED'
+          };
+        }
         // Ensure the backup directory exists
         const backupDir = 'BillBuddy_Backups';
+        const storageDirectory = Capacitor.getPlatform() === 'android' ? 'EXTERNAL' as Directory : 'DOCUMENTS' as Directory;
+
         try {
           await Filesystem.mkdir({
             path: backupDir,
-            directory: 'DOCUMENTS' as Directory,
+            directory: storageDirectory,
             recursive: true
           });
         } catch (mkdirError) {
@@ -131,7 +155,7 @@ export const createComprehensiveBackup = async (): Promise<BackupResult> => {
         const result = await Filesystem.writeFile({
           path: fullPath,
           data: jsonString, // Pass JSON string directly for text data
-          directory: 'DOCUMENTS' as Directory
+          directory: storageDirectory
         });
 
         // Share the file
