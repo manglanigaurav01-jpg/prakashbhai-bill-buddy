@@ -3,7 +3,6 @@ import { getCustomers, getBills, getPayments, getAllCustomerBalances, getItems }
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
-import { checkStoragePermissions } from './permissions';
 
 export interface ComprehensiveBackupData {
   version: string;
