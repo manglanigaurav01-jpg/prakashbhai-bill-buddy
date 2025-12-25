@@ -4,25 +4,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertTriangle, Download, Upload, Database, FileText, Calendar, Users, Receipt, CreditCard, TrendingUp, CheckCircle, Share } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { createComprehensiveBackup, restoreComprehensiveBackup, parseBackupFile, getBackupStatistics } from "@/lib/comprehensive-backup";
+import { createComprehensiveBackup, restoreComprehensiveBackup, parseBackupFile, getBackupStatistics, shareBackup, ComprehensiveBackupData } from "@/lib/comprehensive-backup";
+import { Capacitor } from "@capacitor/core";
 
 export const BackupManager = () => {
   const [isCreatingBackup, setIsCreatingBackup] = useState(false);
+  const [isSharingBackup, setIsSharingBackup] = useState(false);
   const [isRestoringBackup, setIsRestoringBackup] = useState(false);
   const [showRestoreDialog, setShowRestoreDialog] = useState(false);
-
+  
+  const [lastBackup, setLastBackup] = useState<{ fileName: string; data: ComprehensiveBackupData } | null>(null);
   const [selectedBackupContent, setSelectedBackupContent] = useState<string | null>(null);
   const [backupStats, setBackupStats] = useState<any>(null);
   const { toast } = useToast();
 
   const handleCreateBackup = async () => {
     setIsCreatingBackup(true);
+    setLastBackup(null);
     try {
       const result = await createComprehensiveBackup();
-
-      if (result.success) {
+      if (result.success && result.fileName && result.data) {
+        setLastBackup({ fileName: result.fileName, data: result.data });
         toast({
-          title: "Backup Created Successfully",
+          title: "Backup Successful",
           description: result.message,
         });
       } else {
@@ -36,11 +40,48 @@ export const BackupManager = () => {
       console.error('Backup creation error:', error);
       toast({
         title: "Error",
-        description: "Failed to create backup. Please try again.",
+        description: "An unexpected error occurred while creating the backup.",
         variant: "destructive",
       });
     } finally {
       setIsCreatingBackup(false);
+    }
+  };
+  
+  const handleShareBackup = async () => {
+    if (!lastBackup) {
+      toast({
+        title: "No Backup to Share",
+        description: "Please create a backup first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSharingBackup(true);
+    try {
+      const result = await shareBackup(lastBackup.fileName, lastBackup.data);
+      if (result.success) {
+        toast({
+          title: "Sharing Successful",
+          description: result.message,
+        });
+      } else {
+        toast({
+          title: "Sharing Failed",
+          description: result.message,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Backup sharing error:', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred while sharing the backup.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSharingBackup(false);
     }
   };
 
@@ -74,7 +115,6 @@ export const BackupManager = () => {
       });
     }
 
-    // Reset file input
     event.target.value = '';
   };
 
@@ -84,7 +124,6 @@ export const BackupManager = () => {
     setIsRestoringBackup(true);
     try {
       const result = await restoreComprehensiveBackup(selectedBackupContent);
-
       if (result.success) {
         toast({
           title: "Backup Restored Successfully",
@@ -93,8 +132,6 @@ export const BackupManager = () => {
         setShowRestoreDialog(false);
         setSelectedBackupContent(null);
         setBackupStats(null);
-
-        // Refresh the page to update all components with restored data
         setTimeout(() => window.location.reload(), 1000);
       } else {
         toast({
@@ -114,6 +151,8 @@ export const BackupManager = () => {
       setIsRestoringBackup(false);
     }
   };
+
+  const isMobile = Capacitor.isNativePlatform();
 
   return (
     <>
@@ -141,7 +180,6 @@ export const BackupManager = () => {
                   <li>• All payments (latest edited versions only)</li>
                   <li>• Item master data and rates</li>
                   <li>• Last balance of all customers</li>
-                  <li>• Complete business data summary</li>
                 </ul>
               </div>
             </div>
@@ -156,34 +194,36 @@ export const BackupManager = () => {
               {isCreatingBackup ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                  Creating Backup...
+                  {isMobile ? 'Saving Backup...' : 'Downloading...'}
                 </>
               ) : (
                 <>
                   <Download className="w-4 h-4 mr-2" />
-                  Create Backup
+                  {isMobile ? 'Save Backup' : 'Download Backup'}
                 </>
               )}
             </Button>
 
-            <Button
-              onClick={handleCreateBackup}
-              disabled={isCreatingBackup}
-              variant="outline"
-              className="w-full border-green-500/50 text-green-600 hover:bg-green-50"
-            >
-              {isCreatingBackup ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-green-500/30 border-t-green-500 rounded-full animate-spin mr-2" />
-                  Sharing Backup...
-                </>
-              ) : (
-                <>
-                  <Share className="w-4 h-4 mr-2" />
-                  Share Backup
-                </>
-              )}
-            </Button>
+            {isMobile && (
+              <Button
+                onClick={handleShareBackup}
+                disabled={isSharingBackup || !lastBackup}
+                variant="outline"
+                className="w-full border-green-500/50 text-green-600 hover:bg-green-50"
+              >
+                {isSharingBackup ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-green-500/30 border-t-green-500 rounded-full animate-spin mr-2" />
+                    Sharing...
+                  </>
+                ) : (
+                  <>
+                    <Share className="w-4 h-4 mr-2" />
+                    Share Backup
+                  </>
+                )}
+              </Button>
+            )}
 
             <div className="relative">
               <input
@@ -193,11 +233,7 @@ export const BackupManager = () => {
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 id="backup-file-input"
               />
-              <Button
-                variant="outline"
-                className="w-full"
-                asChild
-              >
+              <Button variant="outline" className="w-full" asChild>
                 <label htmlFor="backup-file-input" className="cursor-pointer">
                   <Upload className="w-4 h-4 mr-2" />
                   Restore Backup
@@ -207,10 +243,6 @@ export const BackupManager = () => {
           </div>
 
           <div className="text-xs text-muted-foreground bg-muted/50 p-3 rounded-lg">
-            <p className="flex items-center gap-2 mb-1">
-              <CheckCircle className="w-3 h-3 text-green-500" />
-              <span>Automatic deduplication of edited records</span>
-            </p>
             <p className="flex items-center gap-2">
               <CheckCircle className="w-3 h-3 text-green-500" />
               <span>Cross-platform compatibility (Web & Mobile)</span>
@@ -219,7 +251,6 @@ export const BackupManager = () => {
         </CardContent>
       </Card>
 
-      {/* Restore Confirmation Dialog */}
       <Dialog open={showRestoreDialog} onOpenChange={setShowRestoreDialog}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -236,7 +267,7 @@ export const BackupManager = () => {
 
           {backupStats && (
             <div className="space-y-4 py-4">
-              <div className="p-4 rounded-lg bg-muted/50 border">
+               <div className="p-4 rounded-lg bg-muted/50 border">
                 <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
                   <Calendar className="w-4 h-4" />
                   Backup Details
@@ -252,9 +283,9 @@ export const BackupManager = () => {
                   </div>
                 </div>
               </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                  <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+              
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                 <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
                     <div className="flex items-center gap-2 mb-1">
                       <Users className="w-4 h-4 text-blue-500" />
                       <span className="text-xs font-medium text-blue-500">Customers</span>
@@ -277,28 +308,6 @@ export const BackupManager = () => {
                     </div>
                     <p className="text-lg font-bold">{backupStats.payments}</p>
                   </div>
-
-                  <div className="p-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Database className="w-4 h-4 text-indigo-500" />
-                      <span className="text-xs font-medium text-indigo-500">Items</span>
-                    </div>
-                    <p className="text-lg font-bold">{backupStats.totalItems || 0}</p>
-                  </div>
-
-                  <div className="p-3 rounded-lg bg-orange-500/10 border border-orange-500/20">
-                    <div className="flex items-center gap-2 mb-1">
-                      <TrendingUp className="w-4 h-4 text-orange-500" />
-                      <span className="text-xs font-medium text-orange-500">Revenue</span>
-                    </div>
-                    <p className="text-lg font-bold">₹{backupStats.totalRevenue.toLocaleString()}</p>
-                  </div>
-                </div>
-
-              <div className="p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground">
-                  <strong>Note:</strong> This will permanently replace all current data. Make sure you have a backup of your current data if needed.
-                </p>
               </div>
             </div>
           )}
@@ -320,17 +329,7 @@ export const BackupManager = () => {
               variant="destructive"
               className="flex-1"
             >
-              {isRestoringBackup ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                  Restoring...
-                </>
-              ) : (
-                <>
-                  <Upload className="w-4 h-4 mr-2" />
-                  Restore Backup
-                </>
-              )}
+              {isRestoringBackup ? "Restoring..." : "Restore Backup"}
             </Button>
           </DialogFooter>
         </DialogContent>

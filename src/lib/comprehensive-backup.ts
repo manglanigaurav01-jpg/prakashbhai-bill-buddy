@@ -63,222 +63,178 @@ const requestStoragePermissions = async (): Promise<boolean> => {
 };
 
 /**
- * Creates a comprehensive backup containing all business data
- * - Customer names
- * - All bills (latest edited versions only)
- * - All payments (latest edited versions only)
- * - Last balance of all customers
+ * Creates a comprehensive backup of all business data and saves it to the device.
  */
 export const createComprehensiveBackup = async (): Promise<BackupResult> => {
   try {
-    // Get all data from storage
-    const customers = getCustomers();
-    const allBills = getBills();
-    const allPayments = getPayments();
-    const balances = getAllCustomerBalances();
-    const items = getItems();
-
-    if (customers.length === 0) {
-      return {
-        success: false,
-        message: 'No customers found to backup',
-        error: 'NO_CUSTOMERS'
-      };
+    const backupData = await generateBackupData();
+    if (!backupData) {
+      return { success: false, message: 'No data to backup.' };
     }
 
-    // Group bills and payments by customer to get latest versions
-    const latestBillsMap = new Map<string, Bill>();
-    const latestPaymentsMap = new Map<string, Payment>();
-
-    // Process bills - keep only the latest edited version for each bill ID
-    allBills.forEach(bill => {
-      const existing = latestBillsMap.get(bill.id);
-      if (!existing || new Date(bill.createdAt) > new Date(existing.createdAt)) {
-        latestBillsMap.set(bill.id, bill);
-      }
-    });
-
-    // Process payments - keep only the latest edited version for each payment ID
-    allPayments.forEach(payment => {
-      const existing = latestPaymentsMap.get(payment.id);
-      if (!existing || new Date(payment.createdAt) > new Date(existing.createdAt)) {
-        latestPaymentsMap.set(payment.id, payment);
-      }
-    });
-
-    const latestBills = Array.from(latestBillsMap.values());
-    const latestPayments = Array.from(latestPaymentsMap.values());
-
-    // Calculate totals for metadata
-    const totalRevenue = balances.reduce((sum, balance) => sum + balance.totalSales, 0);
-    const totalPaid = balances.reduce((sum, balance) => sum + balance.totalPaid, 0);
-    const totalPending = balances.reduce((sum, balance) => sum + balance.pending, 0);
-
-    // Create backup data structure
-    const backupData: ComprehensiveBackupData = {
-      version: '1.0.0',
-      timestamp: new Date().toISOString(),
-      customers,
-      bills: latestBills,
-      payments: latestPayments,
-      balances,
-      items,
-      metadata: {
-        totalCustomers: customers.length,
-        totalBills: latestBills.length,
-        totalPayments: latestPayments.length,
-        totalItems: items.length,
-        totalRevenue,
-        totalPaid,
-        totalPending
-      }
-    };
-
-    // Generate filename with timestamp
+    const jsonString = JSON.stringify(backupData, null, 2);
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
     const fileName = `BillBuddy_Comprehensive_Backup_${timestamp}.json`;
 
-    // Convert to JSON string
-    const jsonString = JSON.stringify(backupData, null, 2);
-
     if (Capacitor.isNativePlatform()) {
-      // Mobile: Try filesystem first (create file, then share), fallback to direct sharing
-      try {
-        console.log('Attempting filesystem backup first...');
-
-        // Request storage permissions (will always return true for Capacitor v8)
-        await requestStoragePermissions();
-
-        const platform = Capacitor.getPlatform();
-        let storageDirectory: Directory;
-        let backupDir: string;
-
-        if (platform === 'android') {
-          // On Android, use DOCUMENTS directory which works without special permissions
-          storageDirectory = 'DOCUMENTS' as Directory;
-          backupDir = 'BillBuddy_Backups';
-          console.log('Android detected - using DOCUMENTS directory for backup');
-        } else {
-          // iOS can use DOCUMENTS directory
-          storageDirectory = 'DOCUMENTS' as Directory;
-          backupDir = 'BillBuddy_Backups';
-        }
-
-        try {
-          await Filesystem.mkdir({
-            path: backupDir,
-            directory: storageDirectory,
-            recursive: true
-          });
-        } catch (mkdirError) {
-          // Directory might already exist, continue
-          console.log('Backup directory creation attempted:', mkdirError);
-        }
-
-        const fullPath = `${backupDir}/${fileName}`;
-
-        const result = await Filesystem.writeFile({
-          path: fullPath,
-          data: jsonString, // Pass JSON string directly for text data
-          directory: storageDirectory
-        });
-
-        // Share the file
-        await Share.share({
-          title: 'Bill Buddy Backup',
-          text: 'Comprehensive backup of all business data',
-          url: result.uri,
-          dialogTitle: 'Share Backup File'
-        });
-
-        return {
-          success: true,
-          message: `Backup created and shared successfully. File: ${fileName}`,
-          fileName,
-          data: backupData
-        };
-      } catch (filesystemError) {
-        console.error('Filesystem backup failed:', filesystemError);
-        console.log('Trying direct sharing fallback...');
-
-        // Fallback: Try direct sharing with text content
-        try {
-          await Share.share({
-            title: 'Bill Buddy Backup',
-            text: `Comprehensive backup of all business data\n\nCreated: ${new Date().toLocaleString()}\nCustomers: ${customers.length}\nBills: ${latestBills.length}\nPayments: ${latestPayments.length}\n\nBackup Data:\n${jsonString}`,
-            dialogTitle: 'Share Backup File'
-          });
-
-          return {
-            success: true,
-            message: `Backup shared successfully via text sharing. File: ${fileName}`,
-            fileName,
-            data: backupData
-          };
-        } catch (shareError) {
-          console.error('Direct sharing also failed:', shareError);
-
-          // Final fallback: Save to localStorage for in-app access
-          console.log('All external methods failed, saving to localStorage...');
-          try {
-            localStorage.setItem('billbuddy_last_backup', jsonString);
-            localStorage.setItem('billbuddy_last_backup_filename', fileName);
-            localStorage.setItem('billbuddy_last_backup_timestamp', new Date().toISOString());
-
-            return {
-              success: true,
-              message: `Backup saved to app storage. Access it from Settings → Backup Data. File: ${fileName}`,
-              fileName,
-              data: backupData
-            };
-          } catch (storageError) {
-            console.error('Even localStorage failed:', storageError);
-
-            // Don't fall back to web download on mobile - it won't work
-            return {
-              success: false,
-              message: 'Failed to save backup. Please check device storage permissions and try again.',
-              error: storageError
-            };
-          }
-        }
-      }
+      return await saveBackupToFile(fileName, jsonString, backupData);
     } else {
-      // Web: Trigger download
-      try {
-        const blob = new Blob([jsonString], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        URL.revokeObjectURL(url);
-
-        return {
-          success: true,
-          message: `Backup downloaded successfully. File: ${fileName}`,
-          fileName,
-          data: backupData
-        };
-      } catch (webError) {
-        console.error('Web backup error:', webError);
-        return {
-          success: false,
-          message: 'Failed to download backup file',
-          error: webError
-        };
-      }
+      return await downloadBackupForWeb(fileName, jsonString, backupData);
     }
   } catch (error) {
     console.error('Comprehensive backup creation error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+    return { success: false, message: `Failed to create backup: ${errorMessage}`, error };
+  }
+};
+
+/**
+ * Shares a backup file.
+ */
+export const shareBackup = async (fileName: string, data: ComprehensiveBackupData): Promise<BackupResult> => {
+  try {
+    const jsonString = JSON.stringify(data, null, 2);
+
+    if (Capacitor.isNativePlatform()) {
+      const filePath = `BillBuddy_Backups/${fileName}`;
+      
+      // First, ensure the file exists by writing it again.
+      // This is a safeguard in case the file was deleted or the app is sharing a backup that wasn't just created.
+      await Filesystem.writeFile({
+        path: filePath,
+        data: jsonString,
+        directory: Directory.Documents,
+        recursive: true,
+      });
+
+      const file = await Filesystem.getUri({
+        directory: Directory.Documents,
+        path: filePath,
+      });
+
+      await Share.share({
+        title: 'Bill Buddy Backup',
+        text: `Backup of all business data from Bill Buddy. File: ${fileName}`,
+        url: file.uri,
+        dialogTitle: 'Share Backup File',
+      });
+      return { success: true, message: 'Backup shared successfully.' };
+    } else {
+      // Web Share API can be used here if needed, but for now, we focus on mobile.
+      return { success: false, message: 'Share is only available on mobile devices.' };
+    }
+  } catch (error) {
+    console.error('Share backup error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+    return { success: false, message: `Failed to share backup: ${errorMessage}`, error };
+  }
+};
+
+
+const generateBackupData = async (): Promise<ComprehensiveBackupData | null> => {
+  const customers = getCustomers();
+  if (customers.length === 0) return null;
+
+  const allBills = getBills();
+  const allPayments = getPayments();
+  const balances = getAllCustomerBalances();
+  const items = getItems();
+
+  const latestBills = Array.from(
+    allBills.reduce((map, bill) => {
+      const existing = map.get(bill.id);
+      if (!existing || new Date(bill.createdAt) > new Date(existing.createdAt)) {
+        map.set(bill.id, bill);
+      }
+      return map;
+    }, new Map<string, Bill>()).values()
+  );
+
+  const latestPayments = Array.from(
+    allPayments.reduce((map, payment) => {
+      const existing = map.get(payment.id);
+      if (!existing || new Date(payment.createdAt) > new Date(existing.createdAt)) {
+        map.set(payment.id, payment);
+      }
+      return map;
+    }, new Map<string, Payment>()).values()
+  );
+
+  const totalRevenue = balances.reduce((sum, b) => sum + b.totalSales, 0);
+  const totalPaid = balances.reduce((sum, b) => sum + b.totalPaid, 0);
+
+  return {
+    version: '1.1.0', // Incremented version
+    timestamp: new Date().toISOString(),
+    customers,
+    bills: latestBills,
+    payments: latestPayments,
+    balances,
+    items,
+    metadata: {
+      totalCustomers: customers.length,
+      totalBills: latestBills.length,
+      totalPayments: latestPayments.length,
+      totalItems: items.length,
+      totalRevenue,
+      totalPaid,
+      totalPending: totalRevenue - totalPaid,
+    },
+  };
+};
+
+const saveBackupToFile = async (fileName: string, jsonString: string, data: ComprehensiveBackupData): Promise<BackupResult> => {
+  try {
+    const path = `BillBuddy_Backups/${fileName}`;
+    await Filesystem.writeFile({
+      path,
+      data: jsonString,
+      directory: Directory.Documents,
+      recursive: true,
+    });
+    const platform = Capacitor.getPlatform();
+    const directoryName = platform === 'android' ? 'Documents/BillBuddy_Backups' : 'BillBuddy_Backups';
+    
+    return {
+      success: true,
+      message: `Backup saved to ${directoryName}`,
+      fileName,
+      data,
+    };
+  } catch (error) {
+    console.error('Filesystem backup failed:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Check storage permissions.';
     return {
       success: false,
-      message: 'Failed to create comprehensive backup',
-      error
+      message: `Failed to save backup: ${errorMessage}`,
+      error,
+    };
+  }
+};
+
+const downloadBackupForWeb = async (fileName: string, jsonString: string, data: ComprehensiveBackupData): Promise<BackupResult> => {
+  try {
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    return {
+      success: true,
+      message: `Backup downloaded successfully. File: ${fileName}`,
+      fileName,
+      data,
+    };
+  } catch (error) {
+    console.error('Web backup download error:', error);
+    return {
+      success: false,
+      message: 'Failed to download backup.',
+      error,
     };
   }
 };
