@@ -12,6 +12,7 @@
 			"showSpinner": true,
 			"spinnerColor": "#ffffff"
 		},
+		"App": {},
 		"Filesystem": {
 			"iosStorageLocation": "Documents",
 			"androidStorageLocation": "Documents"
@@ -21,7 +22,7 @@
 				"profile",
 				"email"
 			],
-			"serverClientId": "491579424292-96mf2l65h34g6ld29qngoc3sf2qe2v73.apps.googleusercontent.com",
+			"serverClientId": "491579424292-96mflt0oeh6m50pvdgokapi718puocuh.apps.googleusercontent.com",
 			"forceCodeForRefreshToken": true
 		}
 	}

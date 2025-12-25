@@ -146,9 +146,22 @@ export const createComprehensiveBackup = async (): Promise<BackupResult> => {
       try {
         // Request storage permissions (will always return true for Capacitor v8)
         await requestStoragePermissions();
-        // Ensure the backup directory exists
-        const backupDir = 'BillBuddy_Backups';
-        const storageDirectory = Capacitor.getPlatform() === 'android' ? 'EXTERNAL' as Directory : 'DOCUMENTS' as Directory;
+
+        const platform = Capacitor.getPlatform();
+        let storageDirectory: Directory;
+        let backupDir: string;
+
+        if (platform === 'android') {
+          // On Android 11+, use DOCUMENTS directory instead of EXTERNAL
+          // EXTERNAL requires MANAGE_EXTERNAL_STORAGE which must be granted manually
+          storageDirectory = 'DOCUMENTS' as Directory;
+          backupDir = 'BillBuddy_Backups';
+          console.log('Android detected - using DOCUMENTS directory for backup');
+        } else {
+          // iOS can use DOCUMENTS directory
+          storageDirectory = 'DOCUMENTS' as Directory;
+          backupDir = 'BillBuddy_Backups';
+        }
 
         try {
           await Filesystem.mkdir({
@@ -210,9 +223,20 @@ export const createComprehensiveBackup = async (): Promise<BackupResult> => {
           };
         } catch (fallbackError) {
           console.error('Fallback backup also failed:', fallbackError);
+
+          // Provide specific guidance for Android 11+
+          const platform = Capacitor.getPlatform();
+          let errorMessage = 'Failed to save backup on mobile device. ';
+
+          if (platform === 'android') {
+            errorMessage += 'On Android 11+, please go to Settings → Apps → Bill Buddy → Permissions and enable "All files access" or "Storage" permission.';
+          } else {
+            errorMessage += 'Please check storage permissions in your device settings.';
+          }
+
           return {
             success: false,
-            message: 'Failed to save backup on mobile device. Please check storage permissions.',
+            message: errorMessage,
             error: mobileError
           };
         }
